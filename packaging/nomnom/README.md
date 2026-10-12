@@ -1,29 +1,26 @@
 # NOMNOM entry
 
-`NuclearReplay.json` is the draft entry for [NOMNOM](https://github.com/KopterBuzz/NOMNOM), the registry
-that NOMM (Nuclear Option Mod Manager) installs mods from. It follows NOMNOM's `SCHEMA.md` and
-`template.json` and passes its `ValidationSchema.json` and the content checks of `Validate-JsonContent.ps1`
-(file name equals `id`, https URLs, archive file names, numeric versions). Submitted for 0.5.0 on 2026-10-12 as [KopterBuzz/NOMNOM#433](https://github.com/KopterBuzz/NOMNOM/pull/433). After it is merged, set the mod image with the "Update Mod Image URL" issue template (`HOWTO_UPDATE_MODIMAGE.md` in NOMNOM; 512x512 at most).
+`NuclearReplay.json` is the entry for [NOMNOM](https://github.com/KopterBuzz/NOMNOM), the registry that
+NOMM (Nuclear Option Mod Manager) installs mods from. It follows NOMNOM's `SCHEMA.md` and `template.json`
+and passes its `ValidationSchema.json` and the content checks of `Validate-JsonContent.ps1` (file name
+equals `id`, id not taken, https URLs, archive file names, numeric versions). Submitted on 2026-10-12 as
+[KopterBuzz/NOMNOM#433](https://github.com/KopterBuzz/NOMNOM/pull/433), now with 0.5.1 and 0.5.0. After
+it is merged, set the mod image with the "Update Mod Image URL" issue template (`HOWTO_UPDATE_MODIMAGE.md`
+in NOMNOM; 512x512 at most).
 
-## Before submitting
+## Keep it right
 
-1. **The rename is done (0.5.0).** `id` `NuclearReplay` equals `ModInstaller.PluginFolder` and the plugin
-   assembly name (`NuclearReplay.dll`, as NOMNOM asks), so NOMM, an install by hand and `nr install` all
-   use the same `BepInEx/plugins/NuclearReplay/` folder. A player who had Nuclear Context must delete the
-   old `BepInEx/plugins/NuclearContext/` folder by hand; the mod says so in the game while both are there.
-   (`nr install` moves that folder to its backup folder by itself.)
-2. **Publish the first public release** with the plugins zip as its only asset (`app/RELEASING.md`),
-   tagged with a plain numeric version such as `v0.5.0`.
-3. **Replace the placeholders** (every value starting with `PLACEHOLDER`): `fileName` and `downloadUrl` from
-   the plugins zip asset of that release, and `hash` as `sha256:<64 hex digits>` from the release page (the
-   "copy" button next to the asset). NOMM checks downloads against `hash`, so a placeholder there would
-   fail every install.
-4. Check `gameVersion` (the newest Nuclear Option version the release was tested with; `0.34.1` is the
-   version in `docs/DEVELOPMENT.md`).
-5. Copy the file to `modManifests/NuclearReplay.json` in a fork of NOMNOM and open a pull request to `main`.
-
-After that, `autoUpdateArtifacts` `"True"` lets NOMNOM add new releases by itself: it reads the first
-asset of each new GitHub release and turns the tag into the artifact version.
+- `id` `NuclearReplay` equals `ModInstaller.PluginFolder` and the plugin assembly name
+  (`NuclearReplay.dll`, as NOMNOM asks), so NOMM, an install by hand and `nr install` all use the same
+  `BepInEx/plugins/NuclearReplay/` folder. Never change the `id`.
+- `artifacts` is newest first. NOMNOM's hourly job (`Update-ModArtifact.ps1`) compares each GitHub
+  release with `artifacts[0]` only, so an older version first would make it add the newer releases again.
+- With `autoUpdateArtifacts` `"True"`, that job adds each new release by itself. It reads the **first**
+  asset of the release and turns the tag (`v0.5.2` becomes `0.5.2`) into the artifact version. Keep the
+  tag numeric and equal to the DLL version, upload `NuclearReplay-<version>-plugins.zip` first
+  (`app/RELEASING.md`), and do not open NOMNOM pull requests for new releases.
+- `gameVersion` is copied from `artifacts[0]` to each new release. Change it with NOMNOM's issue template,
+  not with a pull request.
 
 ## Choices
 
@@ -32,7 +29,8 @@ asset of each new GitHub release and turns the tag into the artifact version.
   player's own PC.
 - `tags`: `mod`, `Utility`, `Camera` and `multiplayer`, from the tags other NOMNOM entries use most.
 - No `dependencies`: NOMM installs BepInEx 5 itself, and the plugins need nothing else. FFmpeg for clips is
-  downloaded by the game on request.
+  downloaded by the game on request: it asks first, then gets a pinned build (about 258 MB, GPLv3) from
+  github.com and checks its SHA-256 before use.
 
 ## How nr and NOMM see each other's installs
 
