@@ -1,9 +1,9 @@
-# NOMNOM entry (draft)
+# NOMNOM entry
 
 `NuclearReplay.json` is the draft entry for [NOMNOM](https://github.com/KopterBuzz/NOMNOM), the registry
 that NOMM (Nuclear Option Mod Manager) installs mods from. It follows NOMNOM's `SCHEMA.md` and
 `template.json` and passes its `ValidationSchema.json` and the content checks of `Validate-JsonContent.ps1`
-(file name equals `id`, https URLs, archive file names, numeric versions). Nothing has been submitted.
+(file name equals `id`, https URLs, archive file names, numeric versions). Submitted for 0.5.0 on 2026-10-12 as [KopterBuzz/NOMNOM#433](https://github.com/KopterBuzz/NOMNOM/pull/433). After it is merged, set the mod image with the "Update Mod Image URL" issue template (`HOWTO_UPDATE_MODIMAGE.md` in NOMNOM; 512x512 at most).
 
 ## Before submitting
 
