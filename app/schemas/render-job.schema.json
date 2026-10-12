@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Talamander/nuclear-replay/main/app/schemas/render-job.schema.json",
+  "title": "Nuclear Replay render job",
+  "description": "Job file for the game's -ncRenderJob argument (docs/PRODUCT-CONTRACT.md section 2). All paths are paths the game process can open: Windows paths, or Z:\\... under Proton.",
+  "type": "object",
+  "required": ["version", "demo", "width", "height", "progress", "ranges"],
+  "properties": {
+    "version": { "const": 1 },
+    "demo": { "type": "string" },
+    "width": { "type": "integer", "minimum": 16 },
+    "height": { "type": "integer", "minimum": 16 },
+    "shots": { "type": ["string", "null"], "description": "Shot list file; null uses <demo>.shots.json or orbit/auto." },
+    "hud": { "type": "boolean" },
+    "ffmpeg": { "type": ["string", "null"] },
+    "encoder": { "enum": ["auto", "nvenc", "vulkan", "x264"] },
+    "quality": { "type": "integer" },
+    "progress": { "type": "string" },
+    "ranges": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["from", "to", "fps", "out"],
+        "properties": {
+          "from": { "type": "number", "minimum": 0 },
+          "to": { "type": "number" },
+          "fps": { "type": "integer", "minimum": 1 },
+          "out": { "type": "string" }
+        }
+      }
+    }
+  }
+}

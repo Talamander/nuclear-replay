@@ -1,0 +1,56 @@
+THIRD-PARTY NOTICES - Nuclear Replay
+====================================
+
+Nuclear Replay is released under the Zero-Clause BSD license (0BSD), see
+LICENSE. The release zip holds only NuclearReplay.dll, LICENSE.txt and
+README.txt. NuclearReplay.dll contains no third-party code.
+
+
+NEEDED, NOT INCLUDED
+--------------------
+
+BepInEx 5 (x64)
+  The mod loader Nuclear Replay runs in. You install it yourself, or a mod
+  manager (NOMM) installs it. It is not part of the release zip.
+  https://github.com/BepInEx/BepInEx/releases
+  BepInEx is MIT licensed; the Unity Doorstop loader inside its zip
+  (winhttp.dll) is LGPL-2.1.
+
+
+DOWNLOADED ON REQUEST, NOT INCLUDED
+-----------------------------------
+
+FFmpeg (ffmpeg.exe)
+  The video encoder that clips and renders use. It is not part of the
+  release zip. Your computer downloads it from its publisher only when you
+  ask: Yes in the replay viewer's prompt, "nr install" or
+  "nr ffmpeg install". The exact build (version, URL, size, SHA-256) is
+  pinned in shared/Ffmpeg/FfmpegPackage.cs; the download is checked
+  against that pin before it is used.
+  Only ffmpeg.exe and its license are kept, as
+  <game>/NuclearReplay/tools/ffmpeg/ffmpeg.exe and LICENSE.txt.
+  ffmpeg is a separate program that the game starts; it is not linked into
+  Nuclear Replay. License: GNU General Public License v3 (the build
+  includes GPL libraries such as x264); the full text comes with the
+  download. Windows build by gyan.dev (GyanD/codexffmpeg on GitHub).
+  You can use your own ffmpeg.exe instead: set FfmpegPath in
+  BepInEx/config/talamander.nuclearreplay.player.cfg.
+
+
+THE nr COMMAND LINE TOOL (SOURCE ONLY)
+--------------------------------------
+
+nr is not in the release zip. When you build it from source (see
+docs/DEVELOPMENT.md), it uses these packages, which keep their own
+licenses:
+
+- .NET 10 runtime and libraries (Microsoft, .NET Foundation): MIT License.
+  https://github.com/dotnet/runtime
+- System.CommandLine 2.0 (.NET Foundation): MIT License.
+  https://github.com/dotnet/command-line-api
+
+
+NOT INCLUDED
+------------
+Nuclear Option and its files belong to their owners. Nuclear Replay does not
+include any game files.

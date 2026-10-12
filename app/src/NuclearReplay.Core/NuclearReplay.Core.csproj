@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>NuclearReplay.Core</RootNamespace>
+    <IsPublishable>false</IsPublishable>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="../../schemas/shotlist.schema.json" LogicalName="NuclearReplay.Core.shotlist.schema.json" />
+    <EmbeddedResource Include="../../schemas/render-job.schema.json" LogicalName="NuclearReplay.Core.render-job.schema.json" />
+    <!-- Frame of the simulated game (nr preview with the simulate option, tests, screenshots). Labelled as not game footage. -->
+    <EmbeddedResource Include="Preview/simulated-preview.jpg" LogicalName="NuclearReplay.Core.simulated-preview.jpg" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Preview wire format, shared with the replay plugin so both sides frame messages with one implementation. -->
+    <Compile Include="../../../shared/Preview/*.cs" Link="Preview/Wire/%(Filename)%(Extension)" />
+    <!-- The plugins' GUIDs and config file names (old and new), the same file the plugins compile. -->
+    <Compile Include="../../../shared/Plugin/*.cs" Link="Game/Shared/%(Filename)%(Extension)" />
+    <!-- The pinned ffmpeg download and its verify/unpack code, shared with the replay plugin. -->
+    <Compile Include="../../../shared/Ffmpeg/*.cs" Link="Game/Shared/%(Filename)%(Extension)" />
+    <!-- Clip file names ("<mission> m-ss to m-ss.mp4"), the same in the in-game viewer. -->
+    <Compile Include="../../../shared/Clips/*.cs" Link="Render/Shared/%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="NuclearReplay.Core.Tests" />
+  </ItemGroup>
+</Project>

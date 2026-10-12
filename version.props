@@ -1,0 +1,35 @@
+<Project>
+  <!--
+    The one place the product version is set. Imported by the plugin project
+    (NuclearReplay.csproj, both plugins in one DLL) and by app/Directory.Build.props.
+    scripts/package.sh reads it for the zip names.
+
+    NcVersion      full version shown to users and written into demo headers (may carry -beta.N).
+    NcVersionCore  numeric part, used where only a System.Version fits (BepInPlugin, AssemblyVersion).
+  -->
+  <PropertyGroup>
+    <NcVersion>0.5.0</NcVersion>
+    <NcVersionCore>$(NcVersion.Split('-')[0])</NcVersionCore>
+    <Version>$(NcVersion)</Version>
+    <AssemblyVersion>$(NcVersionCore).0</AssemblyVersion>
+    <FileVersion>$(NcVersionCore).0</FileVersion>
+    <InformationalVersion>$(NcVersion)</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+
+  <!--
+    Plugins need the version as a compile-time constant for [BepInPlugin]. Projects that set
+    NcGenerateVersionClass=true get NuclearReplay.BuildVersion.{Core,Full} generated into obj/.
+  -->
+  <Target Name="NcGenerateVersionClass" BeforeTargets="CoreCompile" Condition="'$(NcGenerateVersionClass)' == 'true'">
+    <PropertyGroup>
+      <NcVersionFile>$(IntermediateOutputPath)NcBuildVersion.g.cs</NcVersionFile>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(NcVersionFile)" Overwrite="true" WriteOnlyWhenDifferent="true"
+      Lines="// Generated from version.props. Do not edit.;namespace NuclearReplay { internal static class BuildVersion { public const string Core = &quot;$(NcVersionCore)&quot;%3B public const string Full = &quot;$(NcVersion)&quot;%3B } }" />
+    <ItemGroup>
+      <Compile Include="$(NcVersionFile)" />
+      <FileWrites Include="$(NcVersionFile)" />
+    </ItemGroup>
+  </Target>
+</Project>

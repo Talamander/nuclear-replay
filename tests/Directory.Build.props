@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <!-- Each executable needs its own generated files and apphost. These projects share a directory. -->
+    <BaseIntermediateOutputPath>obj/$(MSBuildProjectName)/</BaseIntermediateOutputPath>
+    <BaseOutputPath>bin/$(MSBuildProjectName)/</BaseOutputPath>
+  </PropertyGroup>
+</Project>

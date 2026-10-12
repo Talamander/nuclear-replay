@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Talamander/nuclear-replay/main/app/schemas/shotlist.schema.json",
+  "title": "Nuclear Replay shot list",
+  "description": "Camera directions for a replay. The director switches to each shot at its time and keeps it until the next shot. Times are replay seconds since the demo started (the 't' values shown by 'nr events').",
+  "type": "object",
+  "required": ["shots"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "shots": {
+      "type": "array",
+      "description": "Shots in time order. The director sorts them by t.",
+      "items": { "$ref": "#/$defs/shot" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "shot": {
+      "type": "object",
+      "required": ["t", "camera", "target"],
+      "properties": {
+        "t": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Replay time in seconds when this shot starts."
+        },
+        "camera": {
+          "enum": ["orbit", "chase", "chase_cine", "cockpit", "tv", "free", "relative"],
+          "description": "orbit: circles the target. chase: behind the target. chase_cine: the director's cinematic chase (level horizon, holds its last pose when the target is gone). cockpit: pilot's view. tv: a spotter/flyby camera. free: free camera. relative: fixed offset from the target."
+        },
+        "target": {
+          "type": "string",
+          "pattern": "^(host|auto|latest_missile|latest_host_missile|unit:[0-9]+|name:.+)$",
+          "description": "host: the hosting player's aircraft. auto: follows the host and cuts to each new missile. latest_missile / latest_host_missile: newest missile (of anyone / of the host). unit:<id>: a unit id from 'nr events'. name:<text>: first unit whose name contains the text."
+        },
+        "fov": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 180,
+          "description": "Field of view in degrees. Optional; 30-90 looks natural."
+        },
+        "hold": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Seconds to stay on a destroyed target before cutting to the nearest live aircraft. Default 3. A detonated missile holds a still view of its explosion."
+        },
+        "then": {
+          "$ref": "#/$defs/then",
+          "description": "Where to cut once the target is gone and the hold is over, instead of the nearest live aircraft. victim_cut uses hold 0 and then the victim, so the cut lands at the moment the missile hits."
+        }
+      },
+      "additionalProperties": false
+    },
+    "then": {
+      "type": "object",
+      "required": ["camera", "target"],
+      "properties": {
+        "camera": { "$ref": "#/$defs/shot/properties/camera" },
+        "target": { "$ref": "#/$defs/shot/properties/target" },
+        "fov": { "$ref": "#/$defs/shot/properties/fov" },
+        "hold": { "$ref": "#/$defs/shot/properties/hold" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "examples": [
+    {
+      "shots": [
+        { "t": 0, "camera": "orbit", "target": "host", "fov": 55 },
+        { "t": 12, "camera": "cockpit", "target": "host" },
+        { "t": 20, "camera": "chase", "target": "auto", "hold": 3 }
+      ]
+    }
+  ]
+}

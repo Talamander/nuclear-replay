@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/NuclearReplay.Cli/NuclearReplay.Cli.csproj" />
+    <Project Path="src/NuclearReplay.Core/NuclearReplay.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/NuclearReplay.Core.Tests/NuclearReplay.Core.Tests.csproj" />
+  </Folder>
+</Solution>

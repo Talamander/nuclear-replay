@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Test-only BepInEx plugin for the README media (tools/readme-shots/README.md). It records short bursts of
+    the screen, viewer overlay included, as raw frames for the README GIF. It is NOT part of the mod: it is not
+    in NuclearReplay.csproj, scripts/package.sh never packages it, and it must be removed from the test game's
+    plugins folder after use.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+    <NoStdLib>true</NoStdLib>
+    <AssemblyName>ReadmeBurst</AssemblyName>
+    <GameDir Condition="'$(GameDir)' == ''">/mnt/games/nc-gui-test/Nuclear Option</GameDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="$(GameDir)/NuclearOption_Data/Managed/mscorlib.dll" Private="false" />
+    <Reference Include="$(GameDir)/NuclearOption_Data/Managed/netstandard.dll" Private="false" />
+    <Reference Include="$(GameDir)/NuclearOption_Data/Managed/System.dll" Private="false" />
+    <Reference Include="$(GameDir)/NuclearOption_Data/Managed/System.Core.dll" Private="false" />
+    <Reference Include="$(GameDir)/NuclearOption_Data/Managed/UnityEngine.dll" Private="false" />
+    <Reference Include="$(GameDir)/NuclearOption_Data/Managed/UnityEngine.CoreModule.dll" Private="false" />
+    <Reference Include="$(GameDir)/NuclearOption_Data/Managed/UnityEngine.ScreenCaptureModule.dll" Private="false" />
+    <Reference Include="$(GameDir)/BepInEx/core/BepInEx.dll" Private="false" />
+  </ItemGroup>
+</Project>

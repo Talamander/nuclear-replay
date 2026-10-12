@@ -1,0 +1,22 @@
+<Project>
+  <!-- Version, AssemblyVersion and InformationalVersion come from the repository's version.props. -->
+  <Import Project="../version.props" />
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Company>Nuclear Replay</Company>
+    <Product>Nuclear Replay</Product>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+  <!-- Single-file, self-contained publish of nr: dotnet publish -c Release -r win-x64 (or linux-x64). -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != '' and '$(IsPublishable)' != 'false'">
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+</Project>

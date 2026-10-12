@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The whole mod is one BepInEx 5 assembly, NuclearReplay.dll, holding two plugins:
+      src/          the recorder        (NuclearReplay.Plugin,              talamander.nuclearreplay.recorder)
+      replay/src/   the replay player   (NuclearReplay.Playback.ReplayPlugin, talamander.nuclearreplay.player)
+      shared/       code both use (demo format, plugin ids, preview wire, ffmpeg pin, clip names)
+    One assembly is what mod registries such as NOMNOM expect (the mod id is the AssemblyName).
+  -->
+  <Import Project="version.props" />
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <NcGenerateVersionClass>true</NcGenerateVersionClass>
+    <!-- Mirage.SocketLayer uses Span from Unity's mscorlib, so compile against the game's own core libraries. -->
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+    <NoStdLib>true</NoStdLib>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AssemblyName>NuclearReplay</AssemblyName>
+    <RootNamespace>NuclearReplay</RootNamespace>
+    <GameDir Condition="'$(GameDir)' == ''">/mnt/games/SteamLibrary/steamapps/common/Nuclear Option</GameDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="src/*.cs" />
+    <Compile Include="src/Demo/*.cs" />
+    <Compile Include="replay/src/*.cs" Link="Playback/%(Filename)%(Extension)" />
+    <Compile Include="shared/Demo/*.cs" />
+    <Compile Include="shared/Plugin/*.cs" />
+    <Compile Include="shared/Preview/*.cs" />
+    <Compile Include="shared/Ffmpeg/*.cs" />
+    <Compile Include="shared/Clips/*.cs" />
+    <Reference Include="$(GameDir)/NuclearOption_Data/Managed/mscorlib.dll" Private="false" />
+    <Reference Include="$(GameDir)/NuclearOption_Data/Managed/netstandard.dll" Private="false" />
+    <Reference Include="$(GameDir)/NuclearOption_Data/Managed/System.dll" Private="false" />
+    <Reference Include="$(GameDir)/NuclearOption_Data/Managed/System.Core.dll" Private="false" />
+    <Reference Include="$(GameDir)/NuclearOption_Data/Managed/Assembly-CSharp.dll" Private="false" />
+    <Reference Include="$(GameDir)/NuclearOption_Data/Managed/Mirage.dll" Private="false" />
+    <Reference Include="$(GameDir)/NuclearOption_Data/Managed/Mirage.SocketLayer.dll" Private="false" />
+    <Reference Include="$(GameDir)/NuclearOption_Data/Managed/Newtonsoft.Json.dll" Private="false" />
+    <Reference Include="$(GameDir)/NuclearOption_Data/Managed/UnityEngine*.dll" Private="false" />
+    <Reference Include="$(GameDir)/NuclearOption_Data/Managed/Unity.TextMeshPro.dll" Private="false" />
+    <Reference Include="$(GameDir)/BepInEx/core/BepInEx.dll" Private="false" />
+    <Reference Include="$(GameDir)/BepInEx/core/0Harmony.dll" Private="false" />
+  </ItemGroup>
+</Project>

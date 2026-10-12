@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><EnableDefaultCompileItems>false</EnableDefaultCompileItems><GameDir Condition="'$(GameDir)' == ''">/mnt/games/SteamLibrary/steamapps/common/Nuclear Option</GameDir></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="CoreTests.cs" /><Compile Include="../src/BundleWriter.cs" /><Compile Include="../src/Correlation.cs" />
+    <Reference Include="$(GameDir)/NuclearOption_Data/Managed/Newtonsoft.Json.dll" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,39 @@
+{
+  "id": "NuclearReplay",
+  "displayName": "Nuclear Replay",
+  "description": "Records the matches you host and replays them inside the game: free camera, 7 camera styles, speed 0.25x to 4x, and Clip this to save any moment as a video. Replays are watched offline from the main menu.",
+  "tags": [
+    "mod",
+    "Utility",
+    "Camera",
+    "multiplayer"
+  ],
+  "urls": [
+    {
+      "name": "info",
+      "url": "https://github.com/Talamander/nuclear-replay"
+    },
+    {
+      "name": "releases",
+      "url": "https://github.com/Talamander/nuclear-replay/releases"
+    }
+  ],
+  "authors": [
+    "Talamander"
+  ],
+  "isClientOrServer": "Both",
+  "githubOwner": "Talamander",
+  "githubRepoName": "nuclear-replay",
+  "autoUpdateArtifacts": "True",
+  "artifacts": [
+    {
+      "fileName": "PLACEHOLDER-NuclearReplay-0.5.0-plugins.zip",
+      "version": "0.5.0",
+      "category": "release",
+      "type": "plugin",
+      "gameVersion": "0.34.1",
+      "downloadUrl": "https://github.com/Talamander/nuclear-replay/releases/download/PLACEHOLDER-v0.5.0/PLACEHOLDER-NuclearReplay-0.5.0-plugins.zip",
+      "hash": "PLACEHOLDER: sha256:<64 hex digits> of the plugins zip, copied from the GitHub release page"
+    }
+  ]
+}

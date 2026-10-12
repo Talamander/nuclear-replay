@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <GameDir Condition="'$(GameDir)' == ''">/mnt/games/SteamLibrary/steamapps/common/Nuclear Option</GameDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="ConfigMigrationTests.cs" /><Compile Include="../shared/Plugin/PluginIds.cs" />
+    <!-- The real BepInEx 5 ConfigFile, so the test proves what the plugins rely on: Reload after the copy, then Bind. -->
+    <Reference Include="$(GameDir)/BepInEx/core/BepInEx.dll" />
+  </ItemGroup>
+</Project>

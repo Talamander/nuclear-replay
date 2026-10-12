@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>nr</AssemblyName>
+    <RootNamespace>NuclearReplay.Cli</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" Version="2.0.12" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../NuclearReplay.Core/NuclearReplay.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="../../bundled/README.md" Link="bundled/README.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

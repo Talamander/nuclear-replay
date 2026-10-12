@@ -1,0 +1,39 @@
+bin/
+obj/
+dist/
+research/
+# Review screenshots and clips stay local (they link from docs/PRODUCT-STATUS.md); not for the public repo.
+review/
+__pycache__/
+*.pyc
+
+# Local capture bundles, experiments and media are not source backups.
+captures/
+recordings/
+experiments/
+*.jsonl
+*.acmi
+*.mp4
+*.mkv
+*.mov
+*.webm
+*.wav
+*.flac
+*.zip
+
+# Never upload installed game/loader assemblies or local credentials.
+*.dll
+*.pdb
+*.exe
+.env
+.env.*
+*.key
+*.pem
+
+# Network demos are recordings of play sessions.
+*.ncdemo
+secrets/
+
+# Hand-made backups of edited files.
+*.orig-*
+.claude/
