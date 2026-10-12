@@ -4,9 +4,8 @@
 NOMM (Nuclear Option Mod Manager) installs mods from. It follows NOMNOM's `SCHEMA.md` and `template.json`
 and passes its `ValidationSchema.json` and the content checks of `Validate-JsonContent.ps1` (file name
 equals `id`, id not taken, https URLs, archive file names, numeric versions). Submitted on 2026-10-12 as
-[KopterBuzz/NOMNOM#433](https://github.com/KopterBuzz/NOMNOM/pull/433), now with 0.5.1 and 0.5.0. After
-it is merged, set the mod image with the "Update Mod Image URL" issue template (`HOWTO_UPDATE_MODIMAGE.md`
-in NOMNOM; 512x512 at most).
+[KopterBuzz/NOMNOM#433](https://github.com/KopterBuzz/NOMNOM/pull/433), now with 0.5.1 and 0.5.0. It is
+waiting for review.
 
 ## Keep it right
 
@@ -28,6 +27,12 @@ in NOMNOM; 512x512 at most).
   multiplayer match); players who join do not need the mod. The replay viewer runs offline on the
   player's own PC.
 - `tags`: `mod`, `Utility`, `Camera` and `multiplayer`, from the tags other NOMNOM entries use most.
+- `imageUrl` and `imageHash`: the icon, `docs/media/icon-512.png` (PNG, 512x512, NOMNOM's limit), as a
+  raw.githubusercontent.com URL pinned to a commit so the file behind it never changes. `imageHash` is the
+  file's SHA-256 as plain lowercase hex with no `sha256:` prefix: NOMM's `PreviewImageLoader.kt` compares it
+  with the downloaded bytes and shows no icon when they differ, and NOMNOM's image issue template writes the
+  same format. To change the icon after the merge, use the "Update Mod Image URL" issue template
+  (`HOWTO_UPDATE_MODIMAGE.md` in NOMNOM) with a new pinned URL.
 - No `dependencies`: NOMM installs BepInEx 5 itself, and the plugins need nothing else. FFmpeg for clips is
   downloaded by the game on request: it asks first, then gets a pinned build (about 258 MB, GPLv3) from
   github.com and checks its SHA-256 before use.

@@ -62,12 +62,6 @@ Stills from a real recorded match, filmed with the replay camera and colour grad
 
 You need Nuclear Option from Steam.
 
-### With the NOMM mod manager (coming soon)
-
-Nuclear Replay will be listed in NOMM, the Nuclear Option mod manager, after its first release. Then
-you can install it like any other mod there. NOMM also installs BepInEx, the mod loader that Nuclear
-Replay needs.
-
 ### By hand
 
 1. Install [BepInEx 5](https://github.com/BepInEx/BepInEx/releases) (the x64 version for Windows)
@@ -81,6 +75,14 @@ Replay needs.
 4. Start the game. The main menu now has a **Replays** button.
 
 If you already use other BepInEx mods, they keep working. Nuclear Replay only adds its own folder.
+
+### With the NOMM mod manager (not listed yet)
+
+Nuclear Replay is not in NOMM, the Nuclear Option mod manager, yet. It has been submitted to NOMNOM,
+the list NOMM installs from, and is waiting for review
+([KopterBuzz/NOMNOM#433](https://github.com/KopterBuzz/NOMNOM/pull/433)). Until it is listed, install it
+by hand as above. Once it is listed, you can install it in NOMM like any other mod; NOMM also installs
+BepInEx, the mod loader that Nuclear Replay needs, and it takes over a manual install in the same folder.
 
 ## How to use it
 

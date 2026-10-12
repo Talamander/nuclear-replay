@@ -20,7 +20,8 @@ the rest as a `System.Version` (two to four numbers). A tag like `v0.5.0-beta.2`
 would never offer that release. Use plain numeric versions for public releases (`v0.5.0`, `v0.5.1`), set
 `NcVersion` in `version.props` to the same number first, and never mark the release as a pre-release. The
 version inside the plugins (`[BepInPlugin]`, `AssemblyVersion`) is the numeric part of `NcVersion`, so it
-matches the tag. The NOMNOM entry itself is drafted in `packaging/nomnom/`.
+matches the tag. The NOMNOM entry itself is in `packaging/nomnom/`; it was submitted as
+[KopterBuzz/NOMNOM#433](https://github.com/KopterBuzz/NOMNOM/pull/433) and is waiting for review.
 
 ## Publishing a release
 

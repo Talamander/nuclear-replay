@@ -8,6 +8,8 @@
     "Camera",
     "multiplayer"
   ],
+  "imageUrl": "https://raw.githubusercontent.com/Talamander/nuclear-replay/4491274358fee1b64a08e95d4a75a3159df84bad/docs/media/icon-512.png",
+  "imageHash": "191254633045463813d27cb0a4855da07ee98fd4a09828db1fbb3fdf6359ce15",
   "urls": [
     {
       "name": "info",
