@@ -821,7 +821,9 @@ namespace NuclearReplay.Playback
                         int index = (int)N();
                         if (index < 0 || index >= moments.Count) return "no moment " + index;
                         ViewerJumpToMoment(moments[index]);
-                        return "moment " + moments[index].Summary;
+                        var m = moments[index];
+                        return "moment " + m.Summary + " at " + m.T.ToString("0.000", CultureInfo.InvariantCulture)
+                            + (m.HitAgo != null ? " (hit; kill feed " + (m.T + m.HitAgo.Value).ToString("0.000", CultureInfo.InvariantCulture) + ")" : "");
                     }
                 case "timeline":
                     {

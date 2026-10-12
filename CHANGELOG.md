@@ -1,6 +1,15 @@
 # Changelog
 
-## 0.5.0 (not released yet)
+## 0.5.1 (2026-10-12)
+
+- Kill marks land on the hit. The game's kill feed comes when the victim dies, often 2 to 3 seconds after
+  the missile hits it. The recorder now also notes when the killer's weapon last hit the victim (`hit_ago`
+  on the `kill` event: seconds from that hit to the kill feed). The viewer's timeline marks, kill labels,
+  jump to a kill, clip windows and the victim cut camera use that moment, and so does `nr` (`t` of a kill
+  is the hit; `kill_feed_t` in `nr events --json` keeps the kill feed time).
+- Recordings made before 0.5.1 have no hit time and work as before, at the kill feed time.
+
+## 0.5.0 (2026-10-12)
 
 First public release. The mod is now called Nuclear Replay (it was Nuclear Context).
 

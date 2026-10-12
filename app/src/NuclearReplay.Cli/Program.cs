@@ -121,6 +121,8 @@ public sealed partial class Commands
         };
         if (e.Subject?.ShotTarget is { } target) o["camera_target"] = target;
         if (e.Event == "launch" && e.Missile is { } missile) o["missile_target"] = $"unit:{missile}";
+        // Kills with a recorded hit: "t" is the impact, "kill_feed_t" the game's kill feed message.
+        if (e.HitAgo != null) o["kill_feed_t"] = Math.Round(e.LoggedT, 3);
         o["data"] = e.Data.DeepClone();
         return o;
     }

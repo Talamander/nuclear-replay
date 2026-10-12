@@ -65,7 +65,7 @@ namespace NuclearReplay.Playback
                         string victim = ViewerEvent.ShotTarget(moment.Victim);
                         shots.Add(Shot(from, "chase", subject, 50));
                         if (victim != null && victim != subject)
-                            shots.Add(Shot(Math.Max(from, eventT - 2.5), "orbit", victim, 45, Math.Max(3, to - eventT)));
+                            shots.Add(Shot(Math.Max(from, eventT - KillCutLead(moment)), "orbit", victim, 45, Math.Max(3, to - eventT)));
                     }
                     else shots.Add(Shot(from, "chase", free, 55));
                     break;
@@ -73,6 +73,10 @@ namespace NuclearReplay.Playback
             var ordered = shots.Where((x, i) => i == 0 || (double)x["t"] < to).OrderBy(x => (double)x["t"]);
             return new JArray(ordered);
         }
+
+        // Seconds before a kill's time to cut to the victim (ShotPresets.KillCutLead): just ahead of the impact
+        // when the kill has its hit time, about the hit-to-kill-feed delay when it only has the kill feed.
+        public static double KillCutLead(ViewerEvent kill) => kill.HitAgo != null ? 0.1 : 2.5;
 
         // Launch and kill of the same missile, as far as the annotations tell (ShotPresets.Pair).
         public static void Pair(ViewerEvent moment, IList<ViewerEvent> events, out ViewerEvent launch, out ViewerEvent kill)

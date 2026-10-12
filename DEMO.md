@@ -31,7 +31,7 @@ The recorder also writes gameplay events into the demo as annotation records (fo
 - `mission`: mission name and map, once at the start.
 - `player`: a human player, again each time they spawn an aircraft (`unit`).
 - `launch`: shooter, target, weapon and the missile's unit id.
-- `kill`: victim, killer and weapon, from the game's own kill feed. `killer` is null for crashes. `weapon` is null when no damage call named it.
+- `kill`: victim, killer and weapon, from the game's own kill feed. `killer` is null for crashes. `weapon` is null when no damage call named it. Since 0.5.1, `hit_ago` gives the seconds from the killer's last weapon hit on the victim to the kill feed (missing when there was none). The viewer and `nr` place the kill at the hit.
 
 Example from a Furball recording:
 
@@ -52,7 +52,7 @@ python3 tools/demo_inspect.py "<game>/NuclearReplay/demos/<file>.ncdemo"
 python3 tools/demo_inspect.py --events "<game>/NuclearReplay/demos/<file>.ncdemo"
 ```
 
-The first form prints the header, the message mix and each annotation in readable form. `--events` prints only the annotations, one JSON object per line, each with `"t"` in replay seconds.
+The first form prints the header, the message mix and each annotation in readable form. `--events` prints only the annotations, one JSON object per line, each with `"t"` in replay seconds (for a kill, the kill feed) and, for kills with `hit_ago`, `"hit_t"`.
 
 Watch a replay interactively by adding launch options for one session. The window opens normally:
 
@@ -267,6 +267,6 @@ Nobody flies the aircraft in a headless test, so the host aircraft eventually cr
 
 ## Version and logs
 
-- The version is set once in `version.props` (`NcVersion`, now 0.5.0). The plugins report the numeric part to BepInEx (`0.5.0`), and the full version in the demo header (`mod_version`) and in the assembly's informational version, which `nr` reads.
+- The version is set once in `version.props` (`NcVersion`, now 0.5.1). The plugins report the numeric part to BepInEx (`0.5.1`), and the full version in the demo header (`mod_version`) and in the assembly's informational version, which `nr` reads.
 - `scripts/package.sh` builds the mod (`NuclearReplay.dll`, both plugins) from source and writes the release zip `NuclearReplay-<version>-plugins.zip` to `dist/` (see `app/RELEASING.md`).
 - The plugin log is `<game>/BepInEx/LogOutput.log`. `nr` writes `nuclear-replay.log` in `%LOCALAPPDATA%\Nuclear Replay\logs` or `~/.local/share/nuclear-replay/logs` (rolled at 1 MiB, two old files kept). `nr diagnostics` puts both logs and `nr status` into one text file.

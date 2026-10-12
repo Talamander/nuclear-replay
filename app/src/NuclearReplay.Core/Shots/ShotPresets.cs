@@ -53,7 +53,7 @@ public static class ShotPresets
     /// <summary>
     /// Shot list for one clip in a camera style. <paramref name="moment"/> may be null for a hand-picked time.
     /// <paramref name="events"/> (all events of the recording) lets the missile styles pair a launch with its kill:
-    /// kill annotations carry no missile id, launch annotations carry no impact time.
+    /// kill annotations carry no missile id, and only kills from recorders since 0.5.1 carry the impact time.
     /// </summary>
     public static ShotList Build(string styleId, DemoEvent? moment, double from, double to, IReadOnlyList<DemoEvent>? events = null)
     {
@@ -90,8 +90,10 @@ public static class ShotPresets
                 {
                     var victim = moment.Victim?.ShotTarget;
                     shots.Add(new Shot { T = from, Camera = "chase", Target = subject, Fov = 50 });
+                    // With a recorded hit the kill time is the impact: cut to the victim just before it. Older
+                    // recordings only have the kill feed, which comes about 2.5 s after the impact.
                     if (victim != null && victim != subject)
-                        shots.Add(new Shot { T = Math.Max(from, eventT - 2.5), Camera = "orbit", Target = victim, Fov = 45, Hold = Math.Max(3, to - eventT) });
+                        shots.Add(new Shot { T = Math.Max(from, eventT - KillCutLead(moment)), Camera = "orbit", Target = victim, Fov = 45, Hold = Math.Max(3, to - eventT) });
                 }
                 else
                 {
@@ -103,6 +105,12 @@ public static class ShotPresets
         shots = shots.Where((x, i) => i == 0 || x.T < to).OrderBy(x => x.T).ToList();
         return new ShotList { Shots = shots };
     }
+
+    /// <summary>
+    /// Seconds before a kill's time to cut to the victim: just ahead of the impact when the kill carries its hit
+    /// time, about the usual hit-to-kill-feed delay when it only has the kill feed (recordings before 0.5.1).
+    /// </summary>
+    public static double KillCutLead(DemoEvent kill) => kill.HitAgo != null ? 0.1 : 2.5;
 
     /// <summary>Launch and kill of the same missile, as far as the annotations tell.</summary>
     public sealed record MissilePair(DemoEvent? Launch, DemoEvent? Kill);
@@ -165,8 +173,9 @@ public static class ShotPresets
         else
             shots.Add(new Shot { T = from, Camera = "chase", Target = shooter, Fov = 50 });
 
-        // At the logged kill: the victim going down, not the missile's explosion. After a "then" cut this repeats
-        // the shot on screen and the director keeps it; it matters when the missile was not followed to the hit.
+        // At the kill (the impact when the recording has the hit time, else the kill feed): the victim going down,
+        // not the missile's explosion. After a "then" cut this repeats the shot on screen and the director keeps
+        // it; it matters when the missile was not followed to the hit.
         if (cutToVictim && kill != null && victim != null && kill.T > from)
             shots.Add(new Shot { T = Math.Max(from, kill.T - 0.1), Camera = "orbit", Target = victim, Fov = 50, Hold = Math.Max(3, to - kill.T) });
     }

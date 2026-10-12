@@ -38,6 +38,57 @@ public class DemoReadingTests
     }
 
     [Fact]
+    public void KillWithHitTimeIsPlacedAtTheHit()
+    {
+        var kill = DemoEvent.Parse(35.25, """{"event":"kill","victim":{"id":201},"killer":{"id":169},"weapon":"AAM-29","hit_ago":2.4}""")!;
+        Assert.Equal(32.85, kill.T, 6);
+        Assert.Equal(2.4, kill.HitAgo!.Value, 6);
+        Assert.Equal(35.25, kill.LoggedT, 6);
+
+        // Recordings before 0.5.1 have no hit time: the kill stays at the kill feed.
+        var old = DemoEvent.Parse(35.25, """{"event":"kill","victim":{"id":201},"killer":{"id":169},"weapon":"AAM-29"}""")!;
+        Assert.Equal(35.25, old.T, 6);
+        Assert.Null(old.HitAgo);
+        Assert.Equal(35.25, old.LoggedT, 6);
+
+        // Values a reader cannot trust are ignored; a hit before the recording started clamps to 0.
+        foreach (var bad in new[] { "-1", "99", "\"2\"", "null" })
+        {
+            var e = DemoEvent.Parse(35.25, $$"""{"event":"kill","victim":{"id":201},"hit_ago":{{bad}}}""")!;
+            Assert.Equal(35.25, e.T, 6);
+            Assert.Null(e.HitAgo);
+        }
+        var early = DemoEvent.Parse(1.0, """{"event":"kill","victim":{"id":201},"hit_ago":2.5}""")!;
+        Assert.Equal(0, early.T, 6);
+        Assert.Equal(1.0, early.LoggedT, 6);
+        // Only kills carry a hit time.
+        Assert.Equal(10, DemoEvent.Parse(10, """{"event":"launch","hit_ago":2}""")!.T, 6);
+    }
+
+    [Fact]
+    public void KillPlacedAtItsHitSortsBeforeLaterEvents()
+    {
+        using var dir = new TempDir();
+        var path = dir.Write("m.ncdemo", new DemoFile.Builder(Header)
+            .Annotation(100.0, """{"event":"mission","name":"Escalation"}""")
+            .Annotation(110.0, """{"event":"launch","shooter":{"id":169},"weapon":"AAM-29","missile":4021}""")
+            .Annotation(112.0, """{"event":"kill","victim":{"id":201},"killer":{"id":169},"weapon":"AAM-29","hit_ago":3}""")
+            .Annotation(120.0, """{"event":"end","reason":"shutdown"}""")
+            .ToArray());
+        var events = DemoAnalyzer.Read(path).Events;
+        Assert.Equal(new[] { "mission", "kill", "launch", "end" }, events.Select(e => e.Event));
+        Assert.Equal(9, events[1].T, 6);
+
+        // The hit time survives the summary cache.
+        var paths = new AppPaths(dir.Combine("cfg"), dir.Combine("data"));
+        new DemoLibrary(paths).Get(path);
+        var cached = new DemoLibrary(paths).Get(path).Events.Single(e => e.Event == "kill");
+        Assert.Equal(9, cached.T, 6);
+        Assert.Equal(3, cached.HitAgo!.Value, 6);
+        Assert.Equal(12, cached.LoggedT, 6);
+    }
+
+    [Fact]
     public void EventsUseReplayTimeFromFirstRecord()
     {
         using var dir = new TempDir();

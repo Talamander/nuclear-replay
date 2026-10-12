@@ -25,7 +25,13 @@ human-flown units. Any field except `id` may be missing.
 | `mission` | `name`, `map` |
 | `player` | `name`, `faction`, `unit` (unit reference, when the player spawns an aircraft) |
 | `launch` | `shooter`, `target` (or null), `weapon`, `missile` (unit id of the missile) |
-| `kill` | `victim`, `killer` (or null), `weapon` (or null) |
+| `kill` | `victim`, `killer` (or null), `weapon` (or null), `hit_ago` (optional, since 0.5.1) |
+
+A `kill` record is written when the game's kill feed reports the death, which is often 2 to 3 s after
+the hit (fire, breakup, crash). `hit_ago` is the number of seconds from the killer's last weapon hit on the
+victim (missile impact, missile blast or gun hit) to the kill record, 0 to 20. It is missing when no weapon
+hit by the killer was seen. Readers place the kill at `t - hit_ago` (the impact); without `hit_ago` the kill
+stays at its record time. `nr` and the in-game viewer both do this.
 
 Existing events (`ghost_authenticated`, `ghost_scene_ready`, `fault`, `end`) stay.
 

@@ -70,8 +70,20 @@ public sealed record UnitRef
 /// <summary>One event annotation. Unknown events and fields are kept in <see cref="Data"/> and otherwise ignored.</summary>
 public sealed class DemoEvent
 {
-    /// <summary>Replay time in seconds: record time minus the first record's time. Shot lists and render ranges use this clock.</summary>
+    /// <summary>
+    /// Replay time in seconds: record time minus the first record's time. Shot lists and render ranges use this clock.
+    /// For a kill that carries a hit time (<see cref="HitAgo"/>, recorders from 0.5.1) this is the time of the hit,
+    /// not of the kill feed record, so marks, clips and cuts land on the impact.
+    /// </summary>
     public double T { get; init; }
+    /// <summary>
+    /// Kills only: seconds from the killer's last weapon hit on the victim to the kill feed ("hit_ago" in the
+    /// annotation). Null for older recordings and for kills without a known hit; <see cref="T"/> is then the kill feed time.
+    /// Serialized so the summary cache (DemoLibrary) keeps it.
+    /// </summary>
+    public double? HitAgo { get; init; }
+    /// <summary>Replay time of the annotation record itself (for a kill, the game's kill feed).</summary>
+    [JsonIgnore] public double LoggedT => T + (HitAgo ?? 0);
     public required string Event { get; init; }
     /// <summary>The annotation exactly as recorded.</summary>
     public required JsonObject Data { get; init; }
@@ -124,9 +136,20 @@ public sealed class DemoEvent
             if (JsonNode.Parse(json) is not JsonObject o) return null;
             var name = UnitRef.TryString(o["event"]);
             if (string.IsNullOrEmpty(name)) return null;
+            double? hitAgo = name == "kill" ? ValidHitAgo(o["hit_ago"]) : null;
+            if (hitAgo is { } ago) return new DemoEvent { T = Math.Max(0, replayTime - ago), HitAgo = Math.Min(ago, replayTime), Event = name!, Data = o };
             return new DemoEvent { T = replayTime, Event = name!, Data = o };
         }
         catch (JsonException) { return null; }
+    }
+
+    /// <summary>Longest gap between a hit and its kill feed that readers accept (the recorder writes up to 20 s).</summary>
+    public const double MaxHitAgo = 30;
+
+    private static double? ValidHitAgo(JsonNode? node)
+    {
+        if (node is not JsonValue v || !v.TryGetValue<double>(out var ago)) return null;
+        return double.IsFinite(ago) && ago >= 0 && ago <= MaxHitAgo ? ago : null;
     }
 }
 
@@ -194,6 +217,8 @@ public static class DemoAnalyzer
             var e = DemoEvent.Parse(Math.Max(0, time - origin), json);
             if (e != null) events.Add(e);
         }
+        // A kill placed at its hit can be earlier than events logged before its kill feed; keep time order (stable).
+        events = events.OrderBy(e => e.T).ToList();
         var header = scan.Header;
         string? H(string key) => UnitRef.TryString(header[key]) is { Length: > 0 } s ? s : null;
         var mission = events.FirstOrDefault(e => e.Event == "mission");

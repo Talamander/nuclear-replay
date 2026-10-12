@@ -13,9 +13,31 @@ namespace NuclearReplay.Playback
 {
     // One event annotation of a recording (launch, kill, player, mission, ...), on the replay clock
     // (record time minus the first record's time), the same clock nr, shot lists and render ranges use.
+    // A kill with a recorded hit ("hit_ago", recorders since 0.5.1) is placed at the hit, as nr does
+    // (DemoEvent.Parse); older kills stay at the kill feed time.
     internal sealed class ViewerEvent
     {
         public double T;
+        // Kills only: seconds from the hit to the kill feed, or null when only the kill feed time is known.
+        public double? HitAgo;
+        public const double MaxHitAgo = 30;
+
+        public static ViewerEvent Create(double replayTime, JObject data)
+        {
+            string name = (string)data["event"];
+            var e = new ViewerEvent { T = replayTime, Event = name, Data = data };
+            var token = name == "kill" ? data["hit_ago"] : null;
+            if (token != null && (token.Type == JTokenType.Float || token.Type == JTokenType.Integer))
+            {
+                double ago = (double)token;
+                if (!double.IsNaN(ago) && !double.IsInfinity(ago) && ago >= 0 && ago <= MaxHitAgo)
+                {
+                    e.HitAgo = Math.Min(ago, replayTime);
+                    e.T = Math.Max(0, replayTime - ago);
+                }
+            }
+            return e;
+        }
         public string Event;
         public JObject Data;
 
@@ -191,10 +213,12 @@ namespace NuclearReplay.Playback
                 try
                 {
                     if (!(JToken.Parse(a.Value) is JObject o) || string.IsNullOrEmpty((string)o["event"])) continue;
-                    demo.Events.Add(new ViewerEvent { T = Math.Max(0, a.Key - origin), Event = (string)o["event"], Data = o });
+                    demo.Events.Add(ViewerEvent.Create(Math.Max(0, a.Key - origin), o));
                 }
                 catch (Exception) { }
             }
+            // A kill placed at its hit can be earlier than events logged before its kill feed; keep time order (stable).
+            demo.Events = demo.Events.OrderBy(e => e.T).ToList();
             var mission = demo.Events.FirstOrDefault(e => e.Event == "mission");
             demo.Mission = (string)mission?.Data["name"] ?? NonEmpty((string)header["mission_name"]);
             string map = (string)mission?.Data["map"];

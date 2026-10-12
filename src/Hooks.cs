@@ -85,6 +85,7 @@ namespace NuclearReplay
         private static void ImpactPrefix(Missile __instance, IDamageable damageable, Vector3 hitPoint, out (string, string) __state)
         {
             __state = (DamageProjectile, Demo.DemoRecorder.DamageWeapon);
+            Demo.DemoRecorder.EnterWeaponHit();
             if (Demo.DemoRecorder.Recording) Demo.DemoRecorder.DamageWeapon = Demo.DemoRecorder.MissileWeapon(__instance);
             Observe("collision_damageable", () =>
             {
@@ -96,13 +97,19 @@ namespace NuclearReplay
         private static void BlastPrefix(PersistentID missileID, out (string, string) __state)
         {
             __state = (DamageProjectile, Demo.DemoRecorder.DamageWeapon);
+            Demo.DemoRecorder.EnterWeaponHit();
             // A blast without a missile (explosive gun rounds) keeps the outer scope's weapon.
             var weapon = Demo.DemoRecorder.MissileWeapon(missileID);
             if (weapon != null) Demo.DemoRecorder.DamageWeapon = weapon;
             Observe("projectile_fragment_damage_scope", () => DamageProjectile = P.ProjectileId(missileID));
         }
         // A void finalizer restores observation context even when the game throws; it never suppresses its exception.
-        private static void DamageScopeFinalizer((string, string) __state) { DamageProjectile = __state.Item1; Demo.DemoRecorder.DamageWeapon = __state.Item2; }
+        private static void DamageScopeFinalizer((string, string) __state)
+        {
+            DamageProjectile = __state.Item1;
+            Demo.DemoRecorder.DamageWeapon = __state.Item2;
+            Demo.DemoRecorder.ExitWeaponHit();
+        }
         private static void CreditPostfix(Unit __instance, PersistentID lastDamagedBy, float damageAmount)
         {
             Demo.DemoRecorder.OnDamageCredit(__instance, lastDamagedBy);

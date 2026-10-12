@@ -110,7 +110,10 @@ Global options: `--json` and `--game-dir DIR` (for this command only, not saved)
   such as `10:20,20:30` are fine). Ranges past the end of the recording are an input error (exit 2).
 
 Replay seconds count from the first record in the demo. `nr events --json` gives each moment its
-`index`, `t`, `camera_target` (`unit:<id>`) and, for launches, `missile_target`.
+`index`, `t`, `camera_target` (`unit:<id>`) and, for launches, `missile_target`. A kill's `t` is the moment
+the killer's weapon hit the victim when the recording has it (recorder 0.5.1 and later); those kills also carry
+`kill_feed_t`, the game's kill feed message, which comes when the victim dies, often 2 to 3 s later. Kills in
+older recordings, and kills with no weapon hit on record, have only the kill feed time in `t`.
 
 A kill "pairs" with a missile launch when the same aircraft fired at that target with a guided
 missile up to 90 s before. `missile_hits` in `nr list` counts paired kills. The missile camera styles
@@ -143,7 +146,7 @@ use the pair: on a paired kill they start on the shooter, ride the missile and e
 - `camera`: `orbit`, `chase`, `cockpit`, `tv`, `free`, `relative`, or the cinematic `chase_cine`. Default `orbit`.
 - `target`: `host`, `auto`, `latest_missile`, `latest_host_missile`, `unit:<id>`, `name:<text>`. Default `host`.
 - `fov` in degrees and `hold` in seconds are optional. `hold` is how long the camera stays on a destroyed target before it cuts to the nearest live aircraft (default 3); a detonated missile holds a still view of the explosion.
-- `then`: optional shot object (`camera`, `target`, `fov`, `hold`) to cut to once the target is gone and the hold is over, instead of the nearest aircraft. `victim_cut` uses `"hold": 0` with `"then"` on the victim, because a kill is logged when the victim dies, which can be seconds after the hit.
+- `then`: optional shot object (`camera`, `target`, `fov`, `hold`) to cut to once the target is gone and the hold is over, instead of the nearest aircraft. `victim_cut` uses `"hold": 0` with `"then"` on the victim, so the cut follows the missile even when the recording has only the kill feed time, which can be seconds after the hit.
 
 Workflow for a custom cut:
 

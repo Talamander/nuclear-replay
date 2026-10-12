@@ -144,6 +144,27 @@ public class ShotTests
         Assert.Equal("unit:201", parsed.ShotList!.Shots.Single(s => s.Target == "unit:4021").Then!.Target);
     }
 
+    [Fact]
+    public void KillsWithAHitTimeCutToTheVictimAtTheImpact()
+    {
+        var launch = Event("""{"event":"launch","shooter":{"id":169,"name":"Revoker"},"target":{"id":201},"weapon":"AAM-29","missile":4021}""", 100);
+        // Kill feed at 106.5, hit 2.5 s earlier.
+        var kill = Event("""{"event":"kill","victim":{"id":201,"name":"Ifrit"},"killer":{"id":169},"hit_ago":2.5}""", 106.5);
+        var events = new[] { launch, kill };
+        Assert.Equal(104, kill.T, 6);
+        Assert.Same(launch, ShotPresets.Pair(kill, events).Launch);
+        Assert.Same(kill, ShotPresets.Pair(launch, events).Kill);
+
+        var victim = ShotPresets.Build("victim_cut", kill, 99, 110, events).Shots;
+        Assert.Equal(103.9, victim.Last(s => s.Camera == "orbit" && s.Target == "unit:201").T, 6);
+
+        // Cinematic chase: just before the impact with a hit time, 2.5 s before the kill feed without one.
+        var cinematic = ShotPresets.Build("cinematic_chase", kill, 99, 110, events).Shots;
+        Assert.Equal(103.9, cinematic.Single(s => s.Target == "unit:201").T, 6);
+        var old = Event("""{"event":"kill","victim":{"id":201,"name":"Ifrit"},"killer":{"id":169}}""", 106.5);
+        Assert.Equal(104, ShotPresets.Build("cinematic_chase", old, 99, 110).Shots.Single(s => s.Target == "unit:201").T, 6);
+    }
+
     [Theory]
     [InlineData("""{"shots":[{"t":1,"camera":"chase","target":"host","then":5}]}""", "$.shots[0].then")]
     [InlineData("""{"shots":[{"t":1,"camera":"chase","target":"host","then":{"camera":"spin","target":"host"}}]}""", "$.shots[0].then.camera")]

@@ -46,7 +46,7 @@ public class CliTests : IDisposable
         return demos;
     }
 
-    private string WriteDemo(string name, bool events)
+    private string WriteDemo(string name, bool events, bool hitTime = false)
     {
         var builder = new DemoFile.Builder("""{"format":"nuclear-context-network-demo","format_version":1,"mission_name":"Escalation","game_state":"Multiplayer"}""")
             .Annotation(10, """{"event":"ghost_authenticated"}""")
@@ -55,7 +55,9 @@ public class CliTests : IDisposable
         {
             builder.Annotation(11, """{"event":"mission","name":"Escalation","map":"Heartland"}""")
                 .Annotation(40, """{"event":"launch","shooter":{"id":169,"name":"Revoker","player":"Talamander"},"target":{"id":201,"name":"Ifrit"},"weapon":"AAM-29","missile":4021}""")
-                .Annotation(45, """{"event":"kill","victim":{"id":201,"name":"Ifrit"},"killer":{"id":169,"name":"Revoker","player":"Talamander"},"weapon":"AAM-29"}""");
+                .Annotation(45, hitTime
+                    ? """{"event":"kill","victim":{"id":201,"name":"Ifrit"},"killer":{"id":169,"name":"Revoker","player":"Talamander"},"weapon":"AAM-29","hit_ago":2.5}"""
+                    : """{"event":"kill","victim":{"id":201,"name":"Ifrit"},"killer":{"id":169,"name":"Revoker","player":"Talamander"},"weapon":"AAM-29"}""");
         }
         builder.Message(110, new byte[] { 0x65, 0xaa }).Annotation(110, """{"event":"end","reason":"shutdown"}""");
         var path = Path.Combine(DemoDir(), name);
@@ -210,6 +212,31 @@ public class CliTests : IDisposable
         var range = json["data"]!["job"]!["ranges"]![0]!;
         Assert.Equal(48, range["from"]!.GetValue<double>(), 3);
         Assert.Equal(54, range["to"]!.GetValue<double>(), 3);
+    }
+
+    [Fact]
+    public void KillWithHitTimeIsListedAndFramedAtTheImpact()
+    {
+        WriteDemo("20261004T021932Z-Escalation.ncdemo", events: true, hitTime: true);
+        var (_, events) = Run("events", "latest", "--game-dir", game, "--moments");
+        var kill = events["data"]!["events"]!.AsArray().First(e => e!["event"]!.GetValue<string>() == "kill")!;
+        // Replay time starts at the first record (10 s): the kill feed is at 35 s, the hit 2.5 s earlier.
+        Assert.Equal(32.5, kill["t"]!.GetValue<double>(), 3);
+        Assert.Equal(35, kill["kill_feed_t"]!.GetValue<double>(), 3);
+        Assert.Equal(2.5, kill["data"]!["hit_ago"]!.GetValue<double>(), 3);
+
+        var (code, json) = Run("render", "latest", "--game-dir", game, "--event", kill["index"]!.ToString(), "--style", "victim_cut", "--dry-run");
+        Assert.Equal(0, code);
+        var range = json["data"]!["job"]!["ranges"]![0]!;
+        Assert.Equal(27.5, range["from"]!.GetValue<double>(), 3);
+        Assert.Equal(38.5, range["to"]!.GetValue<double>(), 3);
+
+        // An old recording without the hit keeps the kill feed time and no kill_feed_t.
+        WriteDemo("20261003T021932Z-Old.ncdemo", events: true);
+        var (_, old) = Run("events", "Old", "--game-dir", game, "--moments");
+        var oldKill = old["data"]!["events"]!.AsArray().First(e => e!["event"]!.GetValue<string>() == "kill")!;
+        Assert.Equal(35, oldKill["t"]!.GetValue<double>(), 3);
+        Assert.Null(oldKill["kill_feed_t"]);
     }
 
     [Fact]

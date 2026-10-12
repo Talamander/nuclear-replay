@@ -16,7 +16,7 @@ public sealed class DemoLibrary
     }
 
     /// <summary>Bumped when summaries gain fields, so older cache entries are read again.</summary>
-    private const int CacheVersion = 2;
+    private const int CacheVersion = 3; // 3: kills placed at their hit (DemoEvent.HitAgo, 0.5.1)
 
     private sealed class CacheEntry
     {

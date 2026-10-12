@@ -83,8 +83,15 @@ namespace NuclearReplay.Demo
 
         // Weapon name of the damage call in progress on the main thread; read by the damage-credit hook.
         [ThreadStatic] internal static string DamageWeapon;
+        // Depth of weapon damage calls in progress (missile impact, missile blast, gun hit). Damage credit inside one
+        // is a hit by that weapon; credit outside one (seeker lock, fire, crash) is not.
+        [ThreadStatic] internal static int WeaponHitDepth;
+        // A kill's hit time is written only when the hit came this many seconds or less before the kill feed.
+        internal const double MaxHitAgeSeconds = 20;
         // victim id -> dealer id -> weapon of the dealer's latest damage with a known weapon.
         private readonly Dictionary<uint, Dictionary<uint, string>> damageWeapons = new Dictionary<uint, Dictionary<uint, string>>();
+        // victim id -> dealer id -> record time (Time.unscaledTimeAsDouble) of the dealer's latest weapon hit on it.
+        private readonly Dictionary<uint, Dictionary<uint, double>> hitTimes = new Dictionary<uint, Dictionary<uint, double>>();
         private readonly HashSet<uint> killedIds = new HashSet<uint>();
         // (shooter id << 32 | target id) -> weapon of the shooter's latest launch at that target. Names the
         // weapon of a kill when no damage call carried one (missiles that detonate after they unregister).
@@ -211,16 +218,25 @@ namespace NuclearReplay.Demo
         {
             var self = Instance;
             var weapon = DamageWeapon;
-            if (self?.writer == null || weapon == null || victim == null || !dealer.IsValid) return;
+            if (self?.writer == null || victim == null || !dealer.IsValid) return;
+            if (weapon == null && WeaponHitDepth <= 0) return;
             uint id = victim.persistentID.Id;
+            // The time of the hit, on the record clock: the kill feed comes later, when the victim actually dies.
+            if (!self.hitTimes.TryGetValue(id, out var times)) self.hitTimes[id] = times = new Dictionary<uint, double>();
+            times[dealer.Id] = Time.unscaledTimeAsDouble;
+            if (weapon == null) return;
             if (!self.damageWeapons.TryGetValue(id, out var byDealer)) self.damageWeapons[id] = byDealer = new Dictionary<uint, string>();
             byDealer[dealer.Id] = weapon;
         }
+
+        internal static void EnterWeaponHit() { WeaponHitDepth++; }
+        internal static void ExitWeaponHit() { if (WeaponHitDepth > 0) WeaponHitDepth--; }
 
         // Gun hits: name the dealer's gun whose ballistics match this penetration. Missile scopes set the weapon first.
         private static void ArmorPrefix(float muzzleVelocity, float pierceDamage, PersistentID dealerID, out string __state)
         {
             __state = DamageWeapon;
+            EnterWeaponHit();
             if (DamageWeapon != null || !Recording) return;
             try
             {
@@ -235,9 +251,11 @@ namespace NuclearReplay.Demo
             catch (Exception) { }
         }
 
-        private static void DamageWeaponFinalizer(string __state) { DamageWeapon = __state; }
+        private static void DamageWeaponFinalizer(string __state) { DamageWeapon = __state; ExitWeaponHit(); }
 
-        // The game's own kill feed message carries the killer the game credited (largest damage share).
+        // The game's own kill feed message carries the killer the game credited (largest damage share). It comes
+        // when the victim dies, often seconds after the hit (fire, breakup, crash), so the kill also carries
+        // "hit_ago": seconds from the killer's last weapon hit on the victim to this record.
         private static void KillMessagePrefix(PersistentID killerID, PersistentID killedID)
         {
             var self = Instance;
@@ -245,10 +263,19 @@ namespace NuclearReplay.Demo
             self.SafeEvent("kill", () =>
             {
                 string weapon = null;
+                double? hitAgo = null;
                 if (killerID.IsValid && self.damageWeapons.TryGetValue(killedID.Id, out var byDealer)) byDealer.TryGetValue(killerID.Id, out weapon);
                 if (weapon == null && killerID.IsValid) self.launchWeapons.TryGetValue((ulong)killerID.Id << 32 | killedID.Id, out weapon);
+                if (killerID.IsValid && self.hitTimes.TryGetValue(killedID.Id, out var times) && times.TryGetValue(killerID.Id, out var hitTime))
+                {
+                    double ago = Time.unscaledTimeAsDouble - hitTime;
+                    if (ago >= 0 && ago <= MaxHitAgeSeconds) hitAgo = Math.Round(ago, 3);
+                }
                 self.damageWeapons.Remove(killedID.Id);
-                self.Annotate(new JObject { ["event"] = "kill", ["victim"] = UnitRef(killedID), ["killer"] = UnitRef(killerID), ["weapon"] = weapon });
+                self.hitTimes.Remove(killedID.Id);
+                var kill = new JObject { ["event"] = "kill", ["victim"] = UnitRef(killedID), ["killer"] = UnitRef(killerID), ["weapon"] = weapon };
+                if (hitAgo.HasValue) kill["hit_ago"] = hitAgo.Value;
+                self.Annotate(kill);
             });
         }
 
@@ -421,7 +448,7 @@ namespace NuclearReplay.Demo
             mission = null;
             sceneReadyPending = false;
             loadMapCount = 0;
-            damageWeapons.Clear(); launchWeapons.Clear(); killedIds.Clear(); playerEvents.Clear(); eventFaults.Clear();
+            damageWeapons.Clear(); hitTimes.Clear(); launchWeapons.Clear(); killedIds.Clear(); playerEvents.Clear(); eventFaults.Clear();
         }
     }
 }

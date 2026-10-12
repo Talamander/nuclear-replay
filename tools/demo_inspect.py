@@ -78,7 +78,10 @@ def describe(event):
     if kind == "launch":
         return f"launch {event.get('weapon')} #{event.get('missile')} by {unit(event.get('shooter'))} at {unit(event.get('target'))}"
     if kind == "kill":
-        return f"kill {unit(event.get('victim'))} by {unit(event.get('killer'))} with {event.get('weapon') or '?'}"
+        text = f"kill {unit(event.get('victim'))} by {unit(event.get('killer'))} with {event.get('weapon') or '?'}"
+        if isinstance(event.get("hit_ago"), (int, float)):
+            text += f" (hit {event['hit_ago']:.2f} s before the kill feed)"
+        return text
     return json.dumps(event)[:300]
 
 
@@ -92,7 +95,11 @@ def main():
             for kind, t, net, _, payload in records:
                 if kind == 2:
                     event = json.loads(payload)
-                    print(json.dumps({"t": round(t - records[0][1], 3), **event}))
+                    line = {"t": round(t - records[0][1], 3), **event}
+                    # Kills from recorders since 0.5.1: "t" is the kill feed, "hit_t" the impact.
+                    if event.get("event") == "kill" and isinstance(event.get("hit_ago"), (int, float)):
+                        line["hit_t"] = round(t - records[0][1] - event["hit_ago"], 3)
+                    print(json.dumps(line))
             continue
         print(path)
         print("  header:", json.dumps(header, indent=None))
