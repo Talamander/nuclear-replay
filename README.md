@@ -90,7 +90,10 @@ BepInEx, the mod loader that Nuclear Replay needs, and it takes over a manual in
 
 Host a mission and play. That is all. Recording is automatic.
 
-Only the host records. If you join someone else's server, nothing is recorded.
+When you join someone else's server, the mod records that match too: the recording holds what the
+server sent your game, and your own aircraft replays like every other unit. These recordings end in
+`-client.ncdemo`. To turn this off, set `RecordAsClient = false` under `[Demo]` in
+`BepInEx/config/talamander.nuclearreplay.recorder.cfg`.
 
 ### Watch it
 
@@ -132,14 +135,15 @@ and the time range, for example `05. Furball 0-29 to 0-35.mp4`. To save clips so
 ## Questions and limits
 
 **Do the other players need the mod?**
-No. Only the host records, so only the host needs it.
+No. Each player with the mod records their own copy; nobody else needs it.
 
 **Does it work on Windows?**
 It is built for Windows and Linux. So far it has been tested on Linux (Steam with Proton); a first
 Windows beta test is under way. Please report anything that goes wrong.
 
 **Can I record a match I join but do not host?**
-Not yet. In this version only the host records.
+Yes. A client recording holds what the server sent you, so it can miss units the server does not
+share with players. So far it has been tested against a local dedicated server only.
 
 **Does the replay look exactly like the match?**
 Who fired, what hit and what was destroyed come from the recording. Smoke, sparks and debris are made

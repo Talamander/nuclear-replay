@@ -259,7 +259,7 @@ Nobody flies the aircraft in a headless test, so the host aircraft eventually cr
 
 - Used in real play: human-flown single-player, VR, and multiplayer sessions hosted by the owner with real clients joining (confirmed by the owner, 2026-10-05), including sessions of about an hour. Not yet tested: mission restarts and changes within one session.
 - The frame-time cost of the recorder was not measured in a live session. By design it matches one additional remote client.
-- Recording requires being the host. A client-only recording would need a different capture point; Mirage clients do not receive everything the server knows.
+- A client recording (`[Demo] RecordAsClient`, `src/Demo/ClientDemoRecorder.cs`) stores the messages the server sent that client, from AuthSuccess to disconnect. It rewrites the recorded player's spawns to remote ones, drops owner-only replies and notices, and rebuilds the RPCs and owner sync vars the server never sends back to their owner (missile launches, turret aim, sling loads) from the client's own commands. It holds only what the server shares with players. Tested against a local dedicated server (2026-10-14) with a scripted client that spawned and fired; not yet on a public server, and the recorded player's own flight was not checked in a replay because the test aircraft never left the deck.
 - The replay shows the world as a remote observer receives it. Units that the server hides from remote players are hidden in the replay too.
 - Client-side cosmetic effects can differ slightly between runs.
 - The header's `map_key_type` is written before the map key exists and currently reads `None`. The LoadMap message inside the stream carries the real map.

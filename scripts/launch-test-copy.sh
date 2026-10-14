@@ -47,7 +47,7 @@ log="${NC_TEST_LOG:-$copy/logs/launch-$(date +%Y%m%d-%H%M%S).log}"
 
 exec 9>"$lock"
 flock 9
-if pgrep -x 'NuclearOption.e' >/dev/null; then
+if grep -qxF 'NuclearOption.e' /proc/[0-9]*/comm 2>/dev/null; then   # exact name; the dedicated server is NuclearOptionSe
     die "Nuclear Option is already running"
 fi
 

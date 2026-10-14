@@ -35,6 +35,7 @@ namespace NuclearReplay
         private readonly Dictionary<string, long> errorCounts = new Dictionary<string, long>();
         private BundleWriter writer;
         private Demo.DemoRecorder demo;
+        private Demo.ClientDemoRecorder clientDemo;
         private Harmony harmony;
         private string session, mission, lastPlayer, lastWeapon, output, marker;
         private int entitySequence, eventSequence, stateSequence, missionSequence, markerSequence;
@@ -89,6 +90,8 @@ namespace NuclearReplay
             session = Guid.NewGuid().ToString("N");
             mission = session + ":m0";
             var demoEnabled = Config.Bind("Demo", "Enabled", true, "Record a network demo (.ncdemo) of each hosted mission for in-engine replay. Costs one extra network observer on the host.");
+            var clientDemoEnabled = Config.Bind("Demo", "RecordAsClient", true, "Also record a network demo of each multiplayer server you join as a client. "
+                + "The demo holds what that server sent you; your own aircraft replays like every other unit.");
             var demoRoot = Config.Bind("Demo", "OutputDirectory", Path.Combine(root.Value, "demos"), "Demo output directory. Linux paths under Proton must use a Wine drive mapping.");
             MoveLegacyDefault(demoRoot, "demos");
             if (!telemetry && !demoEnabled.Value)
@@ -112,6 +115,11 @@ namespace NuclearReplay
             {
                 demo = new Demo.DemoRecorder(Logger, demoRoot.Value, Version);
                 Demo.DemoRecorder.InstallPatches(harmony, hookStatus);
+                if (clientDemoEnabled.Value)
+                {
+                    clientDemo = new Demo.ClientDemoRecorder(Logger, demoRoot.Value, Version);
+                    Demo.ClientDemoRecorder.InstallPatches(harmony, hookStatus);
+                }
             }
             foreach (var h in hookStatus.Where(x => !x.Value)) Logger.LogWarning("Missing hook: " + h.Key);
             if (!telemetry)
@@ -404,6 +412,7 @@ namespace NuclearReplay
         private void Update()
         {
             if (demo != null) Safe("demo_update", demo.Update);
+            if (clientDemo != null) Safe("client_demo_update", clientDemo.Update);
             if (writer == null) return;
             Safe("frame_observation", () =>
             {
@@ -635,6 +644,7 @@ namespace NuclearReplay
             if (closed || (writer == null && demo == null)) return;
             closed = true;
             Safe("demo_shutdown", () => demo?.Stop("shutdown", disconnect: false));
+            Safe("client_demo_shutdown", () => clientDemo?.Stop("shutdown"));
             if (writer != null)
             {
                 Safe("shutdown", () => Emit("session_ended", new JObject { ["dropped_events"] = writer.DroppedEvents, ["dropped_states"] = writer.DroppedStates }));

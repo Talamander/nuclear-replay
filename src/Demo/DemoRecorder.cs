@@ -139,7 +139,7 @@ namespace NuclearReplay.Demo
         }
 
         // Also resolves units that are already gone, through the registry's persistent record.
-        private static JObject UnitRef(PersistentID id)
+        internal static JObject UnitRef(PersistentID id)
         {
             if (!id.IsValid) return null;
             if (UnitRegistry.TryGetPersistentUnit(id, out var pu) && pu != null)

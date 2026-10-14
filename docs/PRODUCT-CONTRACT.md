@@ -5,7 +5,7 @@ Both sides code against it. Change it only together with both sides.
 
 ## 1. Event annotations inside `.ncdemo`
 
-The recorder (NuclearReplay.dll, host only) writes gameplay events as annotation records
+The recorder (NuclearReplay.dll; hosts, and clients with `[Demo] RecordAsClient`) writes gameplay events as annotation records
 (record kind 2, UTF-8 JSON, same timestamps as message records). Replay time of a record is
 `record.t - first_record.t`, exactly as `tools/demo_inspect.py` computes it, and is the time used
 by shot lists (`"t"`) and render ranges.

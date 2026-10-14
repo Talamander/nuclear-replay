@@ -323,7 +323,8 @@ nr ffmpeg install --json       # download, verify, unpack; does nothing when alr
   `NC_LAUNCH_WRAPPER` instead. `nr` never closes a viewer game.
 - Log: `<data>/logs/nuclear-replay.log`, written by `nr`. The game's mod log is
   `<game>/BepInEx/LogOutput.log`.
-- Recordings: `<game>/NuclearReplay/demos/*.ncdemo`. Only the host records.
+- Recordings: `<game>/NuclearReplay/demos/*.ncdemo`. Hosts record each mission; clients record each server they join
+  (`*-client.ncdemo`, header `recorded_as: "client"`, config `[Demo] RecordAsClient`).
 
 ## Historical names
 

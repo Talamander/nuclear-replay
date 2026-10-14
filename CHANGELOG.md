@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Record matches you join as a client. The recorder writes `<time>-<mission>-client.ncdemo` with what the
+  server sent you; your own aircraft replays like every other unit, launches included. On by default;
+  `[Demo] RecordAsClient = false` turns it off. Replays never record themselves.
+
 ## 0.5.1 (2026-10-12)
 
 - Kill marks land on the hit. The game's kill feed comes when the victim dies, often 2 to 3 seconds after
