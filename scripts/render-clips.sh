@@ -197,7 +197,7 @@ limit="${RENDER_TIMEOUT:-$(python3 -c "print(int(300 + $last_to/2 + 3*$cap))")}"
 args=(-ncReplay "$demo" -ncNoHud -ncReplayFrames "$frames" "$fps" -ncCaptureRanges "$spec" -ncReplayQuit
       -ncFrameFormat raw -ncUncapped -ncFastForward "$ff_speed" "$ff_step" -ncPerfLog)
 [[ -n "$shots" ]] && args+=(-ncShots "$shots")
-"$here/run-headless.sh" "${args[@]}" >/dev/null 2>&1 &   # gamescope may segfault on exit; the encoders decide success
+"${NC_RUNNER:-$here/run-headless.sh}" "${args[@]}" >/dev/null 2>&1 &   # gamescope may segfault on exit; the encoders decide success
 game_pid=$!
 # run-headless.sh execs gamescope once it holds the game lock; the queue wait does not count against the watchdog.
 while kill -0 "$game_pid" 2>/dev/null && [[ "$(ps -o comm= -p "$game_pid" 2>/dev/null)" != gamescope* ]]; do sleep 1; done

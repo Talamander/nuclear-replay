@@ -23,7 +23,7 @@ recorder=$!
 date -u +%s.%N > "$work/record-start"
 args=(-ncReplay "$demo" -ncNoHud -ncReplayQuit -ncClockLog "$work/clock.txt")
 [[ -n "$shots" ]] && args+=(-ncShots "$(realpath "$shots")")
-NC_AUDIO_SINK="$sink" "$here/run-headless.sh" "${args[@]}" >/dev/null 2>&1 || true   # gamescope may segfault on exit
+NC_AUDIO_SINK="$sink" "${NC_RUNNER:-$here/run-headless.sh}" "${args[@]}" >/dev/null 2>&1 || true   # gamescope may segfault on exit
 kill "$recorder"; wait "$recorder" 2>/dev/null || true; recorder=
 [[ -s "$work/clock.txt" ]] || { echo "No replay clock was logged; see BepInEx/LogOutput.log." >&2; exit 1; }
 

@@ -76,6 +76,12 @@ namespace NuclearReplay.Playback
         private double startAt = -1;
         private bool startSeeking;
         private int savedVSync = -1, savedTargetFrameRate;
+        // -ncAudioRanges: real-time playback of sorted ranges for game-audio capture. Skips (muted, fixed steps)
+        // to each range's start minus preroll, plays it at 1x, then skips to the next; quits after the last.
+        private readonly List<double[]> audioRanges = new List<double[]>();
+        private int audioIndex;
+        private bool audioLive;
+        private double audioTail = 0.5;
 
         private double nextPerfLog, perfReplayStart;
         private int perfFrameStart;
@@ -222,6 +228,20 @@ namespace NuclearReplay.Playback
                         preroll = Math.Max(0.1, preroll);
                         break;
                     case "-ncPerfLog": perfLog = true; break;
+                    case "-ncAudioRanges":
+                        foreach (var item in (Next() ?? "").Split(','))
+                        {
+                            var ends = item.Split('@')[0].Split(':');
+                            if (ends.Length == 2
+                                && double.TryParse(ends[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var a)
+                                && double.TryParse(ends[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var b) && b > a)
+                                audioRanges.Add(new[] { a, b });
+                        }
+                        audioRanges.Sort((x, y) => x[0].CompareTo(y[0]));
+                        break;
+                    case "-ncAudioTail":
+                        double.TryParse(Next(), NumberStyles.Float, CultureInfo.InvariantCulture, out audioTail);
+                        break;
                     case "-ncStart":
                         if (double.TryParse(Next(), NumberStyles.Float, CultureInfo.InvariantCulture, out var start) && start > 0)
                             startAt = start;
@@ -237,6 +257,16 @@ namespace NuclearReplay.Playback
             {
                 frameRoot = frameDirectory;
                 SelectRange(0);
+            }
+            if (audioRanges.Count > 0 && (frameDirectory != null || jobPath != null || previewPath != null || startAt > 0))
+            {
+                Logger.LogWarning("-ncAudioRanges is ignored with frame export, a render job, a preview or -ncStart.");
+                audioRanges.Clear();
+            }
+            if (audioRanges.Count > 0)
+            {
+                if (!fastForwardGiven) { fastForwardSpeed = 8f; fastForwardStepFps = 60; }
+                Logger.LogInfo($"Audio ranges: {audioRanges.Count} (skip x{fastForwardSpeed} step {fastForwardStepFps}, preroll {preroll.ToString(CultureInfo.InvariantCulture)} s, tail {audioTail.ToString(CultureInfo.InvariantCulture)} s)");
             }
             if (startAt > 0 && (frameDirectory != null || jobPath != null || previewPath != null))
             {
@@ -289,6 +319,61 @@ namespace NuclearReplay.Playback
             if (viewer) ViewerSeekReached(replayNow);
             Logger.LogInfo($"Replay start reached at {replayNow.ToString("F2", CultureInfo.InvariantCulture)} s "
                 + $"(requested {startAt.ToString("F2", CultureInfo.InvariantCulture)} s), playing at 1x");
+        }
+
+        // -ncAudioRanges: muted fixed-step skip before each range, 1x (unmuted) from start - preroll to end + tail.
+        private void AudioRangeStep(double replayNow)
+        {
+            bool live = server.ScenesLoaded > 0 && !server.WaitingForScene && !NetworkManagerNuclearOption.IsLoadingScene;
+            if (audioIndex >= audioRanges.Count || server.Finished)
+            {
+                if (!quitRequested) { Logger.LogInfo($"Audio ranges done at {replayNow.ToString("F2", CultureInfo.InvariantCulture)} s"); quitRequested = true; Application.Quit(); }
+                return;
+            }
+            var r = audioRanges[audioIndex];
+            if (replayNow > r[1] + audioTail)
+            {
+                Logger.LogInfo($"Audio range {audioIndex} ({r[0].ToString(CultureInfo.InvariantCulture)}-{r[1].ToString(CultureInfo.InvariantCulture)}) done at {replayNow.ToString("F2", CultureInfo.InvariantCulture)} s");
+                clockLog?.WriteLine("# end " + audioIndex);
+                audioIndex++;
+                audioLive = false;
+                return;
+            }
+            bool ahead = !live || replayNow < r[0] - preroll;
+            if (ahead)
+            {
+                if (!fastForwarding)
+                {
+                    fastForwarding = true;
+                    savedVSync = QualitySettings.vSyncCount;
+                    savedTargetFrameRate = Application.targetFrameRate;
+                }
+                server.Paused = false;
+                server.Speed = fastForwardSpeed;
+                if (fastForwardStepFps > 0) Time.captureFramerate = fastForwardStepFps;
+                AudioListener.volume = 0f;
+                if (Time.frameCount % 30 == 0)
+                {
+                    if (QualitySettings.vSyncCount != 0) QualitySettings.vSyncCount = 0;
+                    if (Application.targetFrameRate != -1) Application.targetFrameRate = -1;
+                }
+                return;
+            }
+            if (!audioLive)
+            {
+                audioLive = true;
+                fastForwarding = false;
+                server.Speed = 1f;
+                Time.captureFramerate = 0;
+                AudioListener.volume = 1f;
+                if (savedVSync >= 0)
+                {
+                    QualitySettings.vSyncCount = savedVSync;
+                    Application.targetFrameRate = savedTargetFrameRate;
+                }
+                clockLog?.WriteLine("# start " + audioIndex);
+                Logger.LogInfo($"Audio range {audioIndex} live at {replayNow.ToString("F2", CultureInfo.InvariantCulture)} s, playing at 1x");
+            }
         }
 
         private void SelectRange(int index)
@@ -457,6 +542,7 @@ namespace NuclearReplay.Playback
                 server.Receive();
                 double replayNow = server.Clock - server.StartTime;
                 if (startSeeking) StartSeek(replayNow);
+                if (audioRanges.Count > 0) AudioRangeStep(replayNow);
                 if (preview != null)
                 {
                     if (preview.ShotsChanged && director != null) { preview.ShotsChanged = false; director.ReplaceShots(preview.LatestShots, replayNow); }
