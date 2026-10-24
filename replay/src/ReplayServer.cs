@@ -26,6 +26,8 @@ namespace NuclearReplay.Playback
         private IConnection client;
         private int index;
         private bool waitingForScene;
+        private System.Diagnostics.Stopwatch waitStarted;
+        private const double SceneWaitTimeout = 90;
         private double lastRecordTime, lastNetTime;
         private readonly HashSet<ushort> unknownClientMessages = new HashSet<ushort>();
 
@@ -68,6 +70,11 @@ namespace NuclearReplay.Playback
         public void Advance(double unscaledDelta)
         {
             if (client == null || client.State != ConnectionState.Connected) return;
+            if (waitingForScene && waitStarted != null && waitStarted.Elapsed.TotalSeconds > SceneWaitTimeout)
+            {
+                log.LogWarning($"Replay gave up waiting for the client scene load after {SceneWaitTimeout:F0}s; resuming");
+                waitingForScene = false;
+            }
             if (!Paused && !waitingForScene)
                 Clock += Math.Min(unscaledDelta, 0.25) * Speed;
             while (index < records.Count && !waitingForScene && records[index].Time <= Clock)
@@ -84,10 +91,13 @@ namespace NuclearReplay.Playback
                 lastRecordTime = record.Time;
                 lastNetTime = record.NetTime;
                 var id = record.MessageId;
-                if (id == LoadMapId || id == LoadWaitingId)
+                if (id == LoadMapId)
                 {
                     // The original host held spawns until this client finished loading; do the same.
+                    // LoadWaitingScene (mission end, between rounds) gets no SceneReady reply from the client,
+                    // so waiting on it stalled the replay forever; it is sent through without a wait.
                     waitingForScene = true;
+                    waitStarted = System.Diagnostics.Stopwatch.StartNew();
                     Clock = record.Time;
                     log.LogInfo($"Replay waiting for client scene load at {record.Time - StartTime:F2}s");
                 }
