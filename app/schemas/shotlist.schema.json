@@ -25,7 +25,7 @@
           "description": "Replay time in seconds when this shot starts."
         },
         "camera": {
-          "enum": ["orbit", "chase", "chase_cine", "cockpit", "tv", "free", "relative"],
+          "enum": ["orbit", "chase", "chase_cine", "action", "cockpit", "tv", "free", "relative"],
           "description": "orbit: circles the target. chase: behind the target. chase_cine: the director's cinematic chase (level horizon, holds its last pose when the target is gone). cockpit: pilot's view. tv: a spotter/flyby camera. free: free camera. relative: fixed offset from the target."
         },
         "target": {

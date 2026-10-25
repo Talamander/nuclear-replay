@@ -18,7 +18,7 @@ namespace NuclearReplay.Playback
     //   - the replay overlay: status line, timeline with launch/kill markers and the clip window, transport,
     //     speed, camera presets, unit and free camera buttons, clip controls, and a help panel.
     // All actions go back to ReplayPlugin; the UI only shows state.
-    internal sealed class ViewerUi
+    internal sealed partial class ViewerUi
     {
         // Snapshot of what the overlay shows, filled by ReplayPlugin every frame.
         internal sealed class State
@@ -30,6 +30,8 @@ namespace NuclearReplay.Playback
             public ViewerEvent Focus;
             public List<ViewerEvent> Events = new List<ViewerEvent>();
             public FfmpegDownload Ffmpeg;
+            public CameraStudio Studio;
+            public bool StudioOpen, StudioPlaying;
         }
 
         public static bool PointerOverViewerUi;
@@ -56,6 +58,9 @@ namespace NuclearReplay.Playback
         private GameObject mapHeader;
         private LayoutElement missionHeader;
         private readonly List<KeyValuePair<Image, ViewerDemo>> rows = new List<KeyValuePair<Image, ViewerDemo>>();
+        private TextMeshProUGUI menuHint, deleteLabel, deleteNote;
+        private ViewerDemo deleteArmed;
+        private float deleteArmedUntil;
         private RectTransform ffmpegPanel, ffmpegBar, ffmpegBarFill;
         private TextMeshProUGUI ffmpegTitle, ffmpegBody, ffmpegDetail, ffmpegPrimaryLabel, ffmpegSecondaryLabel;
         private Button ffmpegPrimary, ffmpegSecondary;
@@ -214,6 +219,7 @@ namespace NuclearReplay.Playback
             timelineFill = Rect("Played", timeline, new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(0, -3), new Vector2(0, 3));
             Fill(timelineFill, accent);
             markerLayer = Rect("Markers", timeline, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            BuildStudioTimeline();
             playhead = Rect("Playhead", timeline, new Vector2(0, 0), new Vector2(0, 1), new Vector2(-1.5f, -4), new Vector2(1.5f, 4));
             Fill(playhead, Color.white);
 
@@ -242,6 +248,7 @@ namespace NuclearReplay.Playback
             unitLabel = Label(controls, "", 220, 15);
             MakeButton(controls, ">", 32, () => host.ViewerUnit(1));
             freeButton = MakeButton(controls, "Free cam", 92, () => host.ViewerToggleFreeCam(), out freeLabel, 40, 16);
+            studioButton = MakeButton(controls, "Camera path", 116, () => host.ViewerToggleStudio(), out studioLabel, 40, 16);
             Gap(controls, 10);
             MakeButton(controls, "In", 44, () => host.ViewerSetIn());
             MakeButton(controls, "Out", 50, () => host.ViewerSetOut());
@@ -259,6 +266,8 @@ namespace NuclearReplay.Playback
                 string id = ViewerPresets.Ids[i];
                 presetButtons.Add(MakeButton(presetsRow, (i + 1) + " " + ViewerPresets.Labels[i], ViewerPresets.Labels[i].Length * 9f + 44, () => host.ViewerPreset(id), 40, 16));
             }
+
+            BuildStudio();
         }
 
         // A fixed-width text cell in a control row (speed, unit, clip in/out); it never shrinks to nothing.
@@ -294,9 +303,10 @@ namespace NuclearReplay.Playback
             "<b>Left / Right</b>  back / forward 10 s\n" +
             "<b>Up / Down</b> or <b>+ / -</b>  speed 0.25x to 4x\n" +
             "<b>Click the timeline</b>  jump; a marker jumps to that moment\n" +
-            "<b>1 - 7</b>  cameras: cinematic chase, victim cut, missile follow, chase, orbit, flyby, cockpit\n" +
+            "<b>1 - 8</b>  cameras: cinematic chase, victim cut, missile follow, chase, orbit, flyby, cockpit, action cam\n" +
             "<b>[ / ]</b>  previous / next aircraft\n" +
-            "<b>F</b>  free camera: <b>WASD</b> move, <b>Q/E</b> down/up, <b>Shift</b> faster, wheel sets speed, hold <b>right mouse</b> to look\n" +
+            "<b>F</b>  free camera: <b>WASD</b> move, <b>Q/E</b> down/up, <b>Shift</b> faster, wheel sets speed, <b>Ctrl</b> + wheel zooms, hold <b>right mouse</b> to look\n" +
+            "<b>P</b>  Camera Studio: <b>K</b> add key, <b>U</b> update, <b>X</b> delete, <b>[ ]</b> select, <b>, .</b> retime, <b>T</b> timing, <b>L</b> aim, <b>J</b> shake, <b>M</b> space, <b>Enter</b> play, <b>C</b> clip the path\n" +
             "<b>I / O</b>  clip in / out at the current time\n" +
             "<b>C</b>  clip this: plays the clip at 1x and records it (C again cancels)\n" +
             "<b>G</b>  the game's flight HUD on / off\n" +
@@ -395,7 +405,7 @@ namespace NuclearReplay.Playback
             Text(title, "<b>REPLAYS</b>", 34, TextAlignmentOptions.Left, accent);
             var hint = Rect("Hint", menu, new Vector2(0, 1), new Vector2(1, 1), new Vector2(28, -70), new Vector2(-28, -14));
             if (LegacyWarning != null) Text(hint, "Old Nuclear Context installed: delete BepInEx/plugins/NuclearContext", 17, TextAlignmentOptions.Right, new Color(1f, 0.35f, 0.3f));
-            else Text(hint, "Recordings made by Nuclear Replay", 17, TextAlignmentOptions.Right, new Color(textColor.r, textColor.g, textColor.b, 0.6f));
+            else menuHint = Text(hint, "Recordings made by Nuclear Replay", 17, TextAlignmentOptions.Right, new Color(textColor.r, textColor.g, textColor.b, 0.6f));
 
             var header = Row(menu, "Header", 0);
             header.anchorMin = new Vector2(0, 1); header.anchorMax = new Vector2(1, 1);
@@ -424,6 +434,15 @@ namespace NuclearReplay.Playback
             buttons.anchorMin = new Vector2(0, 0); buttons.anchorMax = new Vector2(1, 0);
             buttons.offsetMin = new Vector2(28, 20); buttons.offsetMax = new Vector2(-28, 68);
             buttons.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleRight;
+            // Delete sits apart on the left and asks first: the first click (or the Delete key) arms it, a second one
+            // within a few seconds deletes.
+            MakeButton(buttons, "Delete", 160, () => DeleteClicked(), out deleteLabel, 46, 20);
+            var note = Rect("DeleteNote", buttons, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero);
+            var noteLayout = note.gameObject.AddComponent<LayoutElement>();
+            noteLayout.flexibleWidth = 1; noteLayout.preferredHeight = 46;
+            deleteNote = Text(note, "", 17, TextAlignmentOptions.Left, KillColor);
+            deleteNote.rectTransform.offsetMin = new Vector2(8, 0);
+            deleteNote.enableWordWrapping = true;
             MakeButton(buttons, "Refresh", 120, () => host.ViewerRefreshMenu(), 46, 20);
             MakeButton(buttons, "Close", 120, () => ShowMenu(false), 46, 20);
             MakeButton(buttons, "Watch", 160, () => { if (selectedDemo != null) host.ViewerOpen(selectedDemo, -1, -1); }, 46, 22);
@@ -455,6 +474,7 @@ namespace NuclearReplay.Playback
             mapHeader.SetActive(showMap);
             // Without the Map column the Mission column takes its width, so the table still fills the panel.
             float missionWidth = showMap ? 360 : 530;
+            if (menuHint != null && (!scanning || demos.Count > 0)) menuHint.text = ViewerText.LibrarySummary(demos.Count, demos.Sum(x => x.Size));
             missionHeader.preferredWidth = missionHeader.minWidth = missionWidth;
             foreach (var demo in demos)
             {
@@ -516,6 +536,9 @@ namespace NuclearReplay.Playback
                 button.onClick.AddListener(() => ShowMenu(true));
                 // Other click hooks on the clone (event triggers) would open the missions screen too.
                 foreach (var trigger in menuButton.GetComponentsInChildren<EventTrigger>(true)) UnityEngine.Object.Destroy(trigger);
+                // Any other main menu button leaves the Replays screen, as the game's own screens do.
+                foreach (var other in missions.transform.parent.GetComponentsInChildren<Button>(true))
+                    if (other.gameObject != menuButton) other.onClick.AddListener(() => { if (MenuOpen) ShowMenu(false); });
                 string original = missions.GetComponentInChildren<TMP_Text>(true)?.text ?? missions.GetComponentInChildren<UnityEngine.UI.Text>(true)?.text ?? "Missions";
                 string label = original.ToUpperInvariant() == original ? "REPLAYS" : "Replays";
                 foreach (var t in menuButton.GetComponentsInChildren<TMP_Text>(true)) t.text = label;
@@ -563,6 +586,7 @@ namespace NuclearReplay.Playback
         {
             EnsureRoot();
             menu.gameObject.SetActive(show);
+            Disarm();
             if (show) { host.ViewerRefreshMenu(); menuVersion = -1; }
             host.ViewerCursor(show || overlay.gameObject.activeSelf);
         }
@@ -570,10 +594,42 @@ namespace NuclearReplay.Playback
         // Selects a recording and moves the row highlight to it (row clicks and the menu-pick test command).
         public void SelectDemo(ViewerDemo demo)
         {
+            if (demo != deleteArmed) Disarm();
             selectedDemo = demo;
             foreach (var r in rows) r.Key.color = r.Value == demo ? RowSelected : RowColor;
         }
         public ViewerDemo SelectedDemo => selectedDemo;
+
+        // Delete button / Delete key: arms on the first press, deletes the selected recording on the second.
+        internal void DeleteClicked()
+        {
+            if (selectedDemo == null) return;
+            if (deleteArmed != selectedDemo || Time.unscaledTime > deleteArmedUntil)
+            {
+                deleteArmed = selectedDemo;
+                deleteArmedUntil = Time.unscaledTime + 6f;
+                deleteLabel.text = "<b>Yes, delete</b>";
+                deleteNote.text = ViewerText.DeleteQuestion(selectedDemo.Error != null ? selectedDemo.FileName : selectedDemo.Title, selectedDemo.Size);
+                return;
+            }
+            var demo = selectedDemo;
+            var list = rows.Select(r => r.Value).ToList();
+            int at = list.IndexOf(demo);
+            Disarm();
+            string error = host.ViewerDelete(demo);
+            if (error != null) { Toast("Could not delete the recording: " + error + ".", 5f); return; }
+            list.Remove(demo);
+            // Keep the place in the list: the next recording down, or the last one.
+            selectedDemo = list.Count == 0 ? null : list[Math.Max(0, Math.Min(at, list.Count - 1))];
+            Toast("Deleted " + (demo.Error != null ? demo.FileName : demo.Title) + ".", 3f);
+        }
+
+        private void Disarm()
+        {
+            deleteArmed = null;
+            if (deleteLabel != null) deleteLabel.text = "Delete";
+            if (deleteNote != null) deleteNote.text = "";
+        }
 
         // ---------------- per frame ----------------
 
@@ -596,6 +652,9 @@ namespace NuclearReplay.Playback
             }
             PointerOverViewerUi = false;
             UpdateFfmpegPrompt(s.Ffmpeg);
+            // The Replays screen closes with Escape, and when the main menu hides its button column (another screen
+            // took over without a click on one of its buttons).
+            if (MenuOpen && (Input.GetKeyDown(KeyCode.Escape) || menuButton != null && !menuButton.activeInHierarchy)) ShowMenu(false);
             if (MenuOpen)
             {
                 if (catalog.Version != menuVersion && !catalog.Scanning || menuVersion == -1 && catalog.Demos.Count > 0)
@@ -603,6 +662,8 @@ namespace NuclearReplay.Playback
                     menuVersion = catalog.Version;
                     FillMenu(catalog.Demos, catalog.Scanning);
                 }
+                if (deleteArmed != null && Time.unscaledTime > deleteArmedUntil) Disarm();
+                if (Input.GetKeyDown(KeyCode.Delete)) DeleteClicked();
                 PointerOverViewerUi = true;
             }
             bool showOverlay = s.InReplay && !uiHidden && !s.Recording;
@@ -628,6 +689,8 @@ namespace NuclearReplay.Playback
             unitLabel.text = s.Following ?? "-";
             freeLabel.text = s.FreeCam ? "<b>Free cam</b>" : "Free cam";
             freeButton.image.color = s.FreeCam ? accent : Color.white;
+            studioLabel.text = s.StudioOpen ? "<b>Camera path</b>" : "Camera path";
+            studioButton.image.color = s.StudioOpen ? accent : Color.white;
             for (int i = 0; i < presetButtons.Count; i++)
             {
                 var label = presetButtons[i].GetComponentInChildren<TextMeshProUGUI>();
@@ -655,6 +718,7 @@ namespace NuclearReplay.Playback
             if (markerSource != s.Events || markerFocus != s.Focus || Math.Abs(markerDuration - duration) > 0.5 || markers.Count > 0 && markers[0].Key.rect.height <= 0)
                 BuildMarkers(s.Events, s.Focus, duration);
             PlaceMarkers(duration, width);
+            UpdateStudio(s, duration, width);
             PointerOverViewerUi |= RectTransformUtility.RectangleContainsScreenPoint(bottom, Input.mousePosition, null)
                 || help.gameObject.activeSelf && RectTransformUtility.RectangleContainsScreenPoint(help, Input.mousePosition, null);
             UpdateTooltip(duration);

@@ -9,8 +9,8 @@ namespace NuclearReplay.Playback
     // Same shots, same pairing of a launch with its kill; keep the two in step when a style changes.
     internal static class ViewerPresets
     {
-        public static readonly string[] Ids = { "cinematic_chase", "victim_cut", "missile_follow", "chase", "orbit", "flyby", "cockpit" };
-        public static readonly string[] Labels = { "Cinematic chase", "Victim cut", "Missile follow", "Chase", "Orbit", "Flyby", "Cockpit" };
+        public static readonly string[] Ids = { "cinematic_chase", "victim_cut", "missile_follow", "chase", "orbit", "flyby", "cockpit", "action" };
+        public static readonly string[] Labels = { "Cinematic chase", "Victim cut", "Missile follow", "Chase", "Orbit", "Flyby", "Cockpit", "Action cam" };
 
         public static string Label(string id)
         {
@@ -49,6 +49,9 @@ namespace NuclearReplay.Playback
                 case "cockpit":
                     shots.Add(Shot(from, "cockpit", subject));
                     break;
+                case "action":
+                    shots.Add(Shot(from, "action", free));
+                    break;
                 case "missile_follow":
                 case "victim_cut":
                     MissileShots(shots, style == "victim_cut", moment, from, to, events);
@@ -56,18 +59,18 @@ namespace NuclearReplay.Playback
                 default:
                     if (moment?.Event == "launch")
                     {
-                        shots.Add(Shot(from, "chase", subject, 50));
+                        shots.Add(Shot(from, "chase_cine", subject, 50));
                         string missile = moment.Missile is long id ? "unit:" + id : "latest_missile";
                         shots.Add(Shot(Math.Max(from, eventT + 0.4), "chase", missile, 60, 3));
                     }
                     else if (moment?.Event == "kill")
                     {
                         string victim = ViewerEvent.ShotTarget(moment.Victim);
-                        shots.Add(Shot(from, "chase", subject, 50));
+                        shots.Add(Shot(from, "chase_cine", subject, 50));
                         if (victim != null && victim != subject)
                             shots.Add(Shot(Math.Max(from, eventT - KillCutLead(moment)), "orbit", victim, 45, Math.Max(3, to - eventT)));
                     }
-                    else shots.Add(Shot(from, "chase", free, 55));
+                    else shots.Add(Shot(from, "chase_cine", free, 50));
                     break;
             }
             var ordered = shots.Where((x, i) => i == 0 || (double)x["t"] < to).OrderBy(x => (double)x["t"]);

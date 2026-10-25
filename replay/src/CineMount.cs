@@ -727,6 +727,7 @@ namespace NuclearReplay.Playback
             if (mPov) StepPovView(cam, rc);
 
             curFov = fov;
+            rot = Shake(rot);
             cam.transform.SetPositionAndRotation(new GlobalPosition(camPos).ToLocalPosition(), rot);
             ApplyFov(cam, curFov);
             if (mPov) PovOverlayLens(cam, rc);

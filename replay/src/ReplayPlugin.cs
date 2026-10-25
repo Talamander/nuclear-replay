@@ -91,6 +91,7 @@ namespace NuclearReplay.Playback
         private double nextHudScan;
         private bool hudHidden;
         private readonly HashSet<Canvas> hiddenCanvases = new HashSet<Canvas>();
+        private CockpitView cockpitView;
         private double screenshotEvery;
         private bool quitAtEnd;
         private LoopbackSocketFactory factory;
@@ -132,6 +133,7 @@ namespace NuclearReplay.Playback
         private void Awake()
         {
             Instance = this;
+            cockpitView = new CockpitView(Logger);
             MigrateConfig();
             // An old install (Nuclear Context) loaded next to this one: the recorder stays off; the player keeps working
             // but says so in the log, in a toast and in the Replays menu.
@@ -362,6 +364,7 @@ namespace NuclearReplay.Playback
             try { server?.Close(); } catch (Exception e) { Logger.LogWarning("Preview restart: server: " + e.Message); }
             server = null;
             director = null;
+            cockpitView.Leave();
             finishedAt = -1;
             capturing = false;
             hiddenCanvases.Clear();
@@ -483,6 +486,7 @@ namespace NuclearReplay.Playback
                 Time.timeScale = server.Paused ? 0f : server.Speed;
                 double replayTime = server.Clock - server.StartTime;
                 if (!freeCamOn) director.Update(replayTime, live);
+                cockpitView.Step(live);
                 if (live) Capture(replayTime);
                 preview?.AfterFrame(replayTime, live);
                 JobUpdate(replayTime, live);
@@ -777,6 +781,7 @@ namespace NuclearReplay.Playback
         }
 
         // Hides or restores the game's own UI canvases. Rescans each second for canvases created later.
+
         private void ApplyHud()
         {
             if (Time.unscaledTimeAsDouble < nextHudScan) return;
@@ -784,7 +789,7 @@ namespace NuclearReplay.Playback
             if (hudHidden)
             {
                 foreach (var canvas in FindObjectsOfType<Canvas>())
-                    if (canvas.isRootCanvas && canvas.enabled && canvas != ui?.Canvas) { canvas.enabled = false; hiddenCanvases.Add(canvas); }
+                    if (canvas.isRootCanvas && canvas.enabled && canvas != ui?.Canvas && !cockpitView.Keeps(canvas)) { canvas.enabled = false; hiddenCanvases.Add(canvas); }
             }
             else if (hiddenCanvases.Count > 0)
             {

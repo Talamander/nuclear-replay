@@ -123,7 +123,7 @@ use the pair: on a paired kill they start on the shooter, ride the missile and e
 
 | Style | What it does |
 | --- | --- |
-| `cinematic_chase` | Follows the shooter, then rides the missile to the hit. Default. |
+| `cinematic_chase` | A smooth low-side chase on the shooter (`chase_cine`), then rides the missile to the hit. Default. |
 | `victim_cut` | Rides the missile, then cuts to the target going down at impact. |
 | `missile_follow` | Stays on the missile from launch to impact, then holds on the hit. |
 | `chase` | Behind the aircraft, steady. |

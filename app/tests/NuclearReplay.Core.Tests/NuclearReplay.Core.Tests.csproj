@@ -16,6 +16,9 @@
   <ItemGroup>
     <!-- Unity-free viewer text from the replay plugin. -->
     <Compile Include="../../../replay/src/ViewerText.cs" Link="Viewer/ViewerText.cs" />
+    <Compile Include="../../../replay/src/CameraPath.cs" Link="Viewer/CameraPath.cs" />
+    <Compile Include="../../../replay/src/CameraShake.cs" Link="Viewer/CameraShake.cs" />
+    <Compile Include="../../../replay/src/CameraStudio.cs" Link="Viewer/CameraStudio.cs" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />

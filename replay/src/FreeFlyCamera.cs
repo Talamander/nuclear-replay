@@ -3,8 +3,8 @@ using UnityEngine;
 
 namespace NuclearReplay.Playback
 {
-    // Viewer free camera: WASD move, Q/E down/up, Shift faster, mouse wheel changes the base speed, and
-    // the mouse turns the view while the right button is held.
+    // Viewer free camera: WASD move, Q/E down/up, Shift faster, mouse wheel changes the base speed, Ctrl + wheel
+    // zooms the lens, and the mouse turns the view while the right button is held.
     //
     // Proton note (same cause as the EditorMouseLook fix): with an unlocked cursor Wine delivers only
     // absolute pointer motion, so mouse deltas read zero. The cursor is therefore locked and hidden while
@@ -18,6 +18,7 @@ namespace NuclearReplay.Playback
         public float BaseSpeed = 60f;          // m/s
         public float Yaw, Pitch;
         public Vector3 Position;               // global (floating-origin safe)
+        public float Fov = -1f;                // lens in degrees; -1 = the game's own until Ctrl + wheel changes it
         public bool Looking { get; private set; }
         // Set before re-entering to keep the last pose (free camera restored after a backward jump).
         public bool KeepPose;
@@ -38,6 +39,7 @@ namespace NuclearReplay.Playback
             cam.mainCamera.nearClipPlane = 1f;
             FlightHud.EnableCanvas(enable: false);
             if (savedFov < 0) savedFov = cam.desiredFOV;
+            if (Fov > 0) SetFov(cam, Fov);
             if (KeepPose) KeepPose = false;
             else
             {
@@ -82,7 +84,13 @@ namespace NuclearReplay.Playback
             Pitch = Mathf.Clamp(Pitch, -89f, 89f);
 
             float wheel = Input.mouseScrollDelta.y;
-            if (Mathf.Abs(wheel) > 0.01f) BaseSpeed = Mathf.Clamp(BaseSpeed * Mathf.Pow(1.2f, wheel), 5f, 2000f);
+            bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+            if (Mathf.Abs(wheel) > 0.01f && ctrl && !ViewerUi.PointerOverViewerUi)
+            {
+                float now = Fov > 0 ? Fov : cam.mainCamera.fieldOfView;
+                SetFov(cam, Mathf.Clamp(now * Mathf.Pow(0.9f, wheel), 5f, 120f));
+            }
+            else if (Mathf.Abs(wheel) > 0.01f) BaseSpeed = Mathf.Clamp(BaseSpeed * Mathf.Pow(1.2f, wheel), 5f, 2000f);
 
             var rot = Quaternion.Euler(Pitch, Yaw, 0f);
             Vector3 move = ScriptMove;
@@ -108,6 +116,16 @@ namespace NuclearReplay.Playback
         }
 
         public override void FixedUpdateState(CameraStateManager cam) { }
+
+        // The lens the free camera shows now (its own once zoomed, else the game's).
+        public float CurrentFov(CameraStateManager cam) => Fov > 0 ? Fov : cam.mainCamera.fieldOfView;
+
+        public void SetFov(CameraStateManager cam, float fov)
+        {
+            Fov = fov;
+            cam.mainCamera.fieldOfView = fov;
+            cam.desiredFOV = fov;
+        }
 
         private void StartLook()
         {

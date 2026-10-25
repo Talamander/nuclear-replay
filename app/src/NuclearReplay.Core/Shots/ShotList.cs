@@ -59,7 +59,7 @@ public sealed class ShotValidationResult
 /// <summary>Checks a shot list against what the replay director understands (replay/src/Director.cs).</summary>
 public static class ShotValidator
 {
-    public static readonly string[] Cameras = { "orbit", "chase", "chase_cine", "cockpit", "tv", "free", "relative" };
+    public static readonly string[] Cameras = { "orbit", "chase", "chase_cine", "action", "cockpit", "tv", "free", "relative" };
     public static readonly string[] FixedTargets = { "host", "auto", "latest_missile", "latest_host_missile" };
     private static readonly Regex UnitTarget = new(@"^unit:[0-9]+$", RegexOptions.CultureInvariant);
     private static readonly string[] KnownShotFields = { "t", "camera", "target", "fov", "hold", "then" };

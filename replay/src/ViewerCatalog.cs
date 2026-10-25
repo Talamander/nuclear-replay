@@ -158,6 +158,32 @@ namespace NuclearReplay.Playback
             }) { IsBackground = true, Name = "nc-viewer-catalog" }.Start();
         }
 
+        // Deletes a recording for good (the demo and its sidecar files, ViewerText.RecordingFiles) and drops it
+        // from the list at once. Returns null, or why it could not (a file still open elsewhere, say).
+        public string Delete(ViewerDemo demo)
+        {
+            if (demo == null || string.IsNullOrEmpty(demo.Path)) return "nothing selected";
+            try
+            {
+                foreach (var file in ViewerText.RecordingFiles(demo.Path))
+                    if (File.Exists(file)) File.Delete(file);
+            }
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
+            {
+                log.LogWarning("Replays menu: could not delete " + demo.Path + ": " + e.Message);
+                return e is UnauthorizedAccessException ? "the file is read-only or not yours" : "the file is in use";
+            }
+            log.LogInfo("Replays menu: deleted " + demo.Path);
+            lock (gate)
+            {
+                cache.Remove(demo.Path);
+                // The same recording can be listed under a second path (S: and Z:); drop every copy of it.
+                latest = latest.Where(d => d != demo && !(d.FileName == demo.FileName && d.Size == demo.Size && d.Modified == demo.Modified)).ToList();
+                Version++;
+            }
+            return null;
+        }
+
         // Reads one recording (cached). Never throws; a broken file comes back with Error set.
         public ViewerDemo Get(string path)
         {

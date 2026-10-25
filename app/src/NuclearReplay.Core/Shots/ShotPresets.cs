@@ -11,17 +11,18 @@ public static class ShotPresets
 {
     /// <summary>
     /// Camera styles for the GUI and <c>nr render --style</c>. Every style only uses cameras the shot list
-    /// validator accepts (orbit, chase, cockpit, tv), so a generated list can always be saved, edited and re-used.
+    /// validator accepts (orbit, chase, cockpit, tv, action), so a generated list can always be saved, edited and re-used.
     /// </summary>
     public static readonly CameraStyle[] CameraStyles =
     {
-        new("cinematic_chase", "Cinematic chase", "Follows the shooter, then rides the missile to the hit."),
+        new("cinematic_chase", "Cinematic chase", "A smooth low-side chase on the shooter, then rides the missile to the hit."),
         new("victim_cut", "Victim cut", "Rides the missile, then cuts to the target going down at impact."),
         new("missile_follow", "Missile follow", "Stays on the missile from launch to impact, then holds on the hit."),
         new("chase", "Chase", "Behind the aircraft, steady."),
         new("orbit", "Orbit", "Circles the aircraft (the victim on a kill)."),
         new("flyby", "Flyby", "A spotter camera watching the action pass by."),
         new("cockpit", "Cockpit", "From the pilot's seat."),
+        new("action", "Action cam", "Behind the aircraft on a springy arm: swings out in turns, drops back under thrust, leads into the turn."),
     };
 
     /// <summary>Style ids as a sentence, for error messages ("chase, orbit or cockpit").</summary>
@@ -75,6 +76,9 @@ public static class ShotPresets
             case "cockpit":
                 shots.Add(new Shot { T = from, Camera = "cockpit", Target = subject });
                 break;
+            case "action":
+                shots.Add(new Shot { T = from, Camera = "action", Target = free });
+                break;
             case "missile_follow":
             case "victim_cut":
                 MissileShots(shots, styleId.Equals("victim_cut", StringComparison.OrdinalIgnoreCase), moment, from, to, events);
@@ -82,14 +86,14 @@ public static class ShotPresets
             default: // cinematic_chase
                 if (moment?.Event == "launch")
                 {
-                    shots.Add(new Shot { T = from, Camera = "chase", Target = subject, Fov = 50 });
+                    shots.Add(new Shot { T = from, Camera = "chase_cine", Target = subject, Fov = 50 });
                     var missile = moment.Missile is { } id ? $"unit:{id}" : "latest_missile";
                     shots.Add(new Shot { T = Math.Max(from, eventT + 0.4), Camera = "chase", Target = missile, Fov = 60, Hold = 3 });
                 }
                 else if (moment?.Event == "kill")
                 {
                     var victim = moment.Victim?.ShotTarget;
-                    shots.Add(new Shot { T = from, Camera = "chase", Target = subject, Fov = 50 });
+                    shots.Add(new Shot { T = from, Camera = "chase_cine", Target = subject, Fov = 50 });
                     // With a recorded hit the kill time is the impact: cut to the victim just before it. Older
                     // recordings only have the kill feed, which comes about 2.5 s after the impact.
                     if (victim != null && victim != subject)
@@ -97,7 +101,7 @@ public static class ShotPresets
                 }
                 else
                 {
-                    shots.Add(new Shot { T = from, Camera = "chase", Target = free, Fov = 55 });
+                    shots.Add(new Shot { T = from, Camera = "chase_cine", Target = free, Fov = 50 });
                 }
                 break;
         }

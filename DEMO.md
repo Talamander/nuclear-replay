@@ -94,10 +94,26 @@ start it (docs/AGENTS.md).
 - The overlay (uGUI, `replay/src/ViewerUi.cs`) has a timeline with launch (amber) and kill (red)
   markers, the clip window (blue) and a playhead. A click jumps; a click on a marker jumps to that
   moment and sets the clip in and out points to 5 s before and 6 s after it.
-- Keys: Space play/pause, Left/Right 10 s, Up/Down or +/- speed (0.25x to 4x), 1 to 7 camera presets
+- Keys: Space play/pause, Left/Right 10 s, Up/Down or +/- speed (0.25x to 4x), 1 to 8 camera presets
   (the camera styles of `nr render`, `ViewerPresets.cs`), [ and ] previous and next aircraft, F free camera
-  (WASD, Q/E, Shift, wheel for speed, hold the right mouse button to look), I/O clip in and out,
-  C record the clip, G the game's HUD, H hide all UI, F1 help, Backspace back to the menu.
+  (WASD, Q/E, Shift, wheel for speed, Ctrl + wheel to zoom, hold the right mouse button to look), P Camera
+  Studio, I/O clip in and out, C record the clip, G the game's HUD, H hide all UI, F1 help, Backspace back
+  to the menu.
+- **Camera Studio** (P, or **Camera path** in the bottom bar; `replay/src/ReplayPlugin.Studio.cs`,
+  model `CameraStudio.cs`) lays down a camera path with the free camera. K adds a key at the free camera's
+  pose, lens and the replay's time, after the selected key. A key laid while the replay stands still goes
+  3 s after the one before it; one laid after the replay moved on takes the replay's time. U moves the
+  selected key to the free camera's pose (its time stays), X or Delete deletes it, [ and ] select a key and
+  put the free camera on it, comma and period move the selected key and every later key 0.5 s. T switches
+  timing (even speed or reach every key at its time), L the aim (the keys' own view, look at the aircraft,
+  look along the path), J the shake (off, handheld, heavy handheld, rumble, buffet) and M the space (world,
+  or moving with the aircraft that was followed when the studio opened; every key needs that aircraft alive).
+  Enter plays the path from 1.5 s before its first key and goes back to the free camera 1 s after the last;
+  C clips exactly that span. The panel shows the keys and settings, the timeline shows the path's span
+  (purple) and a tick per key, and the path is drawn into the scene with a numbered dot per key while
+  editing. Every change saves `<demo>.path.json` beside the recording: a shot list with the one `path` shot
+  (so `-ncShots` and render jobs can use it) plus the studio's own keys, which load the next time the studio
+  opens on that recording. Deleting the recording deletes it too.
 - Jumps forward fast-forward in fixed 8/60 s steps. Jumps back restart the mission and fast-forward
   from the start (docs/JUMP-POINTS.md has the measured times and a plan for faster jumps).
 - The game's green flight HUD and its bottom unit panel (speed, altitude, weapons) are hidden unless
@@ -124,7 +140,9 @@ start it (docs/AGENTS.md).
 - Test hook: `-ncViewerCommands <file>` (or `NC_VIEWER_COMMANDS`) runs one command per line appended to
   the file (`menu-button`, `menu-pick`, `menu-watch`, `seek`, `skip`, `speed`, `preset`, `unit`,
   `free`, `fly`, `look`, `hide`, `help`, `toast`, `gamehud`, `in`, `out`, `clip`, `moment`, `timeline`, `shot`,
-  `exit`, `quit`, and `msgstats`, `uiat` for research) and writes `<file>.status` (JSON) every 0.5 s.
+  `studio on|off|key|update|delete|select <n>|play|stop|timing|aim|shake|space|retime <s>|clip|clear`,
+  `exit`, `quit`, and `msgstats`, `uiat` for research) and writes `<file>.status` (JSON, with a `studio`
+  object) every 0.5 s.
   Headless screenshots use `shot <png>`.
 
 Render a clip off-screen and silent to MP4. This needs Steam running and the game closed:
@@ -194,7 +212,7 @@ Without `-ncShots`, the director uses `<demo>.shots.json` if that file exists.
 ```
 
 - `t`: the time in seconds since the demo started.
-- `camera`: one of `orbit`, `chase`, `cockpit`, `tv`, `free` or `relative` (the game's own camera states), or one of the cinematic cameras `flyby`, `chase_cine`, `track_from`, `keyframe` and `mount` (see "Cinematic cameras" below).
+- `camera`: one of `orbit`, `chase`, `cockpit`, `tv`, `free` or `relative` (the game's own camera states), or one of the cinematic cameras `flyby`, `chase_cine`, `track_from`, `keyframe`, `mount`, `action` and `path` (see "Cinematic cameras" below).
 - `target`: one of these:
   - `host`: the hosting player's aircraft.
   - `auto`: follows the host and cuts to each newly launched missile.
@@ -202,6 +220,7 @@ Without `-ncShots`, the director uses `<demo>.shots.json` if that file exists.
   - `latest_host_missile`
   - `unit:<persistentID>`
   - `name:<substring>`: matches the unit name, for example `name:Revoker`.
+  - `none`: only for `path` shots in world space that do not look at a unit; the path starts at once.
 - `hold`: the number of seconds the camera stays on a destroyed target. The default is 3. After that, the camera cuts to the live aircraft nearest to where the target died. When a missile followed with one of the game's cameras detonates, the view holds still on the explosion for this time (the game's chase camera would swing to the sky).
 - `then`: optional, a shot object (`camera`, `target`, `fov`, `hold`) to cut to once the target is gone and the hold is over, instead of the nearest aircraft. `victim_cut` uses it to cut to the victim at the moment the missile hits: `{"t":29.96, "camera":"chase", "target":"unit:139", "hold":0, "then":{"camera":"orbit", "target":"unit:136", "fov":50}}`. A later shot that repeats the camera and target on screen keeps the camera as it is.
 - `fov`: the field of view in degrees. Optional. Note: with the NOVR mod installed, the game cameras ignore `fov` (NOVR blocks every change to `Camera.fieldOfView`). The cinematic cameras work around this.
@@ -235,6 +254,9 @@ These shot types are driven by the replay director itself, not by the game's cam
 - `mount`: a close-up camera rigidly attached to the aircraft (GoPro style), riding every roll and bank. `preset` is one of `canopy_front`, `canopy_over_shoulder`, `wing_root`, `wingtip_back`, `belly_gear`, `nozzle` or `weapon_release` (with `weapon`, e.g. `"weapon":"Scimitar"`); `side` is `right` or `left`. Anchors (eye, gear, nozzles, hardpoints, wingtips) are discovered from the airframe. `offset`/`look` (local metres) override the preset, `drift` `[x,y,z]` and `arc` (degrees) add a slow move over `drift_time`. Horizon lock is off by default; the target is drawn at full LOD with the pilot visible, near clip 0.05 m, and the camera is pushed out of the hull. Example: `{"t":2940.6, "camera":"mount", "target":"host", "preset":"weapon_release", "weapon":"Scimitar", "side":"left", "mattes":["aircraft"]}`. Details: `replay/CINE-CAMERA.md`, "Mount close-ups".
 - First-person `mount` presets: `pov` (the pilot's eye point looking along the nose, cockpit interior and canopy bow in frame, pilot hidden, fov 50 vertical, about 78 horizontal) and `pov_shoulder` (inside the canopy behind one shoulder; first placement sat behind the headrest, re-tuned but not rendered yet). Options `pitch` (deg), `flightpath` (0-1, turn toward the velocity vector, max 12 deg), `head` (0-1, gentle look into the turn plus G sag), `hud` (experimental, no visible effect in replays). The replay draws no HUD and blank MFDs in first person: the game builds them only for the local player's aircraft. Details: `replay/CINE-CAMERA.md`, "First-person POV".
 - Lens options for all four: `fov`, or `size` (auto zoom that keeps the target at that fraction of the frame height) clamped to `fov_min`/`fov_max` with `zoom_smooth` seconds of smoothing. `frame: [x, y]` fixes the screen position of the target (-1 to 1); `lead` (default 0.33) sets the automatic third.
+- `action`: a chase camera on a springy arm that reacts to how the aircraft flies: it swings to the outside of a turn, drops back under afterburner, closes in when the aircraft slows and looks into the turn. Options and defaults are in the header of `replay/src/CineAction.cs` (`distance`, `height`, `spring`, `damping`, `look_ahead`, `lead`, `bank`, `roll`, `fov_kick`, `shake` for its own G shake). It is preset 8, "Action cam", in the viewer.
+- `path`: a camera path, what Camera Studio writes. `keys` is a list of `{"t", "pos":[x,y,z], "yaw", "pitch", "roll", "fov"}` with `t` in seconds after the shot's `t`. `space` is `world` (global position and compass yaw, the default) or `target` (`pos` in metres right, up and forward of the target in a frame that turns with its level heading, smoothed by `lag` 0.3 s, and yaw relative to that heading). `timing` is `even` (constant speed from the first key to the last, eased by `ease`, default 0.5) or `keys` (reach every key at its time). `aim` is `keys` (the keyed rotations), `target` (look at the target) or `path` (look along the direction of travel), smoothed by `look_smooth`. Positions follow a centripetal Catmull-Rom spline (no loops or overshoot at tight corners), rotations a quaternion spline and the lens a monotone curve; speed counts turning and zooming as well as distance, so a pan on the spot still takes time. The path runs on the replay's clock, so a seek into the shot lands on the same pose. Before the first key the camera waits on it; after the last it holds. `min_agl` defaults to 1 m. Maths: `replay/src/CameraPath.cs`; camera: `CinePath.cs`.
+- Shake for every cinematic camera: `handheld` (slow drift and sway, about 0.45 Hz), `rumble` (fast small buzz of a camera fixed to a vehicle, about 15 Hz) and `buffet` (wind on a long lens, about 4.5 Hz in gusts), each 0 (off, the default) to about 3 with 1 the normal strength, and `shake_speed` (1) to scale every frequency. The noise is a function of the replay's time from the shot's start, so a clip renders the same every time (`replay/src/CameraShake.cs`).
 - `horizon_lock` is on by default. Set it to `false` and give `roll` in degrees for a Dutch angle.
 - Target smoothing for all four: replayed aircraft are placed from 20 Hz network snapshots and wobble about 1 m along their path from frame to frame, which made the jet shake in close shots. The cine camera follows a filtered target (`target_smooth`, default 0.3 s: integrated snapshot velocity, pulled toward the raw position with that time constant; 0 turns it off) and, with `smooth_render` (default true), also draws the target at the filtered position, so jet and camera agree. See `replay/CINE-CAMERA.md`, "Jitter fix".
 - Each cine shot writes a per-frame trace of exported frames to `<game>/NuclearReplay/traces/cine_<shot start>_<mode>.csv` (target raw and filtered position, velocity, camera pose, lens, target screen position). `fx/camera/tools/qc.py clip.mp4 <t0> --trace <csv>` reads it.

@@ -14,9 +14,11 @@ namespace NuclearReplay.Playback
     // Shot list JSON: { "shots": [ { "t": 0, "camera": "orbit", "target": "host" }, ... ] }
     //   t       seconds of demo time since replay start
     //   camera  orbit | chase | cockpit | tv | free | relative
-    //           director-owned cinematic cameras (CineCamera.cs): flyby | chase_cine | track_from | keyframe
+    //           director-owned cinematic cameras (CineCamera.cs): flyby | chase_cine | track_from | keyframe | mount | action
     //   target  host | auto | latest_missile | latest_host_missile | unit:<persistentID> | name:<substring of unit name>
+    //           | none
     //           auto follows the host, cuts to each newly launched missile and back to the nearest aircraft
+    //           none: no unit at all, for a camera path in world space (other cameras never start with it)
     //   fov     optional field of view in degrees
     //   hold    optional seconds to stay on a destroyed target before cutting away (default 3)
     //   then    optional shot object (camera, target, fov, hold) to cut to when the target is gone and the hold
@@ -133,6 +135,13 @@ namespace NuclearReplay.Playback
             // A cine shot keeps its own camera while the target is gone (the game drops to its free camera
             // when the followed unit dies); the rig holds on the last known position.
             if ((cineShot || holding) && cine.Active && cameras.currentState != cine.State) cameras.SwitchState(cine.State);
+            // A camera path with no target starts once and runs on its own.
+            if (current.Target == "none" && string.Equals(current.Camera, "path", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!hadTarget) { Apply(cameras, current, null); hadTarget = true; lastCut = replayTime; }
+                newestMissile = null;
+                return;
+            }
             bool alive = currentUnit != null && !currentUnit.disabled;
             if (alive)
             {
@@ -254,7 +263,7 @@ namespace NuclearReplay.Playback
         public Unit CurrentUnit => currentUnit != null && !currentUnit.disabled ? currentUnit : null;
 
         // Viewer "next / previous aircraft": follows the live aircraft step places after (or before) the one on
-        // screen with the game camera of the current shot (chase when the shot is a cinematic camera), by
+        // screen with the game camera of the current shot (chase when the shot is a cinematic camera other than action), by
         // replacing the shot list with one manual shot.
         public Unit Follow(int step, double replayTime, out int position, out int count)
         {
@@ -266,7 +275,9 @@ namespace NuclearReplay.Playback
             int index = at < 0 ? (step > 0 ? 0 : aircraft.Count - 1) : ((at + step) % aircraft.Count + aircraft.Count) % aircraft.Count;
             var unit = aircraft[index];
             position = index + 1;
-            string camera = current != null && !CineCamera.IsCine(current.Camera) && State(CameraStateManager.i, current.Camera) != null ? current.Camera : "chase";
+            // The action camera follows any aircraft, so it stays on when cycling.
+            string camera = current != null && string.Equals(current.Camera, "action", StringComparison.OrdinalIgnoreCase) ? "action"
+                : current != null && !CineCamera.IsCine(current.Camera) && State(CameraStateManager.i, current.Camera) != null ? current.Camera : "chase";
             ReplaceShots(new JArray(new JObject { ["t"] = replayTime, ["camera"] = camera, ["target"] = "unit:" + unit.persistentID, ["hold"] = 3 }), replayTime);
             return unit;
         }
@@ -293,14 +304,15 @@ namespace NuclearReplay.Playback
             try
             {
                 currentUnit = unit;
-                cameras.SetFollowingUnit(unit);
+                if (unit != null) cameras.SetFollowingUnit(unit);
                 if (CineCamera.IsCine(shot.Camera))
                 {
                     cine.Begin(shot, unit, lastReplayTime);
                     if (cameras.currentState != cine.State) cameras.SwitchState(cine.State);
-                    log.LogInfo("Director: " + shot + " -> " + unit.unitName);
+                    log.LogInfo("Director: " + shot + " -> " + (unit != null ? unit.unitName : "no target"));
                     return;
                 }
+                if (unit == null) return;
                 var state = State(cameras, shot.Camera);
                 if (state != null && cameras.currentState != state) cameras.SwitchState(state);
                 if (shot.Fov.HasValue) cameras.SetDesiredFoV(shot.Fov.Value, shot.Fov.Value);

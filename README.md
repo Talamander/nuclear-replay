@@ -106,9 +106,10 @@ These are the keys that matter most. Press **F1** in a replay for the full list.
 | Space | Play or pause |
 | Left / Right | Back or forward 10 seconds |
 | Up / Down | Faster or slower (0.25x to 4x) |
-| 1 to 7 | Cameras: cinematic chase, victim cut, missile follow, chase, orbit, flyby, cockpit |
+| 1 to 8 | Cameras: cinematic chase, victim cut, missile follow, chase, orbit, flyby, cockpit, action cam |
 | [ and ] | Previous or next aircraft |
-| F | Free camera: WASD to move, Q and E for down and up, hold the right mouse button to look |
+| F | Free camera: WASD to move, Q and E for down and up, hold the right mouse button to look, Ctrl and the mouse wheel to zoom |
+| P | Camera Studio: lay down a camera path with the free camera (K adds a key, Enter plays the path, C clips it) |
 | I and O | Clip start and clip end at the current time |
 | C | Clip this |
 | H | Hide all controls |

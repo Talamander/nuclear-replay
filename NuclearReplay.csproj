@@ -32,6 +32,7 @@
     <Reference Include="$(GameDir)/NuclearOption_Data/Managed/netstandard.dll" Private="false" />
     <Reference Include="$(GameDir)/NuclearOption_Data/Managed/System.dll" Private="false" />
     <Reference Include="$(GameDir)/NuclearOption_Data/Managed/System.Core.dll" Private="false" />
+    <Reference Include="$(GameDir)/NuclearOption_Data/Managed/System.Numerics.dll" Private="false" />
     <Reference Include="$(GameDir)/NuclearOption_Data/Managed/Assembly-CSharp.dll" Private="false" />
     <Reference Include="$(GameDir)/NuclearOption_Data/Managed/Mirage.dll" Private="false" />
     <Reference Include="$(GameDir)/NuclearOption_Data/Managed/Mirage.SocketLayer.dll" Private="false" />

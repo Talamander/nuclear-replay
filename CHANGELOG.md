@@ -5,6 +5,25 @@
 - Record matches you join as a client. The recorder writes `<time>-<mission>-client.ncdemo` with what the
   server sent you; your own aircraft replays like every other unit, launches included. On by default;
   `[Demo] RecordAsClient = false` turns it off. Replays never record themselves.
+- **Delete recordings** from the Replays screen. The first click on Delete (or the Delete key) asks,
+  a second one deletes the recording and its sidecar files. The question says how big the recording
+  is, and the screen's header shows how much space all recordings take.
+- The Replays screen now closes when you open another main menu screen or press Escape.
+- **Action cam** (camera 8): a chase camera on a springy arm that reacts to how the aircraft flies. It
+  swings out in turns, drops back under afterburner, leads into the turn and shakes a little with G.
+- **Camera Studio** (P in a replay): fly the free camera and press K to lay down keys, then play the
+  camera path or clip it. Paths can stay fixed in the world or move with an aircraft, aim along the
+  keys, at the aircraft or along the path, and run at even speed or hit every key at its time. Each
+  recording keeps its path in `<recording>.path.json`, which also works as a shot list.
+- **Cinematic chase** (camera 1) is now its own camera: a smooth chase from low and to the side that
+  trails the aircraft's turns, instead of the game's chase camera with a wider lens. Chase (camera 4)
+  stays the game's camera. `nr`'s `cinematic_chase` style uses it too.
+- **Cockpit** (camera 7) shows the tactical display on the instrument panel and the rest of the crew,
+  such as the back-seater. The game builds the display only for your own aircraft and hides the whole
+  crew in its cockpit camera.
+- **Ctrl + mouse wheel** zooms the free camera's lens.
+- **Camera shake** for every cinematic camera in shot lists: `handheld`, `rumble` and `buffet` layers,
+  the same on every render of a clip.
 
 ## 0.5.1 (2026-10-12)
 

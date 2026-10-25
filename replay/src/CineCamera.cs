@@ -22,13 +22,16 @@ namespace NuclearReplay.Playback
     // clamped above terrain and sea. Pose smoothing is critically damped (Unity SmoothDamp form).
     // horizon_lock (default true) keeps roll at zero.
     //   mount       camera rigidly attached in the target's local frame (close-ups; see CineMount.cs)
+    //   action      chase on a springy arm that swings out in turns and leads the aim (see CineAction.cs)
+    //   path        camera path from the viewer's Camera Studio, in world or target space (see CinePath.cs)
+    // Every mode takes the shake options handheld, rumble, buffet and shake_speed (see CinePath.cs).
     internal sealed partial class CineCamera
     {
         internal static bool IsCine(string camera)
         {
             switch ((camera ?? "").ToLowerInvariant())
             {
-                case "flyby": case "chase_cine": case "track_from": case "keyframe": case "mount": return true;
+                case "flyby": case "chase_cine": case "track_from": case "keyframe": case "mount": case "action": case "path": return true;
                 default: return false;
             }
         }
@@ -104,11 +107,11 @@ namespace NuclearReplay.Playback
             fovLogged = false;
             shotTime = 0; nextLog = 0;
             haveLastTarget = false;
-            float defaultFov = mode == "mount" ? -1f : mode == "track_from" ? 15f : mode == "flyby" ? 30f : mode == "chase_cine" ? 45f : 40f;
+            float defaultFov = mode == "mount" ? -1f : mode == "track_from" ? 15f : mode == "flyby" ? 30f : mode == "chase_cine" ? 45f : mode == "action" ? 55f : mode == "path" ? 50f : 40f;
             fov = shot.Fov ?? defaultFov;
             lookSmooth = F("look_smooth", mode == "flyby" ? 0.12f : mode == "track_from" ? 0.3f : 0.25f);
             posSmooth = F("pos_smooth", 0.2f);
-            minAgl = F("min_agl", 3f);
+            minAgl = F("min_agl", mode == "path" ? 1f : 3f);
             horizonLock = B("horizon_lock", true);
             lead = F("lead", 0.33f);
             frame = null;
@@ -123,8 +126,9 @@ namespace NuclearReplay.Playback
             targetSmooth = Mathf.Max(0f, F("target_smooth", 0.3f));
             smoothRender = B("smooth_render", true);
 
+            if (unit == null) targetVel = Vector3.zero;
             ReadTarget(0f);
-            heading = Flat(targetVel.sqrMagnitude > 1f ? targetVel : unit.transform.forward, 1f);
+            heading = Flat(targetVel.sqrMagnitude > 1f ? targetVel : unit != null ? unit.transform.forward : Vector3.forward, 1f);
             headingVel = Vector3.zero;
 
             switch (mode)
@@ -134,8 +138,11 @@ namespace NuclearReplay.Playback
                 case "keyframe": SetupKeys(); break;
                 case "chase_cine": chaseOffset = ChaseOffsetWorld(); chaseOffsetVel = Vector3.zero; break;
                 case "mount": SetupMount(); break;
+                case "action": SetupAction(); break;
+                case "path": SetupPath(replayTime, shot.T); break;
             }
-            log.LogInfo($"Cine {mode} -> {unit.unitName} at {replayTime:F2}s: target global {Fmt(targetPos)} vel {Fmt(targetVel)}"
+            SetupShake(shot, replayTime);
+            log.LogInfo($"Cine {mode} -> {(unit != null ? unit.unitName : "no target")} at {replayTime:F2}s: target global {Fmt(targetPos)} vel {Fmt(targetVel)}"
                 + (mode == "flyby" || mode == "track_from" ? $", camera {Fmt(anchor)}" : ""));
         }
 
@@ -148,6 +155,7 @@ namespace NuclearReplay.Playback
         {
             raw = new JObject();
             mode = "hold";
+            NoShake();
             CloseTrace();
             EndMount(CameraStateManager.i);
             shotStart = replayTime;
@@ -426,9 +434,11 @@ namespace NuclearReplay.Playback
             shotTime += dt;
             ReadTarget(dt);
             if (!preview) PlaceTarget();
-            if (IsMount)
+            if (IsMount || IsAction || IsPath)
             {
-                StepMount(cam, dt, preview);
+                if (IsMount) StepMount(cam, dt, preview);
+                else if (IsAction) StepAction(cam, dt, preview);
+                else StepPath(cam, dt, preview);
                 if (!preview) WriteTrace(cam, dt);
                 if (!preview) snap = false;
                 return;
@@ -533,7 +543,7 @@ namespace NuclearReplay.Playback
             float yaw = e.y - Mathf.Atan(place.x * Mathf.Tan(hHalf)) * Mathf.Rad2Deg;
             float pitch = e.x + Mathf.Atan(place.y * Mathf.Tan(vHalf)) * Mathf.Rad2Deg;
             float roll = horizonLock ? 0f : F("roll", 0f);
-            Quaternion rot = Quaternion.Euler(pitch, yaw, roll);
+            Quaternion rot = Shake(Quaternion.Euler(pitch, yaw, roll));
 
             Vector3 local = new GlobalPosition(camPos).ToLocalPosition();
             cam.transform.SetPositionAndRotation(local, rot);
@@ -741,7 +751,7 @@ namespace NuclearReplay.Playback
             if (curFov <= 0) curFov = fov > 0 ? fov : cam.mainCamera.fieldOfView;
             if (unit != null && !unit.disabled) unit.SetDoppler(enabled: true);
             // Pose this very frame so nothing renders from the previous state's position.
-            if (unit != null || mode == "hold") Step(cam, preview: true);
+            if (unit != null || mode == "hold" || mode == "path") Step(cam, preview: true);
         }
 
         internal void OnLeave(CameraStateManager cam)

@@ -148,6 +148,7 @@ namespace NuclearReplay.Playback
                 ui.AttachToMainMenu();
                 if (viewerMenuOnStart || viewerReopenMenu) { viewerMenuOnStart = false; viewerReopenMenu = false; ui.ShowMenu(true); }
             }
+            StudioTick();
             ui.Update(BuildState(), viewerUiHidden, catalog);
             ApplyUnitPanel();
         }
@@ -196,7 +197,11 @@ namespace NuclearReplay.Playback
             s.RecordText = recorder != null ? "Recording..." : null;
             s.HelpOpen = viewerHelp;
             s.GameHud = viewerGameHud;
-            if (freeCamOn && freeFly != null) s.Subtitle = $"speed {freeFly.BaseSpeed:F0} m/s";
+            if (freeCamOn && freeFly != null)
+                s.Subtitle = $"speed {freeFly.BaseSpeed:F0} m/s" + (freeFly.Fov > 0 ? $"   lens {freeFly.Fov:F0} deg" : "");
+            s.Studio = studio;
+            s.StudioOpen = studio.Open;
+            s.StudioPlaying = studio.Playing;
             return s;
         }
 
@@ -254,12 +259,18 @@ namespace NuclearReplay.Playback
             if (Input.GetKeyDown(KeyCode.DownArrow) || Input.GetKeyDown(KeyCode.KeypadMinus) || Input.GetKeyDown(KeyCode.Minus)) ViewerSpeed(-1);
             for (int i = 0; i < ViewerPresets.Ids.Length; i++)
                 if (Input.GetKeyDown(KeyCode.Alpha1 + i)) ViewerPreset(ViewerPresets.Ids[i]);
-            if (Input.GetKeyDown(KeyCode.LeftBracket)) ViewerUnit(-1);
-            if (Input.GetKeyDown(KeyCode.RightBracket)) ViewerUnit(1);
+            if (Input.GetKeyDown(KeyCode.P)) ViewerToggleStudio();
+            // Camera Studio takes [ ], C and its own keys while it is open.
+            if (studio.Open) StudioKeys();
+            else
+            {
+                if (Input.GetKeyDown(KeyCode.LeftBracket)) ViewerUnit(-1);
+                if (Input.GetKeyDown(KeyCode.RightBracket)) ViewerUnit(1);
+                if (Input.GetKeyDown(KeyCode.C)) ViewerRecordClip();
+            }
             if (Input.GetKeyDown(KeyCode.F)) ViewerToggleFreeCam();
             if (Input.GetKeyDown(KeyCode.I)) ViewerSetIn();
             if (Input.GetKeyDown(KeyCode.O)) ViewerSetOut();
-            if (Input.GetKeyDown(KeyCode.C)) ViewerRecordClip();
             if (Input.GetKeyDown(KeyCode.H)) ViewerToggleHide();
             if (Input.GetKeyDown(KeyCode.F1)) ViewerToggleHelp();
             if (Input.GetKeyDown(KeyCode.Backspace)) ViewerExit();
@@ -331,6 +342,15 @@ namespace NuclearReplay.Playback
 
         internal void ViewerRefreshMenu() => catalog.Refresh();
 
+        // Replays list "Delete": removes a recording for good. Returns null, or why not.
+        internal string ViewerDelete(ViewerDemo demo)
+        {
+            if (demo == null) return "nothing selected";
+            if (server != null && viewerDemo != null && string.Equals(viewerDemo.Path, demo.Path, StringComparison.OrdinalIgnoreCase))
+                return "it is playing; leave the replay first";
+            return catalog.Delete(demo);
+        }
+
         internal void ViewerCursor(bool visible)
         {
             try { CursorManager.SetFlag(ViewerCursorFlag, visible); } catch (Exception) { }
@@ -348,6 +368,7 @@ namespace NuclearReplay.Playback
             clipOut = viewerFocus != null ? viewerFocus.T + 6 : -1;
             if (at < 0 && viewerFocus != null) at = Math.Max(0, viewerFocus.T - 5);
             BeginViewerSession(at);
+            StudioReset();
             shotListPath = null;
             pendingPath = demo.Path;
         }
@@ -428,6 +449,7 @@ namespace NuclearReplay.Playback
         {
             if (!viewer || recorder != null && !freeCamOn) return;
             viewerPreset = id;
+            StudioLeave();
             if (freeCamOn) SetFreeCam(false);
             if (server != null && director != null) ApplyPreset(id, server.Clock - server.StartTime);
         }
@@ -437,6 +459,8 @@ namespace NuclearReplay.Playback
         private void ApplyPreset(string id, double now)
         {
             if (director == null) return;
+            // Camera Studio playback (or its clip) shows the studio's path instead.
+            if (studio.Playing && studio.Count > 0) { director.ReplaceShots(new JArray(StudioShot()), now); return; }
             var moment = viewerFocus != null && now <= viewerFocus.T + 8 && now >= viewerFocus.T - 30 ? viewerFocus : null;
             double to = moment != null ? Math.Max(now + 3, moment.T + 6) : now + 36000;
             var shots = ViewerPresets.Build(id, moment, now, to, viewerDemo?.Events ?? new List<ViewerEvent>());
@@ -446,6 +470,7 @@ namespace NuclearReplay.Playback
         internal void ViewerUnit(int step)
         {
             if (!viewer || director == null || server == null) return;
+            StudioLeave();
             if (freeCamOn) SetFreeCam(false);
             var unit = director.Follow(step, server.Clock - server.StartTime, out int position, out int count);
             if (unit != null) ui.Toast($"Following {UnitLabel(unit)}  ({position} of {count} aircraft)", 2f);
@@ -455,6 +480,7 @@ namespace NuclearReplay.Playback
         internal void ViewerToggleFreeCam()
         {
             if (!viewer || server == null) return;
+            StudioLeave();
             SetFreeCam(!freeCamOn);
         }
 
@@ -531,9 +557,11 @@ namespace NuclearReplay.Playback
             if (recorder != null && !clipFinishing) recorder.Cancel();
             recorder = null; clipFinishing = false; clipRestoreUi = false;
             if (freeCamOn) { freeFly?.StopLook(); freeCamOn = false; }
+            studio.Open = false; studio.Playing = false; studioClip = false;
             try { director?.Shutdown(); } catch (Exception) { }
             try { server?.Close(); } catch (Exception) { }
             server = null; director = null; finishedAt = -1; capturing = false;
+            cockpitView.Leave();
             startSeeking = false; startAt = -1; viewerRestarting = false; viewerSeekTarget = -1;
             if (fastForwarding && savedVSync >= 0) { QualitySettings.vSyncCount = savedVSync; Application.targetFrameRate = savedTargetFrameRate; }
             fastForwarding = false;
@@ -584,11 +612,13 @@ namespace NuclearReplay.Playback
             if (to - from < 0.5) { ui.Toast("The clip is too short; set In and Out first (I / O).", 4f); return; }
             if (ClipRecorder.ProbedCodec == null) ClipRecorder.Probe(ffmpeg, encoderSetting.Value, Logger);
             string clips = string.IsNullOrEmpty(clipsDirectory.Value) ? GameData("clips") : clipsDirectory.Value;
-            var shots = ViewerPresets.Build(viewerPreset, viewerFocus, from, to, viewerDemo?.Events ?? new List<ViewerEvent>());
+            bool path = studio.Playing && studio.Count > 0;
+            string style = path ? "path" : freeCamOn ? "free" : viewerPreset;
+            var shots = path ? new JArray(StudioShot()) : ViewerPresets.Build(viewerPreset, viewerFocus, from, to, viewerDemo?.Events ?? new List<ViewerEvent>());
             var record = new JObject
             {
                 ["version"] = 1, ["source"] = "viewer", ["demo"] = viewerDemo?.Path, ["mission"] = viewerDemo?.Title,
-                ["camera_style"] = freeCamOn ? "free" : viewerPreset, ["hud"] = false, ["ffmpeg"] = ffmpeg,
+                ["camera_style"] = style, ["hud"] = false, ["ffmpeg"] = ffmpeg,
                 ["moment"] = viewerFocus != null ? new JObject { ["t"] = viewerFocus.T, ["event"] = viewerFocus.Event, ["summary"] = viewerFocus.Summary } : null,
                 ["shots"] = shots
             };
@@ -606,7 +636,7 @@ namespace NuclearReplay.Playback
             ui.HideOverlayNow();
             ViewerCursor(false);
             clipStartedWait = Time.realtimeSinceStartupAsDouble;
-            Logger.LogInfo($"Viewer clip: {from:F2}-{to:F2} s, camera {(freeCamOn ? "free" : viewerPreset)}, encoder {recorder.Codec}, game fps before {recorder.FpsBefore:F1}");
+            Logger.LogInfo($"Viewer clip: {from:F2}-{to:F2} s, camera {style}, encoder {recorder.Codec}, game fps before {recorder.FpsBefore:F1}");
             // Start one second before In so the camera has settled; jump when In is far away.
             if (now > from - 0.2 || from - now > 3)
                 ViewerSeek(Math.Max(0, from - 1), keepClip: true);
@@ -725,6 +755,16 @@ namespace NuclearReplay.Playback
                         return "clicked " + button.name + " under " + button.transform.parent.name;
                     }
                 case "menu-close": ui.ShowMenu(false); return "ok";
+                // Clicks the main menu's own Missions button (the Replays screen should close).
+                case "menu-missions":
+                    {
+                        var main = FindObjectOfType<MainMenu>();
+                        var field = typeof(MainMenu).GetField("missionsButton", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                        var missions = main != null ? field?.GetValue(main) as UnityEngine.UI.Button : null;
+                        if (missions == null) return "no Missions button";
+                        missions.onClick.Invoke();
+                        return "clicked Missions, menu open " + ui.MenuOpen;
+                    }
                 case "ffmpeg-yes": FfmpegPromptPrimary(); return ffmpegDownload.State.ToString();
                 case "ffmpeg-no": FfmpegPromptSecondary(); return ffmpegDownload.State.ToString();
                 case "menu-pick":
@@ -735,6 +775,8 @@ namespace NuclearReplay.Playback
                         ui.SelectDemo(demos[index]);
                         return "selected " + demos[index].FileName;
                     }
+                // Presses the list's Delete button: the first press asks, a second one deletes.
+                case "menu-delete": ui.DeleteClicked(); return ui.SelectedDemo != null ? "selected " + ui.SelectedDemo.FileName : "nothing selected";
                 case "menu-watch": if (ui.SelectedDemo == null) return "nothing selected"; ViewerOpen(ui.SelectedDemo, -1, -1); return "opening " + ui.SelectedDemo.FileName;
                 case "seek": ViewerSeek(N()); return "seek " + N();
                 case "skip": ViewerSkip(N()); return "skip " + N();
@@ -758,6 +800,7 @@ namespace NuclearReplay.Playback
                     }
                 case "gamehud": ViewerToggleGameHud(); return "game hud " + viewerGameHud;
                 case "free": SetFreeCam(arg != "off"); return "free " + freeCamOn;
+                case "studio": return StudioCommand(arg);
                 case "msgstats":
                     {
                         // Research for docs/JUMP-POINTS.md: message types, counts and bytes in a recording, split into
@@ -852,7 +895,7 @@ namespace NuclearReplay.Playback
                     ["free_cam"] = freeCamOn, ["camera_state"] = CameraStateManager.i?.currentState?.GetType().Name,
                     ["following"] = s.Following, ["ui_hidden"] = viewerUiHidden, ["help"] = viewerHelp,
                     ["clip_in"] = clipIn, ["clip_out"] = clipOut, ["fps"] = Math.Round(fpsNow, 1), ["screen"] = Screen.width + "x" + Screen.height,
-                    ["encoder"] = ClipRecorder.ProbedCodec,
+                    ["encoder"] = ClipRecorder.ProbedCodec, ["studio"] = StudioStatus(),
                     ["ffmpeg"] = new JObject
                     {
                         ["path"] = ViewerFfmpeg(), ["download"] = ffmpegDownload.State.ToString(), ["fraction"] = Math.Round(ffmpegDownload.Fraction, 3),

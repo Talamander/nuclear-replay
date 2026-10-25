@@ -24,4 +24,25 @@ public class ViewerTextTests
     [InlineData(80, false)]
     [InlineData(25, false)]
     public void MomentShowsOnlyNearItsTime(double now, bool shown) => Assert.Equal(shown, ViewerText.MomentInView(now, 33.6));
+
+    [Theory]
+    [InlineData(500, "1 KB")]
+    [InlineData(840_000, "821 KB")]
+    [InlineData(327_155_712, "312 MB")]
+    [InlineData(1_503_238_553, "1.4 GB")]
+    [InlineData(32_212_254_720, "30 GB")]
+    public void SizesAreShort(long bytes, string text) => Assert.Equal(text, ViewerText.Size(bytes));
+
+    [Fact]
+    public void DeleteTextsAndFiles()
+    {
+        Assert.Equal("No recordings", ViewerText.LibrarySummary(0, 0));
+        Assert.Equal("1 recording, 312 MB on disk", ViewerText.LibrarySummary(1, 327_155_712));
+        Assert.Equal("Delete \"05. Furball\" (312 MB) for good? Clips made from it stay.", ViewerText.DeleteQuestion("05. Furball", 327_155_712));
+        var files = ViewerText.RecordingFiles(Path.Combine("demos", "20261005T210314Z-05. Furball.ncdemo"));
+        Assert.Equal(Path.Combine("demos", "20261005T210314Z-05. Furball.ncdemo"), files[0]);
+        Assert.Equal(Path.Combine("demos", "20261005T210314Z-05. Furball.shots.json"), files[1]);
+        Assert.Equal(Path.Combine("demos", "20261005T210314Z-05. Furball.path.json"), files[2]);
+        Assert.Equal(3, files.Length);
+    }
 }

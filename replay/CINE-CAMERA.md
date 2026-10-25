@@ -229,3 +229,36 @@ The installed plugin DLL already contains this code (backup `NuclearContext.Repl
 - The stick and throttle do not move, and cockpit warning lights follow whatever state the remote aircraft has.
 - `head` motion and `pitch` 0 have not been seen in a render yet.
 - The OBS crop cannot recover the forward view when Tal looks away. It loses resolution at 1.3-1.35x zoom, and fast head roll is only partly removed.
+
+## Camera paths (`path`) and shake layers (2026-10-23)
+
+Built for Camera Studio in the viewer (step 1 of `docs/CINEMA-PLAN.md`). Shot options are listed in `DEMO.md` ("Cinematic cameras"). Not checked in game yet.
+
+### Path maths (`replay/src/CameraPath.cs`)
+
+- Unity-free (System.Numerics), so `app/tests/NuclearReplay.Core.Tests` runs it. The plugin references the game's `System.Numerics.dll` for it.
+- Position: a centripetal Catmull-Rom spline (alpha 0.5). Unlike the uniform form of the older `keyframe` mode, it never loops or overshoots at a tight corner or between keys that are close together.
+- Rotation: squad through the keys' quaternions. `CameraPath.Euler(pitch, yaw, roll)` uses Unity's order (roll, then pitch, then yaw), so the components copy straight into a Unity `Quaternion`.
+- Lens: monotone cubic (Fritsch-Carlson) in log space, so a zoom never overshoots past either key.
+- Progress along the path counts metres, plus 20 m per radian of turn and 10 per unit of change in log fov. A pan or zoom on the spot therefore still takes time.
+- Timing `even`: progress runs at constant speed from the first key to the last, blended with smootherstep by `ease`. Timing `keys`: a monotone Hermite curve through (key time, key progress), so every key is reached at its time and the camera never moves backward.
+
+### Path camera (`replay/src/CinePath.cs`)
+
+- Path time is the replay time minus the shot's `t`, so a seek or a soft restart into the middle of the shot lands on the same pose.
+- `space: target` turns positions and rotations by the target's level heading (from its velocity, smoothed by `lag`). Camera Studio records target-space keys with the heading read from the aircraft's velocity at that moment, so a key can sit a little off where it was laid while the smoothed heading catches up after a hard turn.
+- `aim: target` looks at the filtered target with the same feed-forward as the other cine modes; `aim: path` looks along the spline's direction, slerped by `look_smooth`.
+- The camera never goes below the ground or the sea plus `min_agl` (1 m, so street-level city shots work).
+- A world-space path that does not look at a unit uses `"target": "none"`. The director starts it once and lets it run; no other shot type accepts `none`.
+
+### Shake layers (`replay/src/CameraShake.cs`)
+
+- `handheld`, `rumble` and `buffet` are fractal gradient noise on separate lanes for pitch, yaw and roll, with gusts on the buffet. Amounts scale the layer; `shake_speed` scales every frequency. At 1, handheld peaks at about 0.6 degrees, rumble at about 0.08 and buffet at about 0.6.
+- The noise is a pure function of (replay time from the shot's start, seed). The seed is the target's id, or the shot's time when there is no target. Seeks and repeated clips get the same shake.
+- Applied as a final rotation on top of every cine mode's pose (generic modes, `mount`, `action`, `path`); holds have no shake. `action` keeps its own G-driven `shake` too.
+
+### Known limits (paths)
+
+- Not seen in game: the free camera's lens under NOVR (Ctrl + wheel sets `fieldOfView` directly, without the cine camera's projection-matrix workaround), the scene gizmos' projection, and the play and clip flow through a backward jump.
+- A path that looks at or moves with an aircraft shows nothing until that aircraft exists in the replay.
+- The aircraft is remembered by its network id. If a recording's ids change between plays, a saved target-space path loses its aircraft.
