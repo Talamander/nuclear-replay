@@ -5,7 +5,7 @@ This zip holds Nuclear Replay, a free BepInEx 5 mod for Nuclear Option.
 Mod managers (NOMM) install this same zip.
 
   NuclearReplay.dll   The whole mod: the recorder (it records the matches
-                      you host) and the replay viewer ("Replays" in the
+                      you host and join) and the replay viewer ("Replays" in the
                       main menu, and "Clip this").
   LICENSE.txt         Zero-Clause BSD license (0BSD).
 
@@ -21,7 +21,7 @@ INSTALL BY HAND
    If you had the mod under its old name, Nuclear Context, delete the
    folder <Nuclear Option>/BepInEx/plugins/NuclearContext. Your recordings
    in <Nuclear Option>/NuclearContext stay where they are and still show.
-3. Start the game. Host a mission to record it; recordings are saved in
+3. Start the game. Host or join a mission to record it; recordings are saved in
    <Nuclear Option>/NuclearReplay/demos. Click "Replays" in the main menu
    to watch them.
 

@@ -22,17 +22,20 @@ fan-made and not affiliated with Shockfront Studios. It is a beta.
 
 ## What it does
 
-- **Records every match you host.** Single-player missions and multiplayer matches you host are
-  recorded on their own. You do not have to start anything.
+- **Records your matches.** Single-player missions, multiplayer matches you host and matches you
+  join are recorded on their own. You do not have to start anything.
 - **Replays inside the game.** Click **Replays** in the main menu and pick a match. The game plays it
   again with its own aircraft, missiles and explosions.
 - **A timeline of the action.** Missile launches show as amber marks and kills as red marks. Click a
   mark to jump to that moment.
-- **Seven cameras and a free camera.** Cinematic chase, victim cut, missile follow, chase, orbit,
-  flyby and cockpit. Or fly the camera yourself.
+- **Eight cameras and a free camera.** Cinematic chase, victim cut, missile follow, chase, orbit,
+  flyby, cockpit and action cam. Or fly the camera yourself.
+- **Camera Studio.** Lay down keys with the free camera and the replay flies that path for you, with
+  optional camera shake.
 - **Full control of time.** Pause, skip 10 seconds, and play from 0.25x to 4x speed.
 - **Clips with one key.** Mark the start and the end, press **C**, and the game records that part as an
   MP4 video at 60 fps and your screen's resolution.
+- **Delete recordings** you do not want from the Replays screen, which shows how much space they take.
 
 ## Gallery
 
