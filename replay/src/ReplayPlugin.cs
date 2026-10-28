@@ -170,6 +170,7 @@ namespace NuclearReplay.Playback
             }
             harmony = new Harmony(Id);
             harmony.PatchAll(typeof(ReplayPatches));
+            LightingOverride.Init(Logger);
             ViewerAwake();
             if (legacy != null) ui.LegacyWarning = "Nuclear Context (old version) is installed too. Delete BepInEx/plugins/NuclearContext and restart. Recording is off.";
             if (pendingPath == null) { Logger.LogInfo("Replay idle (no -ncReplay argument); Replays menu ready."); return; }
@@ -545,7 +546,7 @@ namespace NuclearReplay.Playback
                 if (audioRanges.Count > 0) AudioRangeStep(replayNow);
                 if (preview != null)
                 {
-                    if (preview.ShotsChanged && director != null) { preview.ShotsChanged = false; director.ReplaceShots(preview.LatestShots, replayNow); }
+                    if (preview.ShotsChanged && director != null) { preview.ShotsChanged = false; director.ReplaceShots(preview.LatestShots, replayNow, preview.LatestLighting); }
                     preview.Drive(server, replayNow);
                 }
                 // Frame export skips ahead at 4x until shortly before the requested range.
@@ -572,6 +573,7 @@ namespace NuclearReplay.Playback
                 Time.timeScale = server.Paused ? 0f : server.Speed;
                 double replayTime = server.Clock - server.StartTime;
                 if (!freeCamOn) director.Update(replayTime, live);
+                LightingOverride.Tick(live);
                 cockpitView.Step(live);
                 if (live) Capture(replayTime);
                 preview?.AfterFrame(replayTime, live);
@@ -645,7 +647,7 @@ namespace NuclearReplay.Playback
                     // Render at the preview size (thumbnails at twice their size, then scaled down).
                     int pw = preview.IsPreview ? preview.Width : preview.Width * 2, ph = preview.IsPreview ? preview.Height : preview.Height * 2;
                     if (Screen.width != pw || Screen.height != ph) Screen.SetResolution(pw, ph, FullScreenMode.Windowed);
-                    if (preview.LatestShots != null) director.ReplaceShots(preview.LatestShots, 0);
+                    if (preview.LatestShots != null) director.ReplaceShots(preview.LatestShots, 0, preview.LatestLighting);
                     preview.ShotsChanged = false;
                     preview.OnServerStarted();
                 }

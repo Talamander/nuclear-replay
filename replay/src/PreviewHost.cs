@@ -58,6 +58,7 @@ namespace NuclearReplay.Playback
 
         // Flags the plugin reads each frame.
         public JArray LatestShots;
+        public JObject LatestLighting;     // the shot list's root "lighting" defaults
         public bool ShotsChanged, RestartRequested, QuitRequested;
         public bool IsPreview => Mode == "preview";
         public string Describe() => IsPreview
@@ -327,7 +328,7 @@ namespace NuclearReplay.Playback
                     if (phase == Phase.Playing) phase = Phase.Paused;
                     break;
                 case "shots":
-                    if (command["shots"] is JArray shots) { LatestShots = shots; ShotsChanged = true; }
+                    if (command["shots"] is JArray shots) { LatestShots = shots; LatestLighting = command["lighting"] as JObject; ShotsChanged = true; }
                     else Reply("error", "shots needs a shots array");
                     break;
                 case "seek":

@@ -120,7 +120,10 @@ public static class PreviewCommands
     public static JsonObject Shots(string shotListJson)
     {
         var root = JsonNode.Parse(shotListJson) as JsonObject ?? throw new ArgumentException("not a shot list");
-        return new JsonObject { ["type"] = "shots", ["shots"] = root["shots"]?.DeepClone() ?? new JsonArray() };
+        var o = new JsonObject { ["type"] = "shots", ["shots"] = root["shots"]?.DeepClone() ?? new JsonArray() };
+        // The root "lighting" defaults (docs/AGENTS.md "Lighting") go along when the list has them.
+        if (root["lighting"] is JsonObject lighting) o["lighting"] = lighting.DeepClone();
+        return o;
     }
 
     public static readonly string[] Known = { "play", "pause", "shots", "seek", "range", "restart", "stream", "quit" };

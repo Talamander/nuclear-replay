@@ -20,6 +20,9 @@ namespace NuclearReplay.Playback
     //           auto follows the host, cuts to each newly launched missile and back to the nearest aircraft
     //           none: no unit at all, for a camera path in world space (other cameras never start with it)
     //   fov     optional field of view in degrees
+    //   lighting keys (Lighting.cs, ShotLighting.cs): time_of_day, sun_azimuth, sun_camera_off, fog, weather,
+    //           cloud_height; the list's root "lighting" object gives defaults for every shot. backlight and its
+    //           backlight_* keys place cine cameras on the sun line (CineBacklight.cs).
     //   hold    optional seconds to stay on a destroyed target before cutting away (default 3)
     //   then    optional shot object (camera, target, fov, hold) to cut to when the target is gone and the hold
     //           is over, instead of the nearest aircraft (victim_cut: the victim at the moment the missile hits)
@@ -55,6 +58,9 @@ namespace NuclearReplay.Playback
         private Vector3 lastPosition;
         private Missile newestMissile;
         private readonly CineCamera cine;
+        private JObject rootLighting;       // the shot list's root "lighting" object: defaults for every shot
+        private bool anyLighting;           // any lighting key anywhere in the list (else lighting is never touched)
+        private bool lightingDirty;         // a shot from the list started; set its lighting
 
         // Mattes requested by the shot in effect (engine matte pass); empty for ordinary shots.
         public string[] ActiveMattes => current != null ? current.Mattes : new string[0];
@@ -67,6 +73,8 @@ namespace NuclearReplay.Playback
         {
             this.log = log;
             cine = new CineCamera(log);
+            // A new list starts from the recording's lighting; its own shots set theirs as they start.
+            LightingOverride.SetShot(null, "new shot list");
             if (string.IsNullOrEmpty(shotListPath) || !File.Exists(shotListPath))
             {
                 shots.Add(new Shot { T = 0, Camera = "orbit", Target = "auto" });
@@ -75,6 +83,7 @@ namespace NuclearReplay.Playback
             var root = JObject.Parse(File.ReadAllText(shotListPath));
             foreach (var item in (JArray)root["shots"] ?? new JArray()) shots.Add(ParseShot(item));
             shots.Sort((a, b) => a.T.CompareTo(b.T));
+            SetLightingDefaults(root["lighting"] as JObject);
             log.LogInfo($"Director loaded {shots.Count} shots from {shotListPath}");
         }
 
@@ -89,7 +98,7 @@ namespace NuclearReplay.Playback
         // Live preview: swaps the whole shot list while the replay runs. The shot that the new list has in
         // effect at replayTime takes over at once (the camera cuts on the next Update); later shots follow
         // their times as usual.
-        public void ReplaceShots(JArray list, double replayTime)
+        public void ReplaceShots(JArray list, double replayTime, JObject lighting = null)
         {
             var parsed = (list ?? new JArray()).Select(ParseShot).ToList();
             parsed.Sort((a, b) => a.T.CompareTo(b.T));
@@ -99,6 +108,9 @@ namespace NuclearReplay.Playback
             next = 0; current = null; currentUnit = null; hadTarget = false; holding = false; lostAt = -1;
             if (cine.Active) cine.End();
             while (next < shots.Count && shots[next].T <= replayTime) current = shots[next++];
+            SetLightingDefaults(lighting);
+            lightingDirty = true;
+            if (!anyLighting) LightingOverride.SetShot(null, "shot list replaced");
             log.LogInfo($"Director: shot list replaced at {replayTime:F2}s ({shots.Count} shots, now {(current != null ? current.ToString() : "waiting")})");
         }
 
@@ -111,6 +123,12 @@ namespace NuclearReplay.Playback
 
         private double lastReplayTime;
 
+        private void SetLightingDefaults(JObject lighting)
+        {
+            rootLighting = lighting;
+            anyLighting = LightingOverride.Mentions(rootLighting) || shots.Any(s => LightingOverride.Mentions(s.Raw));
+        }
+
         public void Update(double replayTime, bool sceneLive)
         {
             lastReplayTime = replayTime;
@@ -122,6 +140,7 @@ namespace NuclearReplay.Playback
             {
                 var previous = current;
                 current = shots[next++];
+                lightingDirty = true;
                 // A shot that repeats the camera and target already on screen (say, the fallback cut to a victim
                 // that a "then" cut already showed) keeps the camera as it is instead of cutting again.
                 if (previous != null && currentUnit != null && !currentUnit.disabled && !holding && !CineCamera.IsCine(current.Camera)
@@ -130,6 +149,13 @@ namespace NuclearReplay.Playback
                 currentUnit = null; hadTarget = false; holding = false;
             }
             if (current == null) return;
+            // Lighting goes on before the camera starts, so backlight placement sees this shot's sun. A "then" cut
+            // keeps the lighting of the shot it came from.
+            if (lightingDirty)
+            {
+                lightingDirty = false;
+                if (anyLighting) LightingOverride.SetShot(LightingOverride.Parse(current.Raw, rootLighting), current.ToString());
+            }
             bool cineShot = CineCamera.IsCine(current.Camera);
             if (!cineShot && !holding && cine.Active) cine.End();
             // A cine shot keeps its own camera while the target is gone (the game drops to its free camera
