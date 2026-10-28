@@ -68,6 +68,7 @@ namespace NuclearReplay.Playback
         private Missile newestMissile;
         private readonly CineCamera cine;
         private JObject rootLighting;       // the shot list's root "lighting" object: defaults for every shot
+        internal readonly List<string> TraceUnits = new List<string>();   // root "trace_units": ids logged to traces/marks.csv
         private bool anyLighting;           // any lighting key anywhere in the list (else lighting is never touched)
         private bool lightingDirty;         // a shot from the list started; set its lighting
 
@@ -93,7 +94,8 @@ namespace NuclearReplay.Playback
             foreach (var item in (JArray)root["shots"] ?? new JArray()) shots.Add(ParseShot(item));
             shots.Sort((a, b) => a.T.CompareTo(b.T));
             SetLightingDefaults(root["lighting"] as JObject);
-            log.LogInfo($"Director loaded {shots.Count} shots from {shotListPath}");
+            foreach (var u in (JArray)root["trace_units"] ?? new JArray()) TraceUnits.Add(u.ToString().Replace("unit:", ""));
+            log.LogInfo($"Director loaded {shots.Count} shots from {shotListPath}" + (TraceUnits.Count > 0 ? $", tracing units {string.Join(",", TraceUnits)}" : ""));
         }
 
         private static Shot ParseShot(JToken item) => new Shot

@@ -723,6 +723,32 @@ namespace NuclearReplay.Playback
             }
         }
 
+        // A shot list's root "trace_units" makes every exported frame log where those units sit in the picture
+        // (traces/marks.csv: viewport x and y from the bottom left, z in metres in front of the camera), so post can
+        // draw target markers that stay on them. Script frame exports only, like the cine traces.
+        private StreamWriter marks;
+        private void WriteMarks()
+        {
+            if (CineCamera.TraceDir == null || director == null || director.TraceUnits.Count == 0) return;
+            var cam = CameraStateManager.i;
+            var rc = CineCamera.RenderCamera(cam != null ? cam.mainCamera : Camera.main);
+            if (rc == null) return;
+            if (marks == null)
+            {
+                Directory.CreateDirectory(CineCamera.TraceDir);
+                marks = new StreamWriter(Path.Combine(CineCamera.TraceDir, "marks.csv"), true) { AutoFlush = true };
+                marks.WriteLine("frame,replay,unit,vx,vy,vz");
+            }
+            var ic = CultureInfo.InvariantCulture;
+            foreach (var id in director.TraceUnits)
+            {
+                var u = UnitRegistry.allUnits.FirstOrDefault(x => x != null && x.persistentID.ToString() == id);
+                if (u == null) continue;
+                Vector3 vp = rc.WorldToViewportPoint(u.transform.position);
+                marks.WriteLine(string.Format(ic, "{0},{1:F4},{2},{3:F5},{4:F5},{5:F2}", CineCamera.CaptureFrame, CineCamera.ReplayTime, id, vp.x, vp.y, vp.z));
+            }
+        }
+
         // Raw export: copy the finished frame into a render texture at end of frame and read it back
         // asynchronously; a writer thread appends the pixels to the range's frames.rgba.
         private IEnumerator EndOfFrameGrab()
@@ -753,6 +779,7 @@ namespace NuclearReplay.Playback
                         writer.Add(request.GetData<byte>());
                     });
                     if (matteWriter != null) GrabMatte(matteWriter);
+                    WriteMarks();
                 }
                 catch (Exception e)
                 {
