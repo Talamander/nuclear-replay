@@ -23,6 +23,19 @@
 - Shot lists take `focal_mm`, `sensor`, `dof` (`f_stop`, `focus`: `"target"` or metres),
   `vignette`, `grain`, `chromatic` and `motion_blur`, and path keys take `focal_mm`, `focus` and
   `f_stop`. `nr shots validate` checks them. Shot lists without them render as before.
+- **Any unit as the subject.** Ships, ground vehicles, launchers and helicopters work with every camera except
+  the cockpit. **B** opens a unit list: type to search by callsign, player name, type or side, players first,
+  then by type; Enter or a click watches the unit. Its filter (aircraft, ground, sea, all) also sets what
+  **[ ]** step through. Destroyed units show only when asked.
+- **Two-shot** (camera 9): frames the unit and the one it is fighting together, from the side or behind, with
+  a lens that widens and narrows within limits and a camera that never swings across the line. **Shift+B**
+  picks the second unit by hand. Also a camera style in `nr` (`two_shot`).
+- **Ride-along** (key 0): the camera flies in formation with a unit. Fly the free camera to the spot and
+  press **R** to lock it there; **Shift+R** keeps the horizon level or rolls with the unit. Smooth, with
+  no network jitter.
+- Shot lists: the `ride` and `two_shot` cameras with their options (`offset`, `look_dir`, `look_at`, `roll`;
+  `second`, `side`, `distance`, `fov_min`, `fov_max` and more), a `type:<text>` target (`type:frigate`),
+  and `name:<text>` also matches player names. `nr shots validate` checks the new fields.
 
 ## 0.5.2 (2026-10-27)
 

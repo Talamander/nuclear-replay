@@ -28,8 +28,11 @@ fan-made and not affiliated with Shockfront Studios. It is a beta.
   again with its own aircraft, missiles and explosions.
 - **A timeline of the action.** Missile launches show as amber marks and kills as red marks. Click a
   mark to jump to that moment.
-- **Eight cameras and a free camera.** Cinematic chase, victim cut, missile follow, chase, orbit,
-  flyby, cockpit and action cam. Or fly the camera yourself.
+- **Ten cameras and a free camera.** Cinematic chase, victim cut, missile follow, chase, orbit,
+  flyby, cockpit, action cam, a two-shot that frames two jets in a fight together, and a ride-along
+  that flies in formation with a unit where you put it. Or fly the camera yourself.
+- **Any unit.** Ships, tanks, launchers and helicopters can be the subject too. Press **B** for a list
+  of every unit, players first, and type to search by callsign, player, type or side.
 - **Camera Studio.** Lay down keys with the free camera and the replay flies that path for you, with
   optional camera shake.
 - **Lighting.** Press **F2** to set the time of day (dawn, golden hour, dusk, night), haze and weather for the
@@ -114,8 +117,10 @@ These are the keys that matter most. Press **F1** in a replay for the full list.
 | Space | Play or pause |
 | Left / Right | Back or forward 10 seconds |
 | Up / Down | Faster or slower (0.25x to 4x) |
-| 1 to 8 | Cameras: cinematic chase, victim cut, missile follow, chase, orbit, flyby, cockpit, action cam |
-| [ and ] | Previous or next aircraft |
+| 1 to 9 | Cameras: cinematic chase, victim cut, missile follow, chase, orbit, flyby, cockpit, action cam, two-shot |
+| 0 and R | Ride-along: 0 pauses and puts the free camera next to the unit, fly it where you want it, R locks it. Shift+R: level horizon or roll with the unit |
+| B | Unit list: search, then Enter or click to watch that unit. Shift+B picks the second unit for the two-shot |
+| [ and ] | Previous or next unit (aircraft, or the ground, sea or all filter set in the unit list) |
 | F | Free camera: WASD to move, Q and E for down and up, hold the right mouse button to look, Ctrl and the mouse wheel for the focal length, Alt and the mouse wheel for the focus distance |
 | P | Camera Studio: lay down a camera path with the free camera (K adds a key, Enter plays the path, C clips it) |
 | F2 | Lighting: Y time of day, Page Up / Page Down 15 minutes, N haze, V weather, Z sun behind the aircraft, Home as recorded |

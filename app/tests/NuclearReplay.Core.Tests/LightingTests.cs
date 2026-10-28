@@ -315,7 +315,8 @@ public class LightingTests
         string viewerSrc = File.ReadAllText(viewer);
         int keysAt = viewerSrc.IndexOf("private bool ViewerKeys()", StringComparison.Ordinal);
         string viewerKeys = viewerSrc.Substring(keysAt, viewerSrc.IndexOf("private static bool TypingInGameField", keysAt, StringComparison.Ordinal) - keysAt);
-        int promptEnd = viewerKeys.IndexOf("return true;\n            }\n            // The game's own menu", StringComparison.Ordinal);
+        // The unit list (B) swallows every key while it is open, so the panel keys cannot reach it then.
+        int promptEnd = viewerKeys.IndexOf("return true;\n            }\n            // The unit list (B) takes the keyboard", StringComparison.Ordinal);
         Assert.True(promptEnd > 0);
         var other = Keys(viewerKeys.Substring(promptEnd)).Concat(Keys(File.ReadAllText(studio))).ToHashSet();
         foreach (var k in panel) Assert.DoesNotContain(k, other);

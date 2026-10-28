@@ -636,6 +636,7 @@ namespace NuclearReplay.Playback
                 factory = manager.gameObject.GetComponent<LoopbackSocketFactory>() ?? manager.gameObject.AddComponent<LoopbackSocketFactory>();
                 factory.CreatePair();
                 director = new Director(Logger, shotListPath ?? DefaultShotList(path));
+                LearnPlayers(demo);
                 // Cine diagnostics (DEMO.md) are for script frame exports; nr render jobs leave no traces behind.
                 if (job == null && (frameDirectory != null || frameRoot != null)) CineCamera.TraceDir = Path.Combine(ModFolders.DataDir(BepInEx.Paths.GameRootPath), "traces");
                 // Render jobs write only the clip; engine mattes stay a render-clips.sh feature.

@@ -29,13 +29,13 @@
           "description": "Replay time in seconds when this shot starts."
         },
         "camera": {
-          "enum": ["orbit", "chase", "chase_cine", "action", "cockpit", "tv", "free", "relative"],
-          "description": "orbit: circles the target. chase: behind the target. chase_cine: the director's cinematic chase (level horizon, holds its last pose when the target is gone). cockpit: pilot's view. tv: a spotter/flyby camera. free: free camera. relative: fixed offset from the target."
+          "enum": ["orbit", "chase", "chase_cine", "action", "cockpit", "tv", "free", "relative", "ride", "two_shot"],
+          "description": "orbit: circles the target. chase: behind the target. chase_cine: the director's cinematic chase (level horizon, holds its last pose when the target is gone). cockpit: pilot's view (aircraft only; orbit for other units). tv: a spotter/flyby camera. free: free camera. relative: fixed offset from the target. ride: flies with the target at a fixed offset in its own frame (offset, look_dir/look/look_at, roll). two_shot: frames the target and a second unit together (second, side, distance, fov_min/fov_max)."
         },
         "target": {
           "type": "string",
-          "pattern": "^(host|auto|latest_missile|latest_host_missile|unit:[0-9]+|name:.+)$",
-          "description": "host: the hosting player's aircraft. auto: follows the host and cuts to each new missile. latest_missile / latest_host_missile: newest missile (of anyone / of the host). unit:<id>: a unit id from 'nr events'. name:<text>: first unit whose name contains the text."
+          "pattern": "^(host|auto|latest_missile|latest_host_missile|unit:[0-9]+|name:.+|type:.+)$",
+          "description": "host: the hosting player's aircraft. auto: follows the host and cuts to each new missile. latest_missile / latest_host_missile: newest missile (of anyone / of the host). unit:<id>: a unit id from 'nr events' (any unit: aircraft, ship, ground vehicle). name:<text>: first unit whose name contains the text, else the first player whose name contains it. type:<text>: the live unit nearest the camera whose type name contains the text, whose type code is the text, or whose kind is the text (aircraft, helicopter, ship, ground, vehicle, missile)."
         },
         "fov": {
           "type": "number",
@@ -48,6 +48,36 @@
           "minimum": 0,
           "description": "Seconds to stay on a destroyed target before cutting to the nearest live aircraft. Default 3. A detonated missile holds a still view of its explosion."
         },
+        "offset": { "$ref": "#/$defs/vector", "description": "ride: metres from the target in its own frame [x right, y up, z forward]. Default off the right side, a little behind and above, scaled to the unit's size." },
+        "look_dir": { "$ref": "#/$defs/vector", "description": "ride: direction to look in, in the target's frame. Default: look at the target." },
+        "look": { "$ref": "#/$defs/vector", "description": "ride: a point in the target's frame to look at." },
+        "look_at": { "$ref": "#/$defs/shot/properties/target", "description": "ride: another unit to look at (same selectors as target)." },
+        "roll": {
+          "oneOf": [{ "enum": ["unit", "level"] }, { "type": "number", "minimum": 0, "maximum": 1 }],
+          "description": "ride: unit (the horizon banks with the target, the default), level (the horizon stays level), or a number from 0 (level) to 1 (unit)."
+        },
+        "lag": { "type": "number", "minimum": 0, "description": "ride: seconds the offset lags the target's turns (critically damped). Default 0.12; 0 is rigid." },
+        "rot_smooth": { "type": "number", "minimum": 0, "description": "ride: seconds of smoothing on the target's rotation, against network jitter. Default 0.15." },
+        "second": { "$ref": "#/$defs/shot/properties/target", "description": "two_shot: the second unit (same selectors as target). Default: the unit the target is fighting (its missile's target, the shooter of a missile at it, its target list, else the nearest enemy aircraft)." },
+        "side": { "enum": ["left", "right", "auto"], "description": "two_shot: side of the line between the two units the camera sits on. Default auto (away from the target's sideways motion), kept for the whole shot." },
+        "distance": { "type": "number", "minimum": 0, "description": "two_shot: metres from the target. Default 2.5 times the target's size, at least 30." },
+        "distance_max": { "type": "number", "minimum": 0, "description": "two_shot: metres the camera may back off to when the lens limit cannot hold both. Default 6 times distance." },
+        "azimuth": { "type": "number", "description": "two_shot: degrees off the line between the two units. Default 35." },
+        "elevation": { "type": "number", "description": "two_shot: camera height as a share of the distance. Default 0.15." },
+        "fov_min": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 180, "description": "two_shot: narrowest lens in degrees. Default 20." },
+        "fov_max": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 180, "description": "two_shot: widest lens in degrees. Default 65." },
+        "margin": { "type": "number", "minimum": 0, "description": "two_shot: spare frame around the two units, as a share. Default 0.3." },
+        "swing_smooth": { "type": "number", "minimum": 0, "description": "two_shot: seconds the line between the two units takes to turn. Default 1." },
+        "max_swing": { "type": "number", "minimum": 0, "description": "two_shot: fastest the line may turn, degrees per second. Default 40." },
+        "second_hold": { "type": "number", "minimum": 0, "description": "two_shot: seconds to keep the frame after the second unit is gone, before picking another. Default 2." },
+        "pos_smooth": { "type": "number", "minimum": 0, "description": "two_shot: camera position smoothing in seconds. Default 0.35." },
+        "look_smooth": { "type": "number", "minimum": 0, "description": "ride (look_at) and two_shot: look point smoothing in seconds. Default 0.25." },
+        "zoom_smooth": { "type": "number", "minimum": 0, "description": "two_shot: lens smoothing in seconds (zooming out is three times faster). Default 0.8." },
+        "min_agl": { "type": "number", "minimum": 0, "description": "ride and two_shot: lowest camera height above the ground in metres." },
+        "handheld": { "type": "number", "minimum": 0, "description": "ride and two_shot: handheld sway (0 off, 1 normal). Default 0." },
+        "rumble": { "type": "number", "minimum": 0, "description": "ride and two_shot: engine rumble shake (0 off, 1 normal). Default 0." },
+        "buffet": { "type": "number", "minimum": 0, "description": "ride and two_shot: speed buffet shake (0 off, 1 normal). Default 0." },
+        "shake_speed": { "type": "number", "minimum": 0, "description": "ride and two_shot: speed of the shake. Default 1." },
         "then": {
           "$ref": "#/$defs/then",
           "description": "Where to cut once the target is gone and the hold is over, instead of the nearest live aircraft. victim_cut uses hold 0 and then the victim, so the cut lands at the moment the missile hits."
@@ -72,6 +102,12 @@
       },
       "additionalProperties": false
     },
+    "vector": {
+      "type": "array",
+      "items": { "type": "number" },
+      "minItems": 3,
+      "maxItems": 3
+    },
     "then": {
       "type": "object",
       "required": ["camera", "target"],
@@ -79,7 +115,34 @@
         "camera": { "$ref": "#/$defs/shot/properties/camera" },
         "target": { "$ref": "#/$defs/shot/properties/target" },
         "fov": { "$ref": "#/$defs/shot/properties/fov" },
-        "hold": { "$ref": "#/$defs/shot/properties/hold" }
+        "hold": { "$ref": "#/$defs/shot/properties/hold" },
+        "offset": { "$ref": "#/$defs/shot/properties/offset" },
+        "look_dir": { "$ref": "#/$defs/shot/properties/look_dir" },
+        "look": { "$ref": "#/$defs/shot/properties/look" },
+        "look_at": { "$ref": "#/$defs/shot/properties/look_at" },
+        "roll": { "$ref": "#/$defs/shot/properties/roll" },
+        "lag": { "$ref": "#/$defs/shot/properties/lag" },
+        "rot_smooth": { "$ref": "#/$defs/shot/properties/rot_smooth" },
+        "second": { "$ref": "#/$defs/shot/properties/second" },
+        "side": { "$ref": "#/$defs/shot/properties/side" },
+        "distance": { "$ref": "#/$defs/shot/properties/distance" },
+        "distance_max": { "$ref": "#/$defs/shot/properties/distance_max" },
+        "azimuth": { "$ref": "#/$defs/shot/properties/azimuth" },
+        "elevation": { "$ref": "#/$defs/shot/properties/elevation" },
+        "fov_min": { "$ref": "#/$defs/shot/properties/fov_min" },
+        "fov_max": { "$ref": "#/$defs/shot/properties/fov_max" },
+        "margin": { "$ref": "#/$defs/shot/properties/margin" },
+        "swing_smooth": { "$ref": "#/$defs/shot/properties/swing_smooth" },
+        "max_swing": { "$ref": "#/$defs/shot/properties/max_swing" },
+        "second_hold": { "$ref": "#/$defs/shot/properties/second_hold" },
+        "pos_smooth": { "$ref": "#/$defs/shot/properties/pos_smooth" },
+        "look_smooth": { "$ref": "#/$defs/shot/properties/look_smooth" },
+        "zoom_smooth": { "$ref": "#/$defs/shot/properties/zoom_smooth" },
+        "min_agl": { "$ref": "#/$defs/shot/properties/min_agl" },
+        "handheld": { "$ref": "#/$defs/shot/properties/handheld" },
+        "rumble": { "$ref": "#/$defs/shot/properties/rumble" },
+        "buffet": { "$ref": "#/$defs/shot/properties/buffet" },
+        "shake_speed": { "$ref": "#/$defs/shot/properties/shake_speed" }
       },
       "additionalProperties": false
     },
@@ -128,6 +191,13 @@
         { "t": 0, "camera": "orbit", "target": "host", "fov": 55 },
         { "t": 12, "camera": "cockpit", "target": "host" },
         { "t": 20, "camera": "chase", "target": "auto", "hold": 3 }
+      ]
+    },
+    {
+      "shots": [
+        { "t": 40, "camera": "ride", "target": "host", "offset": [6, 1.5, -2], "look_dir": [-0.8, -0.1, 0.6], "roll": "unit", "fov": 50 },
+        { "t": 52, "camera": "two_shot", "target": "host", "second": "unit:1234", "side": "auto", "fov_max": 60 },
+        { "t": 70, "camera": "orbit", "target": "type:destroyer" }
       ]
     }
   ]

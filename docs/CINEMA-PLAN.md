@@ -4,6 +4,11 @@ Status (2026-10-28): the lens pack (pillar 3, "Lens") is built on branch ct-lens
 with Super 35 and full-frame sensors, depth of field with autofocus or keyed focus, vignette, film
 grain, chromatic aberration and motion blur, the F3 Lens panel and the shot-list fields. Checked in
 headless renders; the panel and the mouse-wheel keys still need a person at the viewer.
+Status (2026-10-28, creator tools): any unit as a camera target (unit list on B, `type:` selector), the
+`ride` (ride-along, keys 0 and R) and `two_shot` (key 9) cine cameras are built, unit tested and rendered
+headless (`replay/src/CineRide.cs`, `CineTwoShot.cs`, `CameraFraming.cs`, `UnitList.cs`,
+`ReplayPlugin.Cameras.cs`, `ViewerUi.Units.cs`). Camera Studio keys stay pose-only: a ride-along is
+not a studio key; the studio's target space is the nearest equivalent.
 
 Status (2026-10-23): step 1 (Camera Studio v1 and the shake stack) is built and unit tested, and not
 yet checked in game. The path maths (`replay/src/CameraPath.cs`), the shake layers
