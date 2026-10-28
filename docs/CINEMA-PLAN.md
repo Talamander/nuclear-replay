@@ -1,5 +1,10 @@
 # Cinema plan: scrubbing, camera paths, camera feel
 
+Status (2026-10-28): the lens pack (pillar 3, "Lens") is built on branch ct-lens: focal length in mm
+with Super 35 and full-frame sensors, depth of field with autofocus or keyed focus, vignette, film
+grain, chromatic aberration and motion blur, the F3 Lens panel and the shot-list fields. Checked in
+headless renders; the panel and the mouse-wheel keys still need a person at the viewer.
+
 Status (2026-10-23): step 1 (Camera Studio v1 and the shake stack) is built and unit tested, and not
 yet checked in game. The path maths (`replay/src/CameraPath.cs`), the shake layers
 (`replay/src/CameraShake.cs`), the `path` cine camera (`CinePath.cs`), the studio model
@@ -113,6 +118,8 @@ checked yet.
   Focal length in mm with sensor presets. Dolly zoom: keep the target the same size while the camera
   moves. Risks: priority against the game's own Volumes, and the NOVR projection matrix workaround
   in `ApplyFov`.
+  Status (2026-10-28): built on ct-lens, except lens distortion, Panini projection and dolly zoom.
+  Volume priority is answered under Open questions. NOVR's matrix workaround moved to `LensFov`.
 - **Speed ramps.** Time remap per shot, for example slowing into an impact. The replay server is
   ours, so slowing the feed gives real slow motion with no frame interpolation. The viewer already
   plays from 0.25x to 4x.
@@ -172,5 +179,16 @@ Found by Tal on 2026-10-23 with 0.5.1 in the viewer.
 - Can a map load with an empty mission in the viewer, or is a short blank recording per map the
   simplest way?
 - Can time of day and weather be set on the client during a replay?
-- Does a camera-local URP Volume win over the game's global Volume without side effects?
+- Does a camera-local URP Volume win over the game's global Volume without side effects? Answered
+  2026-10-28: yes, with one catch. `Main Camera` renders the world with post-processing off. The
+  game's look comes from an Overlay camera `postProcessingRenderer` (child of `Main Camera`, volume
+  mask layer 7) that reads the `PostProcessing` Volume (priority 0.5: tonemapping, bloom, vignette,
+  color adjustments). There is also `NightVision` (layer 7, priority 1, normally off) and
+  `UIPostProcessing` (layer 9, bloom). A global Volume at priority 1000 on a spare layer, added to
+  the Overlay camera's mask, wins per parameter: only what it sets is overridden, so bloom and
+  tonemapping stay. The catch: the Overlay camera's clip planes are 0.1 to 5 m and its field of view
+  is 50, so depth of field and motion blur read every depth as a few metres and blur the whole frame.
+  The lens pack matches its planes and field of view to `Main Camera` while either effect is on
+  (it draws no renderers) and puts them back after. Evidence:
+  /mnt/games/nuclear-option-content/2026-10-28-creator-tools/lens/.
 - Which RPCs carry damage and lost parts (the main jump-point risk)?
