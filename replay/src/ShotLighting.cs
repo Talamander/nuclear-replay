@@ -1,3 +1,4 @@
+#nullable disable
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -135,7 +136,7 @@ namespace NuclearReplay.Playback
         internal static float? Next(float?[] values, float? value)
         {
             int i = Index(values, value);
-            return values[(i + 1) % values.Length];
+            return i < 0 ? values[1] : values[(i + 1) % values.Length];
         }
 
         internal static float? StepTime(float? hours, float recorded, int steps) =>

@@ -11,6 +11,10 @@
       "type": "array",
       "description": "Shots in time order. The director sorts them by t.",
       "items": { "$ref": "#/$defs/shot" }
+    },
+    "lighting": {
+      "$ref": "#/$defs/lighting",
+      "description": "Lighting defaults for every shot (a shot's own lighting keys win key by key). Leave it out to render the recorded lighting."
     }
   },
   "additionalProperties": false,
@@ -47,7 +51,24 @@
         "then": {
           "$ref": "#/$defs/then",
           "description": "Where to cut once the target is gone and the hold is over, instead of the nearest live aircraft. victim_cut uses hold 0 and then the victim, so the cut lands at the moment the missile hits."
-        }
+        },
+        "time_of_day": { "$ref": "#/$defs/lighting/properties/time_of_day" },
+        "sun_azimuth": { "$ref": "#/$defs/lighting/properties/sun_azimuth" },
+        "sun_camera_off": { "$ref": "#/$defs/lighting/properties/sun_camera_off" },
+        "fog": { "$ref": "#/$defs/lighting/properties/fog" },
+        "weather": { "$ref": "#/$defs/lighting/properties/weather" },
+        "cloud_height": { "$ref": "#/$defs/lighting/properties/cloud_height" },
+        "backlight": {
+          "type": "boolean",
+          "description": "chase_cine, flyby, track_from and keyframe cameras: put the camera on the far side of the subject from the sun, looking into the sun (silhouette and rim light)."
+        },
+        "backlight_off": { "type": "number", "minimum": 0, "maximum": 90, "description": "Degrees between the sun and the subject as seen from the camera. Default 15." },
+        "backlight_side": { "enum": ["left", "right"], "description": "Which side of the subject the sun appears on. Default right." },
+        "backlight_pitch": { "type": "number", "minimum": -89, "maximum": 89, "description": "Degrees; positive puts the sun higher in frame than the subject. Default 0." },
+        "backlight_at": { "type": "number", "minimum": 0, "description": "track_from: seconds ahead at which the subject crosses the sun line. Default 2." },
+        "backlight_height": { "type": "number", "description": "chase_cine: metres added straight up to the sun-locked offset. Default 0." },
+        "backlight_min": { "type": "number", "exclusiveMinimum": 0, "description": "Metres: nearest ground spot on the sun line for agl cameras. Default 60." },
+        "backlight_max": { "type": "number", "exclusiveMinimum": 0, "description": "Metres: farthest ground spot on the sun line for agl cameras. Default 8000." }
       },
       "additionalProperties": false
     },
@@ -59,6 +80,44 @@
         "target": { "$ref": "#/$defs/shot/properties/target" },
         "fov": { "$ref": "#/$defs/shot/properties/fov" },
         "hold": { "$ref": "#/$defs/shot/properties/hold" }
+      },
+      "additionalProperties": false
+    },
+    "lighting": {
+      "type": "object",
+      "properties": {
+        "time_of_day": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 24,
+          "description": "Hours. Moves the sun along the map's own path: 6.5 dawn, 17.3 golden hour, 17.8 dusk on most maps; the sun light is off from about 17.9."
+        },
+        "sun_azimuth": {
+          "anyOf": [{ "type": "number", "minimum": 0, "maximum": 360 }, { "const": "camera" }],
+          "description": "Compass degrees toward the sun (0 = +z, 90 = +x), turning the sun's path about the vertical; or \"camera\": the sun in front of the camera, sun_camera_off degrees right of the view, locked at the shot's first frame. The elevation still comes from time_of_day."
+        },
+        "sun_camera_off": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90,
+          "description": "Degrees right of the view for sun_azimuth \"camera\" (negative: left). Default 15."
+        },
+        "fog": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Multiplier on the game's haze (fog density): 0.25 clear air, 0.5 light, 2 hazy, 4 thick. 1 is the recorded haze."
+        },
+        "weather": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "The game's weather amount: 0 clear to 1 storm (cloud cover and overcast light)."
+        },
+        "cloud_height": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Height of the cloud layer in metres above sea level."
+        }
       },
       "additionalProperties": false
     }
