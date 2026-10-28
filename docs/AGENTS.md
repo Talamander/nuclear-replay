@@ -169,8 +169,13 @@ Lens fields (optional, per shot; a `then` shot uses its own, not its parent's; a
   `postProcessingRenderer` under `Main Camera`, so the lens layer is added to that camera's volume
   mask, and only the parameters an effect sets are overridden. The game's look stays; an effect that
   is off leaves the game's vignette alone. While depth of field or motion blur is on, that camera's
-  clip planes and field of view follow `Main Camera`. All of it is put back when the effect or the
+  clip planes and field of view follow `Main Camera`, and it stops clearing the depth buffer (URP
+  clears it for Overlay cameras by default, and depth of field then read every pixel as the far
+  plane, so the subject blurred like the background). All of it is put back when the effect or the
   replay ends.
+- Autofocus is measured again as `Main Camera` starts drawing, so a fast target is not a frame
+  behind. The log has `Lens focus <unit>: ... m at render (LateUpdate had ...), straight line ...,
+  bounds centre along view ...` for the first frames on each target.
 - Path keys (`camera: "path"`) also take `focal_mm`, `focus` (metres or "target") and `f_stop`. With
   `dof` on the shot, focus moves from key to key in dioptres at the camera's progress (a focus pull);
   keys without them use the shot's.

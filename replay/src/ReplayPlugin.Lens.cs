@@ -3,6 +3,7 @@ using System.Globalization;
 using BepInEx.Configuration;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace NuclearReplay.Playback
 {
@@ -34,6 +35,13 @@ namespace NuclearReplay.Playback
         private LensSettings lensShot;
         private double lensFocalNow, lensFocusNow, lensFocusUsed, lensFStopNow;
         private string lensSource = "none";
+        // Autofocus at render time: the unit focused on and the camera it is measured from (null when focus is fixed,
+        // keyed or on a raycast). LensStep runs in LateUpdate, before the game's camera code may still move the camera
+        // that frame; the focus distance is measured again as the render camera starts drawing (LensBeforeRender).
+        private Unit lensFocusUnit;
+        private Camera lensFocusCam;
+        private bool lensRenderHook;
+        private int lensFocusLogs, lensFocusFrame;
 
         // Called from ViewerAwake (every session; render jobs read only shot lenses).
         private void LensAwake()
@@ -168,7 +176,13 @@ namespace NuclearReplay.Playback
             double focus = use.FocusTarget ? (target > 0 ? target : 1000) : use.FocusM;
             double fStop = use.FStop;
             var cine = director?.Cine;
-            if (!freeCamOn && cine != null && cine.PathLens(focus, fStop, out var keyedFocus, out var keyedStop)) { focus = keyedFocus; fStop = keyedStop; }
+            bool keyed = false;
+            if (!freeCamOn && cine != null && cine.PathLens(focus, fStop, out var keyedFocus, out var keyedStop)) { focus = keyedFocus; fStop = keyedStop; keyed = true; }
+            var focusUnit = use.Dof && use.FocusTarget && !keyed ? LensFocusUnit(rc) : null;
+            if (!ReferenceEquals(focusUnit, lensFocusUnit)) lensFocusLogs = 0;
+            lensFocusUnit = focusUnit;
+            lensFocusCam = rc;
+            if (!lensRenderHook) { RenderPipelineManager.beginCameraRendering += LensBeforeRender; lensRenderHook = true; }
             focus = LensMath.Clamp(focus, LensMath.MinFocus, LensMath.MaxFocus);
             lensFocusUsed = focus;
             lensFStopNow = fStop;
@@ -177,7 +191,48 @@ namespace NuclearReplay.Playback
             lensRig.Apply(rc, use, (float)focus, (float)urpFocal, (float)urpAperture);
         }
 
-        private void LensOff() => lensRig?.Off();
+        private void LensOff() { lensFocusUnit = null; lensRig?.Off(); }
+
+        // The render camera is about to draw: autofocus is measured again from where the camera and the unit really
+        // are this frame (no frame of lag on a fast mover), and logged for a few frames per target.
+        private void LensBeforeRender(ScriptableRenderContext context, Camera cam)
+        {
+            try
+            {
+                if (cam == null || cam != lensFocusCam || lensFocusUnit == null || lensRig == null || !lensRig.On) return;
+                if (lensFocusUnit.transform == null) return;
+                Vector3 at = cam.transform.position, forward = cam.transform.forward;
+                Vector3 pivot = lensFocusUnit.transform.position;
+                double depth = Vector3.Dot(pivot - at, forward);
+                if (!(depth > LensMath.MinFocus)) return;
+                double before = lensFocusUsed;
+                lensFocusUsed = LensMath.Clamp(depth, LensMath.MinFocus, LensMath.MaxFocus);
+                lensRig.Refocus((float)lensFocusUsed);
+                if (lensFocusLogs < 8 && Time.frameCount - lensFocusFrame >= 15)
+                {
+                    lensFocusLogs++;
+                    lensFocusFrame = Time.frameCount;
+                    var b = LensUnitBounds(lensFocusUnit);
+                    double boundsDepth = b.HasValue ? Vector3.Dot(b.Value.center - at, forward) : double.NaN;
+                    Logger.LogInfo(string.Format(CultureInfo.InvariantCulture,
+                        "Lens focus {0}: {1:0.0} m at render (LateUpdate had {2:0.0}), straight line {3:0.0} m, bounds centre along view {4:0.0} m, bounds size {5}, f/{6:0.0} {7:0} mm",
+                        lensFocusUnit.unitName, lensFocusUsed, before, Vector3.Distance(pivot, at), boundsDepth,
+                        b.HasValue ? b.Value.size.ToString("F1") : "?", lensFStopNow, lensFocalNow));
+                }
+            }
+            catch (Exception) { }
+        }
+
+        private static Bounds? LensUnitBounds(Unit unit)
+        {
+            Bounds? all = null;
+            foreach (var r in unit.GetComponentsInChildren<Renderer>())
+            {
+                if (r == null || !r.enabled || r is ParticleSystemRenderer || r is TrailRenderer || r is LineRenderer) continue;
+                if (all.HasValue) { var a = all.Value; a.Encapsulate(r.bounds); all = a; } else all = r.bounds;
+            }
+            return all;
+        }
 
         // The replay is over (or restarting): the Volume goes off and the camera's volume mask is restored.
         private void LensTeardown()
@@ -188,13 +243,18 @@ namespace NuclearReplay.Playback
         }
 
         // Distance in metres along the view to what autofocus focuses on; -1 when there is nothing.
+        private Unit LensFocusUnit(Camera rc)
+        {
+            var unit = freeCamOn ? (studio.Open ? StudioUnit() : null) ?? LensCentreUnit(rc) : director?.CurrentUnit;
+            if (unit == null || unit.transform == null) return null;
+            return Vector3.Dot(unit.transform.position - rc.transform.position, rc.transform.forward) > LensMath.MinFocus ? unit : null;
+        }
+
         private double LensTargetDepth(Camera rc)
         {
             Vector3 at = rc.transform.position, forward = rc.transform.forward;
-            Unit unit = null;
-            if (freeCamOn) unit = (studio.Open ? StudioUnit() : null) ?? LensCentreUnit(rc);
-            else unit = director?.CurrentUnit;
-            if (unit != null && unit.transform != null)
+            var unit = LensFocusUnit(rc);
+            if (unit != null)
             {
                 double d = Vector3.Dot(unit.transform.position - at, forward);
                 if (d > LensMath.MinFocus) return d;

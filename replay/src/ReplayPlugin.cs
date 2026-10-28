@@ -14,6 +14,7 @@ using NuclearReplay.Shared;
 using NuclearOption.Networking;
 using NuclearOption.NetworkTransforms;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace NuclearReplay.Playback
 {
@@ -925,6 +926,7 @@ namespace NuclearReplay.Playback
             server?.Close();
             preview?.Close();
             LensTeardown();
+            if (lensRenderHook) { RenderPipelineManager.beginCameraRendering -= LensBeforeRender; lensRenderHook = false; }
         }
     }
 

@@ -225,6 +225,13 @@ namespace NuclearReplay.Playback
             foreach (var m in masked) UpdateStack(m.Key);
         }
 
+        // Autofocus measured again just before the frame is drawn (ReplayPlugin.LensBeforeRender).
+        public void Refocus(float focusDepth)
+        {
+            if (!on || dof == null || !dof.active) return;
+            dof.focusDistance.value = Mathf.Max(0.1f, focusDepth);
+        }
+
         public void Off()
         {
             if (!on) return;
@@ -328,6 +335,20 @@ namespace NuclearReplay.Playback
         // on the layers it draws, so while either effect is on its near/far planes and field of view follow the render
         // camera; they are put back when the effect goes off. Without this its planes (0.1 to 5 m) turn every depth
         // into a few metres and the whole frame blurs.
+        //
+        // The Overlay camera also clears the depth buffer before it draws (URP's default for Overlay cameras), and URP
+        // copies the depth texture that depth of field reads after that clear. Every pixel then reads as the far plane,
+        // so the subject blurred as much as the background. While either effect is on the camera keeps the world's
+        // depth instead (it draws nothing, so nothing else changes).
+        private readonly Dictionary<Camera, bool> clearDepthWas = new Dictionary<Camera, bool>();
+        // URP 14 has no setter for clearDepth (the inspector writes the private field m_ClearDepth).
+        private static readonly System.Reflection.FieldInfo ClearDepthField =
+            typeof(UniversalAdditionalCameraData).GetField("m_ClearDepth", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        private void SetClearDepth(UniversalAdditionalCameraData data, bool value)
+        {
+            if (ClearDepthField == null) { log.LogWarning("Lens: no m_ClearDepth field; depth of field may blur the subject"); return; }
+            ClearDepthField.SetValue(data, value);
+        }
         private void SyncPostCameras(Camera cam, bool need)
         {
             if (!need) { Unsync(); return; }
@@ -336,7 +357,13 @@ namespace NuclearReplay.Playback
                 var c = m.Key;
                 if (c == null || c == cam || !DrawsNothing(c)) continue;
                 int i = synced.FindIndex(x => x.Key == c);
-                if (i < 0) synced.Add(new KeyValuePair<Camera, Vector3>(c, new Vector3(c.nearClipPlane, c.farClipPlane, c.fieldOfView)));
+                var data = c.GetComponent<UniversalAdditionalCameraData>();
+                if (i < 0)
+                {
+                    synced.Add(new KeyValuePair<Camera, Vector3>(c, new Vector3(c.nearClipPlane, c.farClipPlane, c.fieldOfView)));
+                    clearDepthWas[c] = data != null && data.clearDepth;
+                }
+                if (data != null && data.clearDepth) SetClearDepth(data, false);
                 if (c.nearClipPlane != cam.nearClipPlane) c.nearClipPlane = cam.nearClipPlane;
                 if (c.farClipPlane != cam.farClipPlane) c.farClipPlane = cam.farClipPlane;
                 if (c.fieldOfView != cam.fieldOfView) c.fieldOfView = cam.fieldOfView;
@@ -374,8 +401,11 @@ namespace NuclearReplay.Playback
                 s.Key.nearClipPlane = s.Value.x;
                 s.Key.farClipPlane = s.Value.y;
                 s.Key.fieldOfView = s.Value.z;
+                var data = s.Key.GetComponent<UniversalAdditionalCameraData>();
+                if (data != null && clearDepthWas.TryGetValue(s.Key, out bool was)) SetClearDepth(data, was);
             }
             synced.Clear();
+            clearDepthWas.Clear();
         }
 
         private void RestoreMask()
@@ -423,10 +453,11 @@ namespace NuclearReplay.Playback
                 {
                     if (c == null || c == cam) continue;
                     var d = c.GetComponent<UniversalAdditionalCameraData>();
-                    lines.Add(string.Format(CultureInfo.InvariantCulture, "other camera {0}: post-processing {1}, volume mask 0x{2:X8}, type {3}, culling 0x{4:X8}, near {5:0.###} far {6:0.#} fov {7:0.#}, parent {8}, update {9}",
+                    lines.Add(string.Format(CultureInfo.InvariantCulture, "other camera {0}: post-processing {1}, volume mask 0x{2:X8}, type {3}, culling 0x{4:X8}, near {5:0.###} far {6:0.#} fov {7:0.#}, parent {8}, update {9}, clear depth {10} (was {11})",
                         c.name, d != null && d.renderPostProcessing, d != null ? d.volumeLayerMask.value : 0, d != null ? d.renderType.ToString() : "?",
                         c.cullingMask, c.nearClipPlane, c.farClipPlane, c.fieldOfView, c.transform.parent != null ? c.transform.parent.name : "none",
-                        d != null ? (d.requiresVolumeFrameworkUpdate ? "every frame" : "via scripting") : "?"));
+                        d != null ? (d.requiresVolumeFrameworkUpdate ? "every frame" : "via scripting") : "?",
+                        d != null && d.clearDepth, clearDepthWas.TryGetValue(c, out bool was) ? was.ToString() : "-"));
                 }
                 lines.Add(string.Format(CultureInfo.InvariantCulture, "render camera near {0:0.###} far {1:0.#} fov {2:0.#}; lens layer added to [{3}]; clip planes matched on [{4}]",
                     cam.nearClipPlane, cam.farClipPlane, cam.fieldOfView, string.Join(", ", masked.Select(m => m.Key != null ? m.Key.name : "?")),

@@ -189,6 +189,8 @@ Found by Tal on 2026-10-23 with 0.5.1 in the viewer.
   tonemapping stay. The catch: the Overlay camera's clip planes are 0.1 to 5 m and its field of view
   is 50, so depth of field and motion blur read every depth as a few metres and blur the whole frame.
   The lens pack matches its planes and field of view to `Main Camera` while either effect is on
-  (it draws no renderers) and puts them back after. Evidence:
+  (it draws no renderers) and puts them back after. A second catch: the Overlay camera clears depth
+  before URP copies the depth texture, so depth of field saw only the far plane and blurred the
+  subject as much as the background. Its depth clear is off while either effect is on. Evidence:
   /mnt/games/nuclear-option-content/2026-10-28-creator-tools/lens/.
 - Which RPCs carry damage and lost parts (the main jump-point risk)?
