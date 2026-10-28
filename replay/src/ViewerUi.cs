@@ -32,6 +32,8 @@ namespace NuclearReplay.Playback
             public FfmpegDownload Ffmpeg;
             public CameraStudio Studio;
             public bool StudioOpen, StudioPlaying;
+            public bool LightingOpen, LightingSet;
+            public string LightingText;
         }
 
         public static bool PointerOverViewerUi;
@@ -249,6 +251,7 @@ namespace NuclearReplay.Playback
             MakeButton(controls, ">", 32, () => host.ViewerUnit(1));
             freeButton = MakeButton(controls, "Free cam", 92, () => host.ViewerToggleFreeCam(), out freeLabel, 40, 16);
             studioButton = MakeButton(controls, "Camera path", 116, () => host.ViewerToggleStudio(), out studioLabel, 40, 16);
+            lightingButton = MakeButton(controls, "Lighting", 96, () => host.ViewerToggleLighting(), out lightingLabel, 40, 16);
             Gap(controls, 10);
             MakeButton(controls, "In", 44, () => host.ViewerSetIn());
             MakeButton(controls, "Out", 50, () => host.ViewerSetOut());
@@ -268,6 +271,7 @@ namespace NuclearReplay.Playback
             }
 
             BuildStudio();
+            BuildLighting();
         }
 
         // A fixed-width text cell in a control row (speed, unit, clip in/out); it never shrinks to nothing.
@@ -311,6 +315,7 @@ namespace NuclearReplay.Playback
             "<b>C</b>  clip this: plays the clip at 1x and records it (C again cancels)\n" +
             "<b>G</b>  the game's flight HUD on / off\n" +
             "<b>H</b>  hide all UI\n" +
+            "<b>F2</b>  lighting: <b>Y</b> time (dawn, golden hour, dusk, night), <b>PgUp / PgDn</b> 15 min later / earlier, <b>N</b> haze, <b>V</b> weather, <b>Z</b> sun behind the subject, <b>Home</b> as recorded\n" +
             "<b>F1</b>  this help\n" +
             "<b>Backspace</b>  leave the replay";
 
@@ -719,6 +724,7 @@ namespace NuclearReplay.Playback
                 BuildMarkers(s.Events, s.Focus, duration);
             PlaceMarkers(duration, width);
             UpdateStudio(s, duration, width);
+            UpdateLighting(s);
             PointerOverViewerUi |= RectTransformUtility.RectangleContainsScreenPoint(bottom, Input.mousePosition, null)
                 || help.gameObject.activeSelf && RectTransformUtility.RectangleContainsScreenPoint(help, Input.mousePosition, null);
             UpdateTooltip(duration);

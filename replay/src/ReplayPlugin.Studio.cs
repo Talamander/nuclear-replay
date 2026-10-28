@@ -287,12 +287,13 @@ namespace NuclearReplay.Playback
                 var root = new JObject
                 {
                     ["version"] = 1, ["source"] = "camera studio", ["demo"] = viewerDemo.Path,
-                    ["shots"] = new JArray(StudioShot()),
+                    ["shots"] = new JArray(LightingShot(StudioShot())),
                     ["studio"] = new JObject
                     {
                         ["keys"] = keys, ["timing"] = studio.KeyTiming ? "keys" : "even", ["aim"] = studio.Aim,
                         ["space"] = studio.TargetSpace ? "target" : "world", ["shake"] = studio.ShakeName, ["ease"] = studio.Ease,
-                        ["unit_id"] = studio.UnitId, ["unit_name"] = studio.UnitName
+                        ["unit_id"] = studio.UnitId, ["unit_name"] = studio.UnitName,
+                        ["lighting"] = LightingOverride.ToJson(LightingOverride.Viewer)
                     }
                 };
                 File.WriteAllText(path + ".tmp", root.ToString());
@@ -331,7 +332,10 @@ namespace NuclearReplay.Playback
                 studio.TargetSpace = (string)s["space"] == "target" && studio.AllRelative && studio.UnitId != null;
                 studio.Selected = studio.Count > 0 ? 0 : -1;
                 studio.Version++;
-                Logger.LogInfo($"Camera Studio: loaded {studio.Count} keys from {path}");
+                // The path's light comes back with it (the Lighting panel shows it and can change it).
+                var light = s["lighting"] as JObject;
+                if (light != null) LightingOverride.SetViewer(LightingOverride.FromJson(light), "camera path");
+                Logger.LogInfo($"Camera Studio: loaded {studio.Count} keys from {path}" + (light != null ? ", lighting " + light.ToString(Newtonsoft.Json.Formatting.None) : ""));
             }
             catch (Exception e) { Logger.LogWarning("Camera Studio: could not read " + path + ": " + e.Message); }
         }

@@ -8,6 +8,10 @@ Not in v1: per-segment ease, Bezier handles, roll and focus keys, look-at-a-poin
 you can drag, and loop preview. It builds on [JUMP-POINTS.md](JUMP-POINTS.md),
 which covers faster seeking in more depth.
 
+Status (2026-10-28): lighting (the F2 panel, shot list lighting and backlight fields,
+[LIGHTING.md](LIGHTING.md)) is built, unit tested and rendered headless on the HAW demo. A person has not yet
+checked the panel in the game.
+
 ## Goal
 
 Make Nuclear Replay the tool people use to make cinematic Nuclear Option content. That needs three
@@ -171,6 +175,8 @@ Found by Tal on 2026-10-23 with 0.5.1 in the viewer.
 
 - Can a map load with an empty mission in the viewer, or is a short blank recording per map the
   simplest way?
-- Can time of day and weather be set on the client during a replay?
+- Can time of day and weather be set on the client during a replay? Yes (2026-10-28): the replay plugin
+  overrides `timeOfDay`, `conditions` and `cloudHeight` on the client and puts the recorded values back around
+  every stream update. See [LIGHTING.md](LIGHTING.md).
 - Does a camera-local URP Volume win over the game's global Volume without side effects?
 - Which RPCs carry damage and lost parts (the main jump-point risk)?

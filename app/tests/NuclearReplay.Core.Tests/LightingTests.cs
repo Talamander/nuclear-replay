@@ -288,4 +288,44 @@ public class LightingTests
         Assert.Equal(6.5, (double)msg["lighting"]!["time_of_day"]!);
         Assert.False(Preview.PreviewCommands.Shots("""{"shots":[]}""").ContainsKey("lighting"));
     }
+
+    // ---------------- viewer keys and their docs ----------------
+
+    // The panel's keys (ReplayPlugin.Lighting.cs LightingKeys) must not collide with the viewer's other keys while
+    // the panel is open, and F2 plus every panel key must be in the F1 help, the README key table and docs/AGENTS.md.
+    [Fact]
+    public void PanelKeysAreFreeAndDocumented()
+    {
+        var lighting = DemoReadingTests.FindRepoFile("replay/src/ReplayPlugin.Lighting.cs");
+        var viewer = DemoReadingTests.FindRepoFile("replay/src/ReplayPlugin.Viewer.cs");
+        var studio = DemoReadingTests.FindRepoFile("replay/src/ReplayPlugin.Studio.cs");
+        var ui = DemoReadingTests.FindRepoFile("replay/src/ViewerUi.cs");
+        var readme = DemoReadingTests.FindRepoFile("README.md");
+        var agents = DemoReadingTests.FindRepoFile("docs/AGENTS.md");
+        if (lighting == null || viewer == null || studio == null || ui == null || readme == null || agents == null) return;
+        static string[] Keys(string text) => System.Text.RegularExpressions.Regex.Matches(text, @"KeyCode\.([A-Za-z0-9]+)")
+            .Select(m => m.Groups[1].Value).Distinct().ToArray();
+        string src = File.ReadAllText(lighting);
+        int start = src.IndexOf("private void LightingKeys()", StringComparison.Ordinal);
+        Assert.True(start >= 0);
+        var panel = Keys(src.Substring(start, src.IndexOf('}', start) - start));
+        Assert.Equal(new[] { "Y", "PageUp", "PageDown", "N", "V", "Z", "Home" }, panel);
+        // Keys the viewer and the studio read while a replay is open (the ffmpeg prompt's Y and N run alone, before
+        // every other key, so they cannot collide).
+        string viewerSrc = File.ReadAllText(viewer);
+        int keysAt = viewerSrc.IndexOf("private bool ViewerKeys()", StringComparison.Ordinal);
+        string viewerKeys = viewerSrc.Substring(keysAt, viewerSrc.IndexOf("private static bool TypingInGameField", keysAt, StringComparison.Ordinal) - keysAt);
+        int promptEnd = viewerKeys.IndexOf("return true;\n            }\n            // The game's own menu", StringComparison.Ordinal);
+        Assert.True(promptEnd > 0);
+        var other = Keys(viewerKeys.Substring(promptEnd)).Concat(Keys(File.ReadAllText(studio))).ToHashSet();
+        foreach (var k in panel) Assert.DoesNotContain(k, other);
+        Assert.Contains("F2", Keys(viewerKeys.Substring(promptEnd)));
+
+        string help = File.ReadAllText(ui);
+        Assert.Contains("<b>F2</b>  lighting", help);
+        foreach (var word in new[] { "<b>Y</b> time", "<b>PgUp / PgDn</b>", "<b>N</b> haze", "<b>V</b> weather", "<b>Z</b> sun behind", "<b>Home</b> as recorded" })
+            Assert.Contains(word, help);
+        Assert.Contains("| F2 | Lighting: Y time of day, Page Up / Page Down 15 minutes, N haze, V weather, Z sun behind the aircraft, Home as recorded |", File.ReadAllText(readme));
+        Assert.Contains("| F2 | Lighting panel.", File.ReadAllText(agents));
+    }
 }
