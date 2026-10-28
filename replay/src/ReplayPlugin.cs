@@ -445,6 +445,7 @@ namespace NuclearReplay.Playback
         {
             Logger.LogInfo("Restarting the replay");
             preview?.OnRestarting();
+            LensTeardown();
             try { director?.Shutdown(); } catch (Exception e) { Logger.LogWarning("Preview restart: director: " + e.Message); }
             try { server?.Close(); } catch (Exception e) { Logger.LogWarning("Preview restart: server: " + e.Message); }
             server = null;
@@ -573,6 +574,7 @@ namespace NuclearReplay.Playback
                 double replayTime = server.Clock - server.StartTime;
                 if (!freeCamOn) director.Update(replayTime, live);
                 cockpitView.Step(live);
+                LensStep(live);
                 if (live) Capture(replayTime);
                 preview?.AfterFrame(replayTime, live);
                 JobUpdate(replayTime, live);
@@ -922,6 +924,7 @@ namespace NuclearReplay.Playback
             if (preview != null) Logger.LogWarning("Replay plugin destroyed while a preview runs:\n" + Environment.StackTrace);
             server?.Close();
             preview?.Close();
+            LensTeardown();
         }
     }
 

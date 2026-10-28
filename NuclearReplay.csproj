@@ -39,6 +39,9 @@
     <Reference Include="$(GameDir)/NuclearOption_Data/Managed/Newtonsoft.Json.dll" Private="false" />
     <Reference Include="$(GameDir)/NuclearOption_Data/Managed/UnityEngine*.dll" Private="false" />
     <Reference Include="$(GameDir)/NuclearOption_Data/Managed/Unity.TextMeshPro.dll" Private="false" />
+    <!-- URP: the lens pack's camera-local Volume (depth of field, vignette, film grain, chromatic aberration, motion blur). -->
+    <Reference Include="$(GameDir)/NuclearOption_Data/Managed/Unity.RenderPipelines.Core.Runtime.dll" Private="false" />
+    <Reference Include="$(GameDir)/NuclearOption_Data/Managed/Unity.RenderPipelines.Universal.Runtime.dll" Private="false" />
     <Reference Include="$(GameDir)/BepInEx/core/BepInEx.dll" Private="false" />
     <Reference Include="$(GameDir)/BepInEx/core/0Harmony.dll" Private="false" />
   </ItemGroup>

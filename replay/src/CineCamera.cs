@@ -117,8 +117,10 @@ namespace NuclearReplay.Playback
             frame = null;
             if (raw["frame"] is JArray fr && fr.Count == 2) frame = new Vector2((float)fr[0], (float)fr[1]);
             sizeFrac = F("size", 0f);
-            fovMin = F("fov_min", 4f);
-            fovMax = F("fov_max", 70f);
+            // A lens set in mm (focal_mm) may go longer or wider than the auto-zoom's usual range.
+            bool mm = raw["focal_mm"] != null;
+            fovMin = F("fov_min", mm ? 1f : 4f);
+            fovMax = F("fov_max", mm ? 120f : 70f);
             zoomSmooth = F("zoom_smooth", 0.8f);
             driftDeg = F("azimuth", 0f);
             fromUnit = null;
@@ -316,7 +318,7 @@ namespace NuclearReplay.Playback
             keys = new List<Key>();
             foreach (var item in raw["keys"] as JArray ?? new JArray())
             {
-                var k = new Key { T = (float?)item["t"] ?? 0, Pos = V3(item["pos"]), World = ((string)item["space"] ?? "target") == "world", Fov = (float?)item["fov"] };
+                var k = new Key { T = (float?)item["t"] ?? 0, Pos = V3(item["pos"]), World = ((string)item["space"] ?? "target") == "world", Fov = LensShots.FocalFov(item, (string)raw["sensor"]) ?? (float?)item["fov"] };
                 if (item["look"] is JArray) { k.Look = V3(item["look"]); k.LookWorld = ((string)item["look_space"] ?? (k.World ? "world" : "target")) == "world"; }
                 keys.Add(k);
             }
@@ -612,50 +614,14 @@ namespace NuclearReplay.Playback
             return main;
         }
 
-        // Sets the lens. NOVR patches Camera.fieldOfView's setter to do nothing, so when the setter does not
-        // take, the lens is applied through the projection matrix of every camera that renders the view, and
-        // the LOD bias is raised by the zoom factor so LOD selection (which still sees the camera's own field of
-        // view) matches what is on screen. All of this is undone when the cine shot ends.
-        private bool fovLogged, usingMatrix;
-        private float savedLodBias = -1;
-        private Camera matrixCam;
-        private void ApplyFov(CameraStateManager cam, float v)
-        {
-            var c = cam.mainCamera;
-            var r = RenderCamera(c);
-            c.fieldOfView = v;
-            if (r != c) r.fieldOfView = v;
-            cam.desiredFOV = v;
-            bool blocked = Mathf.Abs(r.fieldOfView - v) > 0.05f;
-            if (blocked)
-            {
-                var m = Matrix4x4.Perspective(v, r.aspect, r.nearClipPlane, r.farClipPlane);
-                r.projectionMatrix = m;
-                if (r != c) c.projectionMatrix = Matrix4x4.Perspective(v, c.aspect, c.nearClipPlane, c.farClipPlane);
-                if (matrixCam != null && matrixCam != r) matrixCam.ResetProjectionMatrix();
-                matrixCam = r;
-                if (savedLodBias < 0) savedLodBias = QualitySettings.lodBias;
-                float zoom = Mathf.Tan(r.fieldOfView * 0.5f * Mathf.Deg2Rad) / Mathf.Tan(v * 0.5f * Mathf.Deg2Rad);
-                QualitySettings.lodBias = savedLodBias * Mathf.Max(1f, zoom);
-                usingMatrix = true;
-            }
-            else if (usingMatrix) ResetLens(c);
-            if (!fovLogged)
-            {
-                fovLogged = true;
-                log.LogInfo(string.Format(CultureInfo.InvariantCulture, "Cine lens: {0:F1} deg on {1}, its field of view reads {2:F1}{3}",
-                    v, r.name, r.fieldOfView, blocked ? " (setter blocked by a mod; using the projection matrix, LOD bias compensated)" : ""));
-            }
-        }
-
-        private void ResetLens(Camera main)
-        {
-            if (main != null) main.ResetProjectionMatrix();
-            if (matrixCam != null) matrixCam.ResetProjectionMatrix();
-            matrixCam = null;
-            usingMatrix = false;
-            if (savedLodBias > 0) { QualitySettings.lodBias = savedLodBias; savedLodBias = -1; }
-        }
+        // Sets the lens (LensFov in Lens.cs handles NOVR, which blocks Camera.fieldOfView's setter). All of it is
+        // undone when the cine shot ends.
+        private LensFov lensFov;
+        private LensFov Lens => lensFov ?? (lensFov = new LensFov(log, "Cine"));
+        private bool usingMatrix => lensFov != null && lensFov.UsingMatrix;
+        private bool fovLogged { set { if (!value) lensFov?.LogNext(); } }
+        private void ApplyFov(CameraStateManager cam, float v) => Lens.Apply(cam, v);
+        private void ResetLens(Camera main) => Lens.Reset(main);
 
         private Vector3 ChaseOffsetWorld()
         {

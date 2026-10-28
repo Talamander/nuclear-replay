@@ -127,6 +127,15 @@ namespace NuclearReplay.Playback
                 freeFly.Yaw = key.Yaw;
                 freeFly.Pitch = key.Pitch;
                 freeFly.SetFov(cam, key.Fov);
+                // The key's focus and aperture back into the Lens panel.
+                if (key.FStop > 0)
+                {
+                    lens.Dof = true;
+                    lens.FStop = key.FStop;
+                    lens.FocusTarget = key.Focus <= 0;
+                    if (key.Focus > 0) lens.FocusM = key.Focus;
+                }
+                LensSave();
             }
             studio.Version++;
             ui.Toast($"Key {studio.Selected + 1} of {studio.Count} at {CameraStudio.Clock(key.Rt)}", 2f);
@@ -162,6 +171,11 @@ namespace NuclearReplay.Playback
             {
                 World = new System.Numerics.Vector3(p.x, p.y, p.z), Yaw = freeFly.Yaw, Pitch = freeFly.Pitch, Fov = freeFly.CurrentFov(cam)
             };
+            // Lens: the key keeps the focus and aperture (when depth of field is on), the path the rest of the panel.
+            if (lens.Dof) { key.FStop = (float)lens.FStop; key.Focus = lens.FocusTarget ? -1f : (float)lens.FocusM; }
+            studio.Lens = lens.Clone();
+            studio.Lens.FocalMm = 0;
+            studio.Aspect = cam.mainCamera.aspect;
             var unit = StudioUnit();
             if (unit != null)
             {
@@ -245,11 +259,15 @@ namespace NuclearReplay.Playback
             studio.ShakeAmounts(out float handheld, out float rumble, out float buffet);
             var keys = new JArray();
             foreach (var k in studio.ShotKeys())
-                keys.Add(new JObject
+            {
+                var key = new JObject
                 {
                     ["t"] = k.T, ["pos"] = new JArray(R(k.Pos.X), R(k.Pos.Y), R(k.Pos.Z)),
                     ["yaw"] = R(k.Yaw), ["pitch"] = R(k.Pitch), ["roll"] = 0, ["fov"] = R(k.Fov)
-                });
+                };
+                if (k.FStop > 0) { key["focus"] = k.Focus > 0 ? (JToken)R(k.Focus) : "target"; key["f_stop"] = R(k.FStop); }
+                keys.Add(key);
+            }
             var shot = new JObject
             {
                 ["t"] = Math.Round(studio.ShotTime, 3), ["camera"] = "path", ["target"] = studio.ShotTarget,
@@ -261,6 +279,7 @@ namespace NuclearReplay.Playback
             if (handheld > 0) shot["handheld"] = handheld;
             if (rumble > 0) shot["rumble"] = rumble;
             if (buffet > 0) shot["buffet"] = buffet;
+            foreach (var field in studio.Lens.ToShot()) shot[field.Key] = field.Value is System.Collections.Generic.IDictionary<string, object> inner ? LensShots.ToJson(inner) : JToken.FromObject(field.Value);
             return shot;
         }
 
@@ -282,6 +301,7 @@ namespace NuclearReplay.Playback
                         ["yaw"] = R(k.Yaw), ["pitch"] = R(k.Pitch), ["fov"] = R(k.Fov)
                     };
                     if (k.HasRel) { o["rel"] = new JArray(R(k.Rel.X), R(k.Rel.Y), R(k.Rel.Z)); o["rel_yaw"] = R(k.RelYaw); }
+                    if (k.FStop > 0) { o["focus"] = k.Focus > 0 ? (JToken)R(k.Focus) : "target"; o["f_stop"] = R(k.FStop); }
                     keys.Add(o);
                 }
                 var root = new JObject
@@ -292,7 +312,8 @@ namespace NuclearReplay.Playback
                     {
                         ["keys"] = keys, ["timing"] = studio.KeyTiming ? "keys" : "even", ["aim"] = studio.Aim,
                         ["space"] = studio.TargetSpace ? "target" : "world", ["shake"] = studio.ShakeName, ["ease"] = studio.Ease,
-                        ["unit_id"] = studio.UnitId, ["unit_name"] = studio.UnitName
+                        ["unit_id"] = studio.UnitId, ["unit_name"] = studio.UnitName,
+                        ["lens"] = LensShots.ToJson(studio.Lens.ToShot())
                     }
                 };
                 File.WriteAllText(path + ".tmp", root.ToString());
@@ -319,6 +340,8 @@ namespace NuclearReplay.Playback
                         Yaw = (float?)item["yaw"] ?? 0, Pitch = (float?)item["pitch"] ?? 0, Fov = (float?)item["fov"] ?? 50
                     };
                     if (item["rel"] is JArray) { key.HasRel = true; key.Rel = N3(item["rel"]); key.RelYaw = (float?)item["rel_yaw"] ?? 0; }
+                    key.FStop = LensShots.KeyFStop(item);
+                    key.Focus = LensShots.KeyFocus(item);
                     studio.Keys.Add(key);
                 }
                 studio.Keys.Sort((a, b) => a.Rt.CompareTo(b.Rt));
@@ -328,6 +351,7 @@ namespace NuclearReplay.Playback
                 studio.Ease = (float?)s["ease"] ?? 0.5f;
                 studio.UnitId = (string)s["unit_id"];
                 studio.UnitName = (string)s["unit_name"];
+                studio.Lens = (s["lens"] is JObject lensJson ? LensShots.FromShot(lensJson) : null) ?? new LensSettings();
                 studio.TargetSpace = (string)s["space"] == "target" && studio.AllRelative && studio.UnitId != null;
                 studio.Selected = studio.Count > 0 ? 0 : -1;
                 studio.Version++;

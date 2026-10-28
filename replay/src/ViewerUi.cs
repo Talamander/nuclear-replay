@@ -32,6 +32,8 @@ namespace NuclearReplay.Playback
             public FfmpegDownload Ffmpeg;
             public CameraStudio Studio;
             public bool StudioOpen, StudioPlaying;
+            public bool LensOpen;
+            public string LensText;
         }
 
         public static bool PointerOverViewerUi;
@@ -268,6 +270,7 @@ namespace NuclearReplay.Playback
             }
 
             BuildStudio();
+            BuildLens();
         }
 
         // A fixed-width text cell in a control row (speed, unit, clip in/out); it never shrinks to nothing.
@@ -305,8 +308,9 @@ namespace NuclearReplay.Playback
             "<b>Click the timeline</b>  jump; a marker jumps to that moment\n" +
             "<b>1 - 8</b>  cameras: cinematic chase, victim cut, missile follow, chase, orbit, flyby, cockpit, action cam\n" +
             "<b>[ / ]</b>  previous / next aircraft\n" +
-            "<b>F</b>  free camera: <b>WASD</b> move, <b>Q/E</b> down/up, <b>Shift</b> faster, wheel sets speed, <b>Ctrl</b> + wheel zooms, hold <b>right mouse</b> to look\n" +
+            "<b>F</b>  free camera: <b>WASD</b> move, <b>Q/E</b> down/up, <b>Shift</b> faster, wheel sets speed, <b>Ctrl</b> + wheel focal length, <b>Alt</b> + wheel focus, hold <b>right mouse</b> to look\n" +
             "<b>P</b>  Camera Studio: <b>K</b> add key, <b>U</b> update, <b>X</b> delete, <b>[ ]</b> select, <b>, .</b> retime, <b>T</b> timing, <b>L</b> aim, <b>J</b> shake, <b>M</b> space, <b>Enter</b> play, <b>C</b> clip the path\n" +
+            "<b>F3</b>  Lens: focal length (mm), sensor, depth of field, vignette, grain, chromatic aberration, motion blur; <b>Tab</b> row, <b>PgUp / PgDn</b> change (<b>Shift</b> bigger), <b>Home</b> reset\n" +
             "<b>I / O</b>  clip in / out at the current time\n" +
             "<b>C</b>  clip this: plays the clip at 1x and records it (C again cancels)\n" +
             "<b>G</b>  the game's flight HUD on / off\n" +
@@ -719,6 +723,7 @@ namespace NuclearReplay.Playback
                 BuildMarkers(s.Events, s.Focus, duration);
             PlaceMarkers(duration, width);
             UpdateStudio(s, duration, width);
+            UpdateLens(s);
             PointerOverViewerUi |= RectTransformUtility.RectangleContainsScreenPoint(bottom, Input.mousePosition, null)
                 || help.gameObject.activeSelf && RectTransformUtility.RectangleContainsScreenPoint(help, Input.mousePosition, null);
             UpdateTooltip(duration);

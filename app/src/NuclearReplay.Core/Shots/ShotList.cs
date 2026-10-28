@@ -62,7 +62,7 @@ public static class ShotValidator
     public static readonly string[] Cameras = { "orbit", "chase", "chase_cine", "action", "cockpit", "tv", "free", "relative" };
     public static readonly string[] FixedTargets = { "host", "auto", "latest_missile", "latest_host_missile" };
     private static readonly Regex UnitTarget = new(@"^unit:[0-9]+$", RegexOptions.CultureInvariant);
-    private static readonly string[] KnownShotFields = { "t", "camera", "target", "fov", "hold", "then" };
+    private static readonly string[] KnownShotFields = new[] { "t", "camera", "target", "fov", "hold", "then" }.Concat(ShotLens.Fields).ToArray();
 
     public static bool IsValidTarget(string target) =>
         FixedTargets.Contains(target) || UnitTarget.IsMatch(target) || (target.StartsWith("name:", StringComparison.Ordinal) && target.Length > 5);
@@ -166,6 +166,7 @@ public static class ShotValidator
             else if (h < 0) Error($"{p}.hold", "\"hold\" cannot be negative.");
             else hold = h;
         }
+        ShotLens.Validate(s, p, Error, Warn);
         return new Shot { Camera = camera, Target = target, Fov = fov, Hold = hold };
     }
 

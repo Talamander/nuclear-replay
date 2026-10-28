@@ -14,6 +14,11 @@ namespace NuclearReplay.Playback
     // an aircraft, a key also keeps its pose relative to that aircraft (metres right, up and forward in the
     // aircraft's level heading frame, and yaw relative to its heading), so the same keys can play in world space
     // (city b-roll, a crane shot past a jet) or in target space (a move around a jet in flight).
+    //
+    // Lens: each key keeps the lens on screen (Fov, shown in mm) and the Lens panel's focus distance and aperture when
+    // depth of field is on, so focus pulls can be keyed. The path keeps one copy of the rest of the Lens panel
+    // (sensor, depth of field on or off, vignette, grain, chromatic aberration, motion blur), taken whenever a key is
+    // added or updated.
     internal sealed class CameraStudio
     {
         internal sealed class Key
@@ -21,6 +26,8 @@ namespace NuclearReplay.Playback
             public double Rt;          // replay time, seconds from the start
             public Vector3 World;      // global position
             public float Yaw, Pitch, Fov;
+            public float Focus = -1;   // focus distance in metres; -1 = on the target
+            public float FStop;        // aperture; 0 = none (depth of field was off)
             public bool HasRel;        // Rel and RelYaw are set (the followed aircraft was alive)
             public Vector3 Rel;
             public float RelYaw;
@@ -34,6 +41,7 @@ namespace NuclearReplay.Playback
             public double T;
             public Vector3 Pos;
             public float Yaw, Pitch, Fov;
+            public float Focus, FStop;
         }
 
         public static readonly string[] Aims = { "keys", "target", "path" };
@@ -52,6 +60,8 @@ namespace NuclearReplay.Playback
         public string UnitId, UnitName;    // the aircraft followed when the studio opened (null: none)
         public bool Open = false, Playing;
         public int Version;                // changes whenever the path changes (gizmos rebuild then)
+        public LensSettings Lens = new LensSettings();   // the path's lens effects (FocalMm unused: keys keep their own)
+        public double Aspect = 16.0 / 9.0; // the screen's, for lens text in mm
 
         public int Count => Keys.Count;
         public double Start => Keys.Count > 0 ? Keys[0].Rt : 0;
@@ -63,6 +73,7 @@ namespace NuclearReplay.Playback
         public void Clear()
         {
             Keys.Clear();
+            Lens = new LensSettings();
             Selected = -1;
             Playing = false;
             Version++;
@@ -173,6 +184,8 @@ namespace NuclearReplay.Playback
                     Yaw = TargetSpace ? k.RelYaw : k.Yaw,
                     Pitch = k.Pitch,
                     Fov = k.Fov,
+                    Focus = k.Focus,
+                    FStop = k.FStop,
                 });
             return list;
         }
@@ -183,7 +196,7 @@ namespace NuclearReplay.Playback
             if (Keys.Count == 0) return null;
             var list = new List<CameraPath.Key>();
             foreach (var k in Keys)
-                list.Add(new CameraPath.Key { T = k.Rt, Pos = k.World, Rot = CameraPath.Euler(k.Pitch, k.Yaw, 0), Fov = k.Fov });
+                list.Add(new CameraPath.Key { T = k.Rt, Pos = k.World, Rot = CameraPath.Euler(k.Pitch, k.Yaw, 0), Fov = k.Fov, Focus = k.Focus, FStop = k.FStop });
             return new CameraPath(list, KeyTiming, Ease);
         }
 
@@ -214,14 +227,19 @@ namespace NuclearReplay.Playback
                 if (Selected >= 0)
                 {
                     var k = Keys[Selected];
-                    lines.Add(string.Format(ic, "Key {0} at {1} (+{2:0.0} s), lens {3:0} deg", Selected + 1, Clock(k.Rt), k.Rt - Start, k.Fov));
+                    lines.Add(string.Format(ic, "Key {0} at {1} (+{2:0.0} s), lens {3}{4}", Selected + 1, Clock(k.Rt), k.Rt - Start,
+                        LensMath.Mm(LensMath.FocalFromFov(k.Fov, Lens.SensorInfo, Aspect)), KeyFocusText(k)));
                 }
             }
+            lines.Add("Lens " + Lens.Summary() + " (F3 sets it; K or U keeps it)");
             lines.Add(string.Format(ic, "Timing {0} (T)   Aim {1} (L)   Shake {2} (J)", KeyTiming ? "keys" : "even", Aim, ShakeName));
             lines.Add(UnitId == null ? "Space world (no aircraft followed)"
                 : string.Format(ic, "Space {0} (M)   Aircraft {1}", TargetSpace ? "target" : "world", UnitName ?? UnitId));
             return string.Join("\n", lines);
         }
+
+        private static string KeyFocusText(Key k) =>
+            k.FStop <= 0 ? "" : ", focus " + (k.Focus > 0 ? LensMath.Metres(k.Focus) : "on the target") + " at " + LensMath.FStop(k.FStop);
 
         // Distance the camera travels along a path, in metres.
         public static double Metres(CameraPath path)
