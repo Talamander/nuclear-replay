@@ -30,6 +30,7 @@ namespace NuclearReplay.Playback
         {
             if (!viewer || server == null) return;
             lightingOpen = !lightingOpen;
+            if (lightingOpen) lensPanel = false;   // both panels use Page Up, Page Down and Home
             if (lightingOpen) ui.Toast("Lighting: Y time, PgUp/PgDn 15 min, N haze, V weather, Z sun behind subject, Home as recorded. F2 closes.", 5f);
         }
 

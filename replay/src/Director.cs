@@ -287,6 +287,9 @@ namespace NuclearReplay.Playback
 
         // Viewer: the unit and camera on screen now.
         public Unit CurrentUnit => currentUnit != null && !currentUnit.disabled ? currentUnit : null;
+        // Lens pack: the shot on screen now (its lens fields), null when there is none.
+        public JObject CurrentRaw => current?.Raw;
+        internal CineCamera Cine => cine;
 
         // Viewer "next / previous aircraft": follows the live aircraft step places after (or before) the one on
         // screen with the game camera of the current shot (chase when the shot is a cinematic camera other than action), by
@@ -331,6 +334,9 @@ namespace NuclearReplay.Playback
             {
                 currentUnit = unit;
                 if (unit != null) cameras.SetFollowingUnit(unit);
+                // A lens in mm wins over "fov"; worked out here, at the frame size the shot renders at.
+                var focal = LensShots.FocalFov(shot.Raw);
+                if (focal.HasValue) shot.Fov = focal;
                 if (CineCamera.IsCine(shot.Camera))
                 {
                     cine.Begin(shot, unit, lastReplayTime);

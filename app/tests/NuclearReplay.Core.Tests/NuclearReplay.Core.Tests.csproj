@@ -21,6 +21,7 @@
     <Compile Include="../../../replay/src/CameraStudio.cs" Link="Viewer/CameraStudio.cs" />
     <Compile Include="../../../replay/src/BacklightMath.cs" Link="Viewer/BacklightMath.cs" />
     <Compile Include="../../../replay/src/ShotLighting.cs" Link="Viewer/ShotLighting.cs" />
+    <Compile Include="../../../replay/src/LensMath.cs" Link="Viewer/LensMath.cs" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />

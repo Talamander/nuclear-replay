@@ -9,7 +9,9 @@ namespace NuclearReplay.Playback
     // written by hand), with the maths in CameraPath.cs: a centripetal Catmull-Rom spline for position, squad for
     // rotation, a monotone curve for the lens, and timing by progress along the path.
     //
-    // Keys: [{ "t": seconds after the shot's t, "pos": [x, y, z], "yaw": deg, "pitch": deg, "roll": deg, "fov": deg }]
+    // Keys: [{ "t": seconds after the shot's t, "pos": [x, y, z], "yaw": deg, "pitch": deg, "roll": deg, "fov": deg,
+    //          "focal_mm": mm (instead of fov), "focus": metres | "target", "f_stop": aperture }]
+    // A key's focus and f_stop make a focus pull (with the shot's dof on); keys without them use the shot's.
     // Options (defaults):
     //   space        world | target (world). world: pos is a global position and yaw a compass heading. target:
     //                pos is metres right, up and forward of the target, in a frame that turns with the target's
@@ -30,6 +32,7 @@ namespace NuclearReplay.Playback
         private string pAim;
         private double pOffset;
         private Vector3 pDir, pPrevPos;
+        private float pMinFov;
 
         private bool IsPath => mode == "path";
 
@@ -40,6 +43,7 @@ namespace NuclearReplay.Playback
             pAim = (S("aim") ?? "keys").ToLowerInvariant();
             bool keyTiming = string.Equals(S("timing") ?? "even", "keys", System.StringComparison.OrdinalIgnoreCase);
             var list = new List<CameraPath.Key>();
+            pMinFov = raw["focal_mm"] != null ? 1f : 5f;   // lenses set in mm may go past the old 5 degree floor
             foreach (var item in raw["keys"] as JArray ?? new JArray())
             {
                 Vector3 p = V3(item["pos"]);
@@ -48,8 +52,11 @@ namespace NuclearReplay.Playback
                     T = (double?)item["t"] ?? 0,
                     Pos = new System.Numerics.Vector3(p.x, p.y, p.z),
                     Rot = CameraPath.Euler((float?)item["pitch"] ?? 0f, (float?)item["yaw"] ?? 0f, (float?)item["roll"] ?? 0f),
-                    Fov = (float?)item["fov"] ?? fov,
+                    Fov = LensShots.FocalFov(item, S("sensor")) ?? (float?)item["fov"] ?? fov,
+                    Focus = LensShots.KeyFocus(item),
+                    FStop = LensShots.KeyFStop(item),
                 });
+                if (item["focal_mm"] != null) pMinFov = 1f;
             }
             if (list.Count == 0)
             {
@@ -63,6 +70,16 @@ namespace NuclearReplay.Playback
             pDir = Vector3.zero;
             log.LogInfo(string.Format(CultureInfo.InvariantCulture, "Cine path: {0} keys, {1} space, {2} timing, aim {3}, {4:F2} to {5:F2} s of the shot, {6:F0} m",
                 list.Count, pTargetSpace ? "target" : "world", keyTiming ? "keys" : "even", pAim, pPath.Start, pPath.End, pPath.Length));
+        }
+
+        // Keyed focus pull of a path shot at the current time: false when the shot is not a path or no key sets a focus
+        // or an aperture. `shotFocus` and `shotFStop` stand in for keys that set neither.
+        internal bool PathLens(double shotFocus, double shotFStop, out double focus, out double fStop)
+        {
+            focus = shotFocus; fStop = shotFStop;
+            if (!Active || !IsPath || pPath == null || !pPath.HasLensKeys) return false;
+            pPath.Lens(pOffset + shotTime, shotFocus, shotFStop, out focus, out fStop);
+            return true;
         }
 
         private string S(string name) => raw[name] != null && raw[name].Type == JTokenType.String ? (string)raw[name] : null;
@@ -115,7 +132,7 @@ namespace NuclearReplay.Playback
             }
             else lookPos = camPos + rot * Vector3.forward * 50f;
 
-            curFov = Mathf.Clamp(nfov, 5f, 120f);
+            curFov = Mathf.Clamp(nfov, pMinFov, 120f);
             rot = Shake(rot);
             cam.transform.SetPositionAndRotation(new GlobalPosition(camPos).ToLocalPosition(), rot);
             ApplyFov(cam, curFov);

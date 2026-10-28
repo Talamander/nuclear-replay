@@ -4,7 +4,9 @@ using UnityEngine;
 namespace NuclearReplay.Playback
 {
     // Viewer free camera: WASD move, Q/E down/up, Shift faster, mouse wheel changes the base speed, Ctrl + wheel
-    // zooms the lens, and the mouse turns the view while the right button is held.
+    // changes the focal length (mm), Alt + wheel the focus distance, and the mouse turns the view while the right
+    // button is held. The lens lives in the lens panel's settings (Lens, shared with the plugin), so the panel, the
+    // wheel and Camera Studio keys all set the same thing.
     //
     // Proton note (same cause as the EditorMouseLook fix): with an unlocked cursor Wine delivers only
     // absolute pointer motion, so mouse deltas read zero. The cursor is therefore locked and hidden while
@@ -18,7 +20,10 @@ namespace NuclearReplay.Playback
         public float BaseSpeed = 60f;          // m/s
         public float Yaw, Pitch;
         public Vector3 Position;               // global (floating-origin safe)
-        public float Fov = -1f;                // lens in degrees; -1 = the game's own until Ctrl + wheel changes it
+        public float Fov = -1f;                // lens in degrees; -1 = the game's own until a focal length is set
+        public LensSettings Lens = new LensSettings();   // FocalMm 0 = the game's own field of view
+        public double LiveFocusM = 50;         // focus distance on the target now (Alt + wheel starts from it)
+        public Action LensChanged;             // the wheel changed Lens (the plugin saves it)
         public bool Looking { get; private set; }
         // Set before re-entering to keep the last pose (free camera restored after a backward jump).
         public bool KeepPose;
@@ -29,6 +34,7 @@ namespace NuclearReplay.Playback
         private Vector3 lastMouse;
         private bool haveLastMouse;
         private float savedFov = -1;
+        private readonly LensFov lensFov = new LensFov(null, "Free camera");
 
         public override void EnterState(CameraStateManager cam)
         {
@@ -39,7 +45,7 @@ namespace NuclearReplay.Playback
             cam.mainCamera.nearClipPlane = 1f;
             FlightHud.EnableCanvas(enable: false);
             if (savedFov < 0) savedFov = cam.desiredFOV;
-            if (Fov > 0) SetFov(cam, Fov);
+            if (Lens.FocalMm > 0) ApplyFov(cam, (float)LensMath.FovFromFocal(Lens.FocalMm, Lens.SensorInfo, cam.mainCamera.aspect));
             if (KeepPose) KeepPose = false;
             else
             {
@@ -53,6 +59,7 @@ namespace NuclearReplay.Playback
         public override void LeaveState(CameraStateManager cam)
         {
             StopLook();
+            lensFov.Reset(cam.mainCamera);
             if (savedFov > 0) { cam.mainCamera.fieldOfView = savedFov; cam.desiredFOV = savedFov; }
             savedFov = -1;
         }
@@ -85,12 +92,25 @@ namespace NuclearReplay.Playback
 
             float wheel = Input.mouseScrollDelta.y;
             bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+            bool alt = Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt);
             if (Mathf.Abs(wheel) > 0.01f && ctrl && !ViewerUi.PointerOverViewerUi)
             {
-                float now = Fov > 0 ? Fov : cam.mainCamera.fieldOfView;
-                SetFov(cam, Mathf.Clamp(now * Mathf.Pow(0.9f, wheel), 5f, 120f));
+                // Focal length: 10% longer per notch up.
+                double mm = Lens.FocalMm > 0 ? Lens.FocalMm : LensMath.FocalFromFov(CurrentFov(cam), Lens.SensorInfo, cam.mainCamera.aspect);
+                Lens.FocalMm = Math.Round(LensMath.Clamp(mm * Math.Pow(1.1, wheel), LensMath.MinFocal, LensMath.MaxFocal), 1);
+                LensChanged?.Invoke();
+            }
+            else if (Mathf.Abs(wheel) > 0.01f && alt && !ViewerUi.PointerOverViewerUi)
+            {
+                // Focus distance: 15% farther per notch up, fixed focus from then on, depth of field on.
+                double from = Lens.FocusTarget ? LiveFocusM : Lens.FocusM;
+                Lens.FocusM = Math.Round(LensMath.Clamp(from * Math.Pow(1.15, wheel), LensMath.MinFocus, LensMath.MaxFocus), 1);
+                Lens.FocusTarget = false;
+                Lens.Dof = true;
+                LensChanged?.Invoke();
             }
             else if (Mathf.Abs(wheel) > 0.01f) BaseSpeed = Mathf.Clamp(BaseSpeed * Mathf.Pow(1.2f, wheel), 5f, 2000f);
+            if (Lens.FocalMm > 0) ApplyFov(cam, (float)LensMath.FovFromFocal(Lens.FocalMm, Lens.SensorInfo, cam.mainCamera.aspect));
 
             var rot = Quaternion.Euler(Pitch, Yaw, 0f);
             Vector3 move = ScriptMove;
@@ -120,11 +140,26 @@ namespace NuclearReplay.Playback
         // The lens the free camera shows now (its own once zoomed, else the game's).
         public float CurrentFov(CameraStateManager cam) => Fov > 0 ? Fov : cam.mainCamera.fieldOfView;
 
+        // Sets the lens in degrees (Camera Studio keys); the focal length follows.
         public void SetFov(CameraStateManager cam, float fov)
         {
+            Lens.FocalMm = LensMath.FocalFromFov(fov, Lens.SensorInfo, cam.mainCamera.aspect);
+            ApplyFov(cam, fov);
+        }
+
+        // The game's own field of view again (the lens panel's reset of the focal length).
+        public void GameFov(CameraStateManager cam)
+        {
+            Lens.FocalMm = 0;
+            Fov = -1;
+            lensFov.Reset(cam.mainCamera);
+            if (savedFov > 0) { cam.mainCamera.fieldOfView = savedFov; cam.desiredFOV = savedFov; }
+        }
+
+        private void ApplyFov(CameraStateManager cam, float fov)
+        {
             Fov = fov;
-            cam.mainCamera.fieldOfView = fov;
-            cam.desiredFOV = fov;
+            lensFov.Apply(cam, fov);
         }
 
         private void StartLook()

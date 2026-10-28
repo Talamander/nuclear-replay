@@ -168,6 +168,48 @@ Lighting (optional; docs/LIGHTING.md has the details). Lists without these keys 
   "shots": [ { "t": 15, "camera": "chase_cine", "target": "unit:11706", "fov": 45, "backlight": true } ] }
 ```
 
+Lens fields (optional, per shot; a `then` shot uses its own, not its parent's; a shot without any of them renders exactly as before):
+
+- `focal_mm`: focal length in mm (8 to 600). Wins over `fov` when both are set (the validator warns).
+- `sensor`: `super35` (default, 24.89 x 18.66 mm) or `full_frame` (36 x 24 mm). The frame is the
+  widest crop of the sensor at the output aspect, so 35 mm on Super 35 at 16:9 is 22.6 degrees vertical,
+  100 mm is 8.0 and 200 mm is 4.0.
+- `dof`: `true` (f/2.8, focus on the target) or `{ "f_stop": 2.8, "focus": "target" | <metres>, "enabled": true }`.
+  "target" is the distance along the view to the shot's target. Depth of field uses URP's Bokeh mode,
+  matched to the real lens: a point at infinity blurs by the same share of the frame as through the
+  real lens on the chosen sensor, up to URP's cap of 14 pixels radius. Aircraft a few hundred metres
+  away are only a little soft at f/2.8; use 135 to 300 mm, f/1.4 to f/2 and a close target for a soft
+  background.
+- `vignette`, `grain`, `chromatic`, `motion_blur`: amounts from 0 (off, the default) to 1; `true` is
+  0.5. Motion blur is URP's camera-only blur (URP 14 has no per-object blur), so on a camera that
+  moves with an aircraft the aircraft blurs as much as the ground; it suits fixed and slow cameras,
+  or low amounts.
+- The effects run through a URP Volume at priority 1000 on a spare layer. The game's own
+  post-processing (bloom, tonemapping, color, its vignette) runs on an Overlay camera
+  `postProcessingRenderer` under `Main Camera`, so the lens layer is added to that camera's volume
+  mask, and only the parameters an effect sets are overridden. The game's look stays; an effect that
+  is off leaves the game's vignette alone. While depth of field or motion blur is on, that camera's
+  clip planes and field of view follow `Main Camera`, and it stops clearing the depth buffer (URP
+  clears it for Overlay cameras by default, and depth of field then read every pixel as the far
+  plane, so the subject blurred like the background). All of it is put back when the effect or the
+  replay ends.
+- Autofocus is measured again as `Main Camera` starts drawing, so a fast target is not a frame
+  behind. The log has `Lens focus <unit>: ... m at render (LateUpdate had ...), straight line ...,
+  bounds centre along view ...` for the first frames on each target.
+- Path keys (`camera: "path"`) also take `focal_mm`, `focus` (metres or "target") and `f_stop`. With
+  `dof` on the shot, focus moves from key to key in dioptres at the camera's progress (a focus pull);
+  keys without them use the shot's.
+
+```json
+{ "t": 175, "camera": "chase_cine", "target": "unit:12066", "focal_mm": 200, "distance": 160,
+  "dof": { "f_stop": 1.4, "focus": "target" }, "grain": 0.3, "vignette": 0.4 }
+```
+
+Viewer test commands (`-ncViewerCommands`): `lens` (state), `lens panel on|off`, `lens select <row>`,
+`lens up|down [big]`, `lens reset`, `lens off`, and `lens <field> <value>` with the field names above
+(`dof on|off`, `f_stop`, `focus`). The status file has a `lens` object (settings, the lens on screen,
+the focus distance in use, and the Volume report).
+
 Workflow for a custom cut:
 
 ```
@@ -228,7 +270,8 @@ Keys in the viewer:
 | Up / Down, or + / - | Playback speed, 0.25x to 4x |
 | 1 to 7 | Camera presets: cinematic chase, victim cut, missile follow, chase, orbit, flyby, cockpit |
 | [ and ] | Previous or next unit |
-| F | Free camera: WASD to move, Q/E down and up, Shift to go faster, hold the right mouse button to look |
+| F | Free camera: WASD to move, Q/E down and up, Shift to go faster, hold the right mouse button to look, Ctrl + wheel focal length (mm), Alt + wheel focus distance |
+| F3 | Lens panel. While it is open: Tab / Shift+Tab pick a row, PageUp / PageDown change it (Shift: bigger steps), Home resets the row |
 | I / O | Set the clip in and out points |
 | C | Record the clip: it plays at 1x in real time and is encoded at screen resolution, with the GPU encoder when one is available. C or Esc while recording stops it |
 | H | Hide all UI |

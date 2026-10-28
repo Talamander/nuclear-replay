@@ -11,6 +11,18 @@
   or as a root `lighting` default, and `backlight` (with `backlight_off`, `_side`, `_pitch` and more) to put
   `chase_cine`, `flyby`, `track_from` and `keyframe` cameras on the sun line. `nr shots validate` checks them.
   Lists without them render as before. docs/LIGHTING.md has the details.
+- **Lens pack** (F3 in a replay). The Lens panel sets the focal length in mm on a Super 35 or
+  full-frame sensor, depth of field (an f-stop, and focus on the target or at a set distance),
+  vignette, film grain, chromatic aberration and camera motion blur. Every effect is off until you
+  turn it on, and the panel keeps its settings between sessions. With the panel open, Tab picks a
+  row, Page Up and Page Down change it (Shift for bigger steps) and Home resets it.
+- The free camera's Ctrl + mouse wheel now changes the focal length in mm, and Alt + mouse wheel
+  sets the focus distance. The bar under the timeline shows the lens in mm.
+- Camera Studio keys keep the focus distance and f-stop, so a camera path can pull focus from key
+  to key. The path also keeps the panel's effects.
+- Shot lists take `focal_mm`, `sensor`, `dof` (`f_stop`, `focus`: `"target"` or metres),
+  `vignette`, `grain`, `chromatic` and `motion_blur`, and path keys take `focal_mm`, `focus` and
+  `f_stop`. `nr shots validate` checks them. Shot lists without them render as before.
 
 ## 0.5.2 (2026-10-27)
 

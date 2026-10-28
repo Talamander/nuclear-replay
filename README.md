@@ -35,6 +35,8 @@ fan-made and not affiliated with Shockfront Studios. It is a beta.
 - **Lighting.** Press **F2** to set the time of day (dawn, golden hour, dusk, night), haze and weather for the
   replay, or put the sun behind the aircraft you follow for a backlit shot. Clips and camera paths keep the light.
   The recording itself does not change.
+- **Lens.** Set the focal length in mm, depth of field with autofocus on the aircraft, vignette, film
+  grain, chromatic aberration and motion blur from the Lens panel (F3), per camera path or per shot.
 - **Full control of time.** Pause, skip 10 seconds, and play from 0.25x to 4x speed.
 - **Clips with one key.** Mark the start and the end, press **C**, and the game records that part as an
   MP4 video at 60 fps and your screen's resolution.
@@ -114,9 +116,10 @@ These are the keys that matter most. Press **F1** in a replay for the full list.
 | Up / Down | Faster or slower (0.25x to 4x) |
 | 1 to 8 | Cameras: cinematic chase, victim cut, missile follow, chase, orbit, flyby, cockpit, action cam |
 | [ and ] | Previous or next aircraft |
-| F | Free camera: WASD to move, Q and E for down and up, hold the right mouse button to look, Ctrl and the mouse wheel to zoom |
+| F | Free camera: WASD to move, Q and E for down and up, hold the right mouse button to look, Ctrl and the mouse wheel for the focal length, Alt and the mouse wheel for the focus distance |
 | P | Camera Studio: lay down a camera path with the free camera (K adds a key, Enter plays the path, C clips it) |
 | F2 | Lighting: Y time of day, Page Up / Page Down 15 minutes, N haze, V weather, Z sun behind the aircraft, Home as recorded |
+| F3 | Lens panel: focal length, sensor, depth of field, vignette, film grain, chromatic aberration, motion blur (Tab picks a row, Page Up and Page Down change it) |
 | I and O | Clip start and clip end at the current time |
 | C | Clip this |
 | H | Hide all controls |

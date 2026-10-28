@@ -11,6 +11,7 @@ namespace NuclearReplay.Playback
     // at a tight corner or between keys that are close together.
     // Rotation: squad, a smooth quaternion spline through the keys' rotations.
     // Lens: a monotone cubic through the keys' field of view in log space, so a zoom never overshoots a key.
+    // Focus (keyed focus pulls): eased from key to key in dioptres (1 / distance); a key may focus on the target instead.
     //
     // Timing: the path is measured in progress, which is metres travelled plus MetresPerRadian for every radian turned
     // and FovMetres for every unit of log field of view, so a pan or a zoom on the spot still takes time.
@@ -26,6 +27,8 @@ namespace NuclearReplay.Playback
             public Vector3 Pos;
             public Quaternion Rot = Quaternion.Identity;
             public float Fov = 50f;
+            public float Focus = -1f;    // focus distance in metres; -1 = on the target (or not keyed)
+            public float FStop;          // aperture; 0 = the shot's
         }
 
         public const float MetresPerRadian = 20f;
@@ -114,6 +117,23 @@ namespace NuclearReplay.Playback
             pos = PosAt(u);
             rot = RotAt(u);
             fov = (float)Math.Exp(FovLogAt(u));
+        }
+
+        // True when any key sets its own focus distance or aperture (a keyed focus pull).
+        public bool HasLensKeys => Array.Exists(keys, k => k.Focus > 0 || k.FStop > 0);
+
+        // Focus distance and aperture at time t. Keys on the target use `targetDistance`, keys without an aperture
+        // use `shotFStop`. Between two keys the focus moves in dioptres, eased in and out at each key, at the same
+        // progress as the camera.
+        public void Lens(double t, double targetDistance, double shotFStop, out double focus, out double fStop)
+        {
+            double KeyFocus(int i) => keys[i].Focus > 0 ? keys[i].Focus : targetDistance;
+            double KeyStop(int i) => keys[i].FStop > 0 ? keys[i].FStop : shotFStop;
+            if (keys.Length == 1) { focus = KeyFocus(0); fStop = KeyStop(0); return; }
+            SegmentAt(ParamAt(t), out int a, out double s);
+            double e = s * s * (3 - 2 * s);
+            focus = LensMath.FocusBlend(KeyFocus(a), KeyFocus(a + 1), e);
+            fStop = Math.Exp(Math.Log(KeyStop(a)) + (Math.Log(KeyStop(a + 1)) - Math.Log(KeyStop(a))) * e);
         }
 
         // Unit direction of travel at time t (zero when the camera does not move there).

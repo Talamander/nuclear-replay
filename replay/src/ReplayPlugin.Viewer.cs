@@ -69,6 +69,7 @@ namespace NuclearReplay.Playback
         // Called from Awake before the idle check.
         private void ViewerAwake()
         {
+            LensAwake();
             clipsDirectory = Config.Bind("Viewer", "ClipsDirectory", "", "Where \"Clip this\" saves videos. Empty: <game>/NuclearReplay/clips. nr passes its own with -ncClipsDir.");
             ffmpegPath = Config.Bind("Viewer", "FfmpegPath", "", "ffmpeg used for viewer clips. Empty: the copy downloaded into <game>/NuclearReplay/tools/ffmpeg. nr passes its own with -ncFfmpeg; the last one given is kept here.");
             clipQuality = Config.Bind("Viewer", "Quality", 19, "Clip quality (lower is better; CRF/CQ scale, 14-30).");
@@ -198,7 +199,9 @@ namespace NuclearReplay.Playback
             s.HelpOpen = viewerHelp;
             s.GameHud = viewerGameHud;
             if (freeCamOn && freeFly != null)
-                s.Subtitle = $"speed {freeFly.BaseSpeed:F0} m/s" + (freeFly.Fov > 0 ? $"   lens {freeFly.Fov:F0} deg" : "");
+                s.Subtitle = $"speed {freeFly.BaseSpeed:F0} m/s" + (lens.FocalMm > 0 ? "   lens " + LensMath.Mm(lens.FocalMm) : "");
+            s.LensOpen = lensPanel;
+            s.LensText = LensPanelText();
             s.Studio = studio;
             s.StudioOpen = studio.Open;
             s.StudioPlaying = studio.Playing;
@@ -278,6 +281,7 @@ namespace NuclearReplay.Playback
             if (Input.GetKeyDown(KeyCode.F1)) ViewerToggleHelp();
             if (Input.GetKeyDown(KeyCode.F2)) ViewerToggleLighting();
             else if (lightingOpen) LightingKeys();
+            LensKeys();
             if (Input.GetKeyDown(KeyCode.Backspace)) ViewerExit();
             if (freeCamOn && flyUntil > Time.realtimeSinceStartupAsDouble && freeFly != null) freeFly.ScriptMove += flyMove;
             return true;
@@ -496,7 +500,7 @@ namespace NuclearReplay.Playback
             if (on == freeCamOn) return;
             if (on)
             {
-                if (freeFly == null) freeFly = new FreeFlyCamera();
+                if (freeFly == null) { freeFly = new FreeFlyCamera(); LensAttach(freeFly); }
                 director?.Shutdown();
                 try { if (cameras.followingUnit != null) cameras.SetFollowingUnit(null); } catch (Exception e) { Logger.LogWarning("Free camera: " + e.Message); }
                 cameras.SwitchState(freeFly);
@@ -564,6 +568,8 @@ namespace NuclearReplay.Playback
             if (freeCamOn) { freeFly?.StopLook(); freeCamOn = false; }
             studio.Open = false; studio.Playing = false; studioClip = false;
             LightingReset();
+            LensTeardown();
+            lensPanel = false;
             try { director?.Shutdown(); } catch (Exception) { }
             try { server?.Close(); } catch (Exception) { }
             server = null; director = null; finishedAt = -1; capturing = false;
@@ -811,6 +817,7 @@ namespace NuclearReplay.Playback
                 case "free": SetFreeCam(arg != "off"); return "free " + freeCamOn;
                 case "studio": return StudioCommand(arg);
                 case "light": return LightingCommand(arg);
+                case "lens": return LensCommand(arg);
                 case "msgstats":
                     {
                         // Research for docs/JUMP-POINTS.md: message types, counts and bytes in a recording, split into
@@ -906,6 +913,7 @@ namespace NuclearReplay.Playback
                     ["following"] = s.Following, ["ui_hidden"] = viewerUiHidden, ["help"] = viewerHelp,
                     ["clip_in"] = clipIn, ["clip_out"] = clipOut, ["fps"] = Math.Round(fpsNow, 1), ["screen"] = Screen.width + "x" + Screen.height,
                     ["encoder"] = ClipRecorder.ProbedCodec, ["studio"] = StudioStatus(), ["lighting"] = LightingStatus(),
+                    ["encoder"] = ClipRecorder.ProbedCodec, ["studio"] = StudioStatus(), ["lens"] = LensStatus(),
                     ["ffmpeg"] = new JObject
                     {
                         ["path"] = ViewerFfmpeg(), ["download"] = ffmpegDownload.State.ToString(), ["fraction"] = Math.Round(ffmpegDownload.Fraction, 3),
