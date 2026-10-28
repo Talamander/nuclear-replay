@@ -161,8 +161,12 @@ namespace NuclearReplay.Playback
         private ChromaticAberration chromatic;
         private MotionBlur blur;
         private int layer = -1;
-        private Camera maskCamera;
-        private int addedBit;
+        private Camera maskCamera;   // the render camera the masks below were set up for
+        // Cameras whose volume mask got the lens layer, with the bit actually added (0 when it was already there).
+        private readonly List<KeyValuePair<Camera, int>> masked = new List<KeyValuePair<Camera, int>>();
+        // Post-processing cameras whose clip planes and field of view were matched to the render camera, with the
+        // values to put back.
+        private readonly List<KeyValuePair<Camera, Vector3>> synced = new List<KeyValuePair<Camera, Vector3>>();
         private bool on, reported;
 
         public bool On => on;
@@ -177,7 +181,6 @@ namespace NuclearReplay.Playback
             if (go == null) Build();
             if (layer < 0) return;
             if (maskCamera != cam) { RestoreMask(); AddMask(cam); }
-            if (!reported) { reported = true; Describe(cam); }
 
             dof.active = lens.Dof;
             if (lens.Dof)
@@ -213,11 +216,13 @@ namespace NuclearReplay.Playback
                 Set(blur.mode, MotionBlurMode.CameraOnly);
                 Set(blur.quality, MotionBlurQuality.High);
                 Set(blur.intensity, (float)lens.MotionBlur);
-                Set(blur.clamp, 0.02f + 0.08f * (float)lens.MotionBlur);
+                Set(blur.clamp, 0.01f + 0.04f * (float)lens.MotionBlur);
             }
             if (!volume.enabled) volume.enabled = true;
             on = true;
-            UpdateStack(cam);
+            SyncPostCameras(cam, lens.Dof || lens.MotionBlur > 0);
+            if (!reported) { reported = true; Describe(cam); }
+            foreach (var m in masked) UpdateStack(m.Key);
         }
 
         public void Off()
@@ -225,9 +230,9 @@ namespace NuclearReplay.Playback
             if (!on) return;
             on = false;
             if (volume != null) volume.enabled = false;
-            var cam = maskCamera;
+            var cams = masked.Select(m => m.Key).ToList();
             RestoreMask();
-            UpdateStack(cam);
+            foreach (var c in cams) UpdateStack(c);
         }
 
         private static void Set<T>(VolumeParameter<T> p, T value)
@@ -276,25 +281,114 @@ namespace NuclearReplay.Playback
             return -1;
         }
 
+        // Nuclear Option renders the world with "Main Camera", which has post-processing off. Its post-processing
+        // (bloom, tonemapping, vignette, color adjustments from the "PostProcessing" Volume on layer 7) runs on an
+        // Overlay camera "postProcessingRenderer" stacked on it, which reads Volumes from layer 7 only. So the lens
+        // layer goes into the mask of every camera that post-processes this frame: the render camera when it does,
+        // and each post-processing Overlay camera in its stack (any active one when the stack has none).
         private void AddMask(Camera cam)
         {
-            var data = cam.GetUniversalAdditionalCameraData();
-            if (data == null) return;
-            int bit = 1 << layer;
             maskCamera = cam;
-            addedBit = (data.volumeLayerMask.value & bit) == 0 ? bit : 0;
-            if (addedBit != 0) data.volumeLayerMask = data.volumeLayerMask.value | bit;
+            foreach (var c in PostCameras(cam))
+            {
+                var data = c.GetUniversalAdditionalCameraData();
+                if (data == null) continue;
+                int bit = 1 << layer;
+                int added = (data.volumeLayerMask.value & bit) == 0 ? bit : 0;
+                if (added != 0) data.volumeLayerMask = data.volumeLayerMask.value | bit;
+                masked.Add(new KeyValuePair<Camera, int>(c, added));
+            }
+        }
+
+        private static List<Camera> PostCameras(Camera cam)
+        {
+            var list = new List<Camera>();
+            var data = cam.GetUniversalAdditionalCameraData();
+            if (data == null) return list;
+            if (data.renderPostProcessing) list.Add(cam);
+            var overlays = new List<Camera>();
+            try { if (data.cameraStack != null) overlays.AddRange(data.cameraStack.Where(c => c != null && c.isActiveAndEnabled)); }
+            catch (Exception) { }
+            if (!overlays.Any(IsPost))
+                overlays = Camera.allCameras.Where(c => c != null && c != cam && IsPost(c)
+                    && c.GetComponent<UniversalAdditionalCameraData>().renderType == CameraRenderType.Overlay).ToList();
+            list.AddRange(overlays.Where(IsPost));
+            if (list.Count == 0) list.Add(cam);   // nothing post-processes: keep the old behavior (the effects stay off)
+            return list;
+        }
+
+        private static bool IsPost(Camera c)
+        {
+            var d = c != null ? c.GetComponent<UniversalAdditionalCameraData>() : null;
+            return d != null && d.renderPostProcessing;
+        }
+
+        // Depth of field and motion blur read the world's depth buffer through the post-processing camera's own clip
+        // planes (and motion blur through its projection). The game's post-processing Overlay camera has no renderers
+        // on the layers it draws, so while either effect is on its near/far planes and field of view follow the render
+        // camera; they are put back when the effect goes off. Without this its planes (0.1 to 5 m) turn every depth
+        // into a few metres and the whole frame blurs.
+        private void SyncPostCameras(Camera cam, bool need)
+        {
+            if (!need) { Unsync(); return; }
+            foreach (var m in masked)
+            {
+                var c = m.Key;
+                if (c == null || c == cam || !DrawsNothing(c)) continue;
+                int i = synced.FindIndex(x => x.Key == c);
+                if (i < 0) synced.Add(new KeyValuePair<Camera, Vector3>(c, new Vector3(c.nearClipPlane, c.farClipPlane, c.fieldOfView)));
+                if (c.nearClipPlane != cam.nearClipPlane) c.nearClipPlane = cam.nearClipPlane;
+                if (c.farClipPlane != cam.farClipPlane) c.farClipPlane = cam.farClipPlane;
+                if (c.fieldOfView != cam.fieldOfView) c.fieldOfView = cam.fieldOfView;
+            }
+        }
+
+        // True when no active renderer sits on a layer the camera draws (the game's post-processing camera draws layer
+        // 7, which holds only its Volumes). Checked once per camera.
+        private readonly Dictionary<Camera, bool> empty = new Dictionary<Camera, bool>();
+        private bool DrawsNothing(Camera c)
+        {
+            if (empty.TryGetValue(c, out bool known)) return known;
+            bool none = c.cullingMask == 0;
+            if (!none)
+            {
+                try
+                {
+                    int n = UnityEngine.Object.FindObjectsOfType<Renderer>().Count(r => r.enabled && (c.cullingMask & (1 << r.gameObject.layer)) != 0);
+                    none = n == 0;
+                    log.LogInfo(string.Format(CultureInfo.InvariantCulture, "Lens: {0} draws {1} renderers; {2}", c.name, n,
+                        none ? "its clip planes and field of view follow the render camera while depth of field or motion blur is on"
+                             : "left alone, so depth of field and motion blur may judge distances wrongly"));
+                }
+                catch (Exception) { none = false; }
+            }
+            empty[c] = none;
+            return none;
+        }
+
+        private void Unsync()
+        {
+            foreach (var s in synced)
+            {
+                if (s.Key == null) continue;
+                s.Key.nearClipPlane = s.Value.x;
+                s.Key.farClipPlane = s.Value.y;
+                s.Key.fieldOfView = s.Value.z;
+            }
+            synced.Clear();
         }
 
         private void RestoreMask()
         {
-            if (maskCamera != null && addedBit != 0)
+            Unsync();
+            foreach (var m in masked)
             {
-                var data = maskCamera.GetComponent<UniversalAdditionalCameraData>();
-                if (data != null) data.volumeLayerMask = data.volumeLayerMask.value & ~addedBit;
+                if (m.Key == null || m.Value == 0) continue;
+                var data = m.Key.GetComponent<UniversalAdditionalCameraData>();
+                if (data != null) data.volumeLayerMask = data.volumeLayerMask.value & ~m.Value;
             }
+            masked.Clear();
             maskCamera = null;
-            addedBit = 0;
         }
 
         private static void UpdateStack(Camera cam)
@@ -329,9 +423,14 @@ namespace NuclearReplay.Playback
                 {
                     if (c == null || c == cam) continue;
                     var d = c.GetComponent<UniversalAdditionalCameraData>();
-                    lines.Add(string.Format(CultureInfo.InvariantCulture, "other camera {0}: post-processing {1}, volume mask 0x{2:X8}, type {3}",
-                        c.name, d != null && d.renderPostProcessing, d != null ? d.volumeLayerMask.value : 0, d != null ? d.renderType.ToString() : "?"));
+                    lines.Add(string.Format(CultureInfo.InvariantCulture, "other camera {0}: post-processing {1}, volume mask 0x{2:X8}, type {3}, culling 0x{4:X8}, near {5:0.###} far {6:0.#} fov {7:0.#}, parent {8}, update {9}",
+                        c.name, d != null && d.renderPostProcessing, d != null ? d.volumeLayerMask.value : 0, d != null ? d.renderType.ToString() : "?",
+                        c.cullingMask, c.nearClipPlane, c.farClipPlane, c.fieldOfView, c.transform.parent != null ? c.transform.parent.name : "none",
+                        d != null ? (d.requiresVolumeFrameworkUpdate ? "every frame" : "via scripting") : "?"));
                 }
+                lines.Add(string.Format(CultureInfo.InvariantCulture, "render camera near {0:0.###} far {1:0.#} fov {2:0.#}; lens layer added to [{3}]; clip planes matched on [{4}]",
+                    cam.nearClipPlane, cam.farClipPlane, cam.fieldOfView, string.Join(", ", masked.Select(m => m.Key != null ? m.Key.name : "?")),
+                    string.Join(", ", synced.Select(m => m.Key != null ? m.Key.name : "?"))));
                 Report = string.Join("\n", lines);
                 log.LogInfo("Lens Volume: " + string.Join("\n  ", lines));
             }
