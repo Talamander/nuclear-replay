@@ -19,6 +19,8 @@
     <Compile Include="../../../replay/src/CameraPath.cs" Link="Viewer/CameraPath.cs" />
     <Compile Include="../../../replay/src/CameraShake.cs" Link="Viewer/CameraShake.cs" />
     <Compile Include="../../../replay/src/CameraStudio.cs" Link="Viewer/CameraStudio.cs" />
+    <Compile Include="../../../replay/src/UnitList.cs" Link="Viewer/UnitList.cs" />
+    <Compile Include="../../../replay/src/CameraFraming.cs" Link="Viewer/CameraFraming.cs" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />

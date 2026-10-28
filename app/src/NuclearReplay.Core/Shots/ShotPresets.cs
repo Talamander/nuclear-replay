@@ -11,7 +11,7 @@ public static class ShotPresets
 {
     /// <summary>
     /// Camera styles for the GUI and <c>nr render --style</c>. Every style only uses cameras the shot list
-    /// validator accepts (orbit, chase, cockpit, tv, action), so a generated list can always be saved, edited and re-used.
+    /// validator accepts (orbit, chase, chase_cine, cockpit, tv, action, two_shot), so a generated list can always be saved, edited and re-used.
     /// </summary>
     public static readonly CameraStyle[] CameraStyles =
     {
@@ -23,6 +23,7 @@ public static class ShotPresets
         new("flyby", "Flyby", "A spotter camera watching the action pass by."),
         new("cockpit", "Cockpit", "From the pilot's seat."),
         new("action", "Action cam", "Behind the aircraft on a springy arm: swings out in turns, drops back under thrust, leads into the turn."),
+        new("two_shot", "Two-shot", "Frames the shooter and its target together (the killer and the victim on a kill)."),
     };
 
     /// <summary>Style ids as a sentence, for error messages ("chase, orbit or cockpit").</summary>
@@ -79,6 +80,9 @@ public static class ShotPresets
             case "action":
                 shots.Add(new Shot { T = from, Camera = "action", Target = free });
                 break;
+            case "two_shot":
+                shots.Add(TwoShot(moment, from));
+                break;
             case "missile_follow":
             case "victim_cut":
                 MissileShots(shots, styleId.Equals("victim_cut", StringComparison.OrdinalIgnoreCase), moment, from, to, events);
@@ -108,6 +112,19 @@ public static class ShotPresets
         // Shots must be in time order and inside the clip; drop any that a short clip pushed past its end.
         shots = shots.Where((x, i) => i == 0 || x.T < to).OrderBy(x => x.T).ToList();
         return new ShotList { Shots = shots };
+    }
+
+    /// <summary>
+    /// Two-shot of a moment: the shooter and its target on a launch, the killer and the victim on a kill (the
+    /// victim alone, with whoever it was fighting, when the kill has no killer). Without a moment, the host and
+    /// the unit it is fighting.
+    /// </summary>
+    private static Shot TwoShot(DemoEvent? moment, double from)
+    {
+        string? subject = moment?.Subject?.ShotTarget;
+        string? second = moment?.Event == "launch" ? moment.Target?.ShotTarget : moment?.Event == "kill" ? moment.Victim?.ShotTarget : null;
+        if (subject == null || subject == second) { subject = second ?? "host"; second = null; }
+        return new Shot { T = from, Camera = "two_shot", Target = subject, Second = second, Hold = 3 };
     }
 
     /// <summary>

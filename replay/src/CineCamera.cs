@@ -24,6 +24,10 @@ namespace NuclearReplay.Playback
     //   mount       camera rigidly attached in the target's local frame (close-ups; see CineMount.cs)
     //   action      chase on a springy arm that swings out in turns and leads the aim (see CineAction.cs)
     //   path        camera path from the viewer's Camera Studio, in world or target space (see CinePath.cs)
+    //   ride        camera riding with the target at a fixed offset in its own frame (see CineRide.cs)
+    //   two_shot    frames the target and a second unit together (see CineTwoShot.cs)
+    // Any unit can be the target. For a unit that is not an aircraft or a missile (a ship, a ground vehicle) the
+    // default distances of flyby, chase_cine and action grow with its size (Units.Size / 18 m, at least 1).
     // Every mode takes the shake options handheld, rumble, buffet and shake_speed (see CinePath.cs).
     internal sealed partial class CineCamera
     {
@@ -31,7 +35,7 @@ namespace NuclearReplay.Playback
         {
             switch ((camera ?? "").ToLowerInvariant())
             {
-                case "flyby": case "chase_cine": case "track_from": case "keyframe": case "mount": case "action": case "path": return true;
+                case "flyby": case "chase_cine": case "track_from": case "keyframe": case "mount": case "action": case "path": case "ride": case "two_shot": return true;
                 default: return false;
             }
         }
@@ -47,6 +51,7 @@ namespace NuclearReplay.Playback
         private Vector2? frame;
         private bool horizonLock;
         private float sizeFrac, fovMin, fovMax, zoomSmooth;
+        private float sizeScale = 1f;      // default distances for big units (ships, ground vehicles)
 
         // Rig state (global space)
         private Unit unit;
@@ -102,12 +107,14 @@ namespace NuclearReplay.Playback
             EndMount(CameraStateManager.i);
             shotStart = replayTime;
             unit = target;
+            sizeScale = unit == null || unit is Aircraft || unit is Missile ? 1f : Mathf.Max(1f, Units.Size(unit) / 18f);
             Active = true;
             snap = true;
             fovLogged = false;
             shotTime = 0; nextLog = 0;
             haveLastTarget = false;
-            float defaultFov = mode == "mount" ? -1f : mode == "track_from" ? 15f : mode == "flyby" ? 30f : mode == "chase_cine" ? 45f : mode == "action" ? 55f : mode == "path" ? 50f : 40f;
+            float defaultFov = mode == "mount" ? -1f : mode == "track_from" ? 15f : mode == "flyby" ? 30f : mode == "chase_cine" ? 45f : mode == "action" ? 55f
+                : mode == "path" || mode == "ride" ? 50f : 40f;
             fov = shot.Fov ?? defaultFov;
             lookSmooth = F("look_smooth", mode == "flyby" ? 0.12f : mode == "track_from" ? 0.3f : 0.25f);
             posSmooth = F("pos_smooth", 0.2f);
@@ -140,6 +147,8 @@ namespace NuclearReplay.Playback
                 case "mount": SetupMount(); break;
                 case "action": SetupAction(); break;
                 case "path": SetupPath(replayTime, shot.T); break;
+                case "ride": SetupRide(); break;
+                case "two_shot": SetupTwoShot(); break;
             }
             SetupShake(shot, replayTime);
             log.LogInfo($"Cine {mode} -> {(unit != null ? unit.unitName : "no target")} at {replayTime:F2}s: target global {Fmt(targetPos)} vel {Fmt(targetVel)}"
@@ -204,7 +213,7 @@ namespace NuclearReplay.Playback
             }
             Vector3 flatDir = Flat(dir.sqrMagnitude > 1f ? dir : unit.transform.forward, 1f);
             Vector3 right = Vector3.Cross(Vector3.up, flatDir).normalized;
-            float offset = F("offset", 80f);
+            float offset = F("offset", 80f * sizeScale);
             float height = F("height", 0f);
             string side = ((string)raw["side"] ?? "left").ToLowerInvariant();
             Vector3 a = pass;
@@ -434,10 +443,12 @@ namespace NuclearReplay.Playback
             shotTime += dt;
             ReadTarget(dt);
             if (!preview) PlaceTarget();
-            if (IsMount || IsAction || IsPath)
+            if (IsMount || IsAction || IsPath || IsRide || IsTwoShot)
             {
                 if (IsMount) StepMount(cam, dt, preview);
                 else if (IsAction) StepAction(cam, dt, preview);
+                else if (IsRide) StepRide(cam, dt, preview);
+                else if (IsTwoShot) StepTwoShot(cam, dt, preview);
                 else StepPath(cam, dt, preview);
                 if (!preview) WriteTrace(cam, dt);
                 if (!preview) snap = false;
@@ -666,7 +677,7 @@ namespace NuclearReplay.Playback
 
         private Vector3 ChaseOffsetWorld(Vector3 fwd, Vector3 right, Vector3 up)
         {
-            float dist = F("distance", 35f), side = F("side", 8f), height = F("height", -3f);
+            float dist = F("distance", 35f * sizeScale), side = F("side", 8f * sizeScale), height = F("height", -3f * sizeScale);
             Vector3 local = new Vector3(side, height, -dist);
             local = Quaternion.AngleAxis(driftDeg, Vector3.up) * local;
             return Rel(local, fwd, right, up);

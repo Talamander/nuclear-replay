@@ -9,8 +9,8 @@ namespace NuclearReplay.Playback
     // Same shots, same pairing of a launch with its kill; keep the two in step when a style changes.
     internal static class ViewerPresets
     {
-        public static readonly string[] Ids = { "cinematic_chase", "victim_cut", "missile_follow", "chase", "orbit", "flyby", "cockpit", "action" };
-        public static readonly string[] Labels = { "Cinematic chase", "Victim cut", "Missile follow", "Chase", "Orbit", "Flyby", "Cockpit", "Action cam" };
+        public static readonly string[] Ids = { "cinematic_chase", "victim_cut", "missile_follow", "chase", "orbit", "flyby", "cockpit", "action", "two_shot" };
+        public static readonly string[] Labels = { "Cinematic chase", "Victim cut", "Missile follow", "Chase", "Orbit", "Flyby", "Cockpit", "Action cam", "Two-shot" };
 
         public static string Label(string id)
         {
@@ -52,6 +52,9 @@ namespace NuclearReplay.Playback
                 case "action":
                     shots.Add(Shot(from, "action", free));
                     break;
+                case "two_shot":
+                    shots.Add(TwoShot(moment, from));
+                    break;
                 case "missile_follow":
                 case "victim_cut":
                     MissileShots(shots, style == "victim_cut", moment, from, to, events);
@@ -75,6 +78,17 @@ namespace NuclearReplay.Playback
             }
             var ordered = shots.Where((x, i) => i == 0 || (double)x["t"] < to).OrderBy(x => (double)x["t"]);
             return new JArray(ordered);
+        }
+
+        // Two-shot of a moment (ShotPresets.TwoShot): shooter and target on a launch, killer and victim on a kill.
+        public static JObject TwoShot(ViewerEvent moment, double from)
+        {
+            string subject = ViewerEvent.ShotTarget(moment?.Subject);
+            string second = moment?.Event == "launch" ? ViewerEvent.ShotTarget(moment.Target) : moment?.Event == "kill" ? ViewerEvent.ShotTarget(moment.Victim) : null;
+            if (subject == null || subject == second) { subject = second ?? "host"; second = null; }
+            var shot = Shot(from, "two_shot", subject, null, 3);
+            if (second != null) shot["second"] = second;
+            return shot;
         }
 
         // Seconds before a kill's time to cut to the victim (ShotPresets.KillCutLead): just ahead of the impact

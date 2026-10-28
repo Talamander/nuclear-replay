@@ -642,7 +642,7 @@ public sealed partial class Commands
                 camera_styles = ShotPresets.CameraStyles,
                 sizes = ShotPresets.Resolutions,
                 cameras = ShotValidator.Cameras,
-                targets = ShotValidator.FixedTargets.Concat(new[] { "unit:<id>", "name:<text>" }).ToArray(),
+                targets = ShotValidator.FixedTargets.Concat(new[] { "unit:<id>", "name:<text>", "type:<text>" }).ToArray(),
                 encoders = RenderJobWriter.Encoders,
             };
             output.Result("presets", data, w =>

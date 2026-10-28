@@ -30,8 +30,8 @@ namespace NuclearReplay.Playback
 
         private void SetupAction()
         {
-            aDistance = F("distance", 24f);
-            aHeight = F("height", 5f);
+            aDistance = F("distance", 24f * sizeScale);
+            aHeight = F("height", 5f * sizeScale);
             aSide = F("side", 0f);
             aSpring = Mathf.Max(0.5f, F("spring", 3.2f));
             aDamping = Mathf.Max(0.05f, F("damping", 0.6f));
