@@ -295,16 +295,21 @@ namespace NuclearReplay.Playback
         }
 
         // Follows one unit from now on with the game camera of the current shot (chase when the shot is a cinematic
-        // camera other than action or two_shot, which follow any unit; orbit instead of cockpit for a unit that is not
-        // an aircraft), by replacing the shot list with one manual shot. A two_shot keeps its second unit.
+        // camera other than action, ride or two_shot, which follow any unit and keep their options: the ride offset,
+        // the two-shot's second unit; orbit instead of cockpit for a unit that is not an aircraft), by replacing the
+        // shot list with one manual shot.
         public void FollowUnit(Unit unit, double replayTime)
         {
-            string camera = current != null && (string.Equals(current.Camera, "action", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(current.Camera, "two_shot", StringComparison.OrdinalIgnoreCase)) ? current.Camera.ToLowerInvariant()
+            string cam = current?.Camera?.ToLowerInvariant();
+            bool keep = cam == "action" || cam == "two_shot" || cam == "ride";
+            string camera = keep ? cam
                 : current != null && !CineCamera.IsCine(current.Camera) && State(CameraStateManager.i, current.Camera) != null ? current.Camera : "chase";
             if (camera == "cockpit" && !(unit is Aircraft)) camera = "orbit";
-            var shot = new JObject { ["t"] = replayTime, ["camera"] = camera, ["target"] = "unit:" + unit.persistentID, ["hold"] = 3 };
-            if (camera == "two_shot" && current?.Raw?["second"] is JToken second) shot["second"] = second.DeepClone();
+            var shot = keep && current.Raw != null ? (JObject)current.Raw.DeepClone() : new JObject();
+            shot.Remove("then");
+            shot["t"] = replayTime; shot["camera"] = camera; shot["target"] = "unit:" + unit.persistentID; shot["hold"] = 3;
+            // A second unit (or look_at) that is the new target itself would frame the unit with itself.
+            if (shot["second"]?.ToString() == "unit:" + unit.persistentID) shot.Remove("second");
             ReplaceShots(new JArray(shot), replayTime);
         }
 

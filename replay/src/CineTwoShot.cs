@@ -27,7 +27,7 @@ namespace NuclearReplay.Playback
     internal sealed partial class CineCamera
     {
         private Unit tSecond;
-        private Vector3 tB, tBVel, tAxis, tRelVel;
+        private Vector3 tB, tBVel, tAxis, tRelVel, tLookRel, tLookRelVel;
         private bool tHaveB, tHaveAxis;
         private float tSide, tDistance, tDistanceMax, tAzimuth, tElevation, tMargin, tSwingSmooth, tMaxSwing, tSecondHold, tLostAt, tNextLookup;
 
@@ -134,10 +134,12 @@ namespace NuclearReplay.Playback
 
             // Look and lens from where the camera really is, so both stay in frame while it moves.
             float need = CameraFraming.NeededFov(N(camPos), N(targetPos), rA, tHaveB ? N(tB) : (System.Numerics.Vector3?)null, rB, aspect, tMargin, out var look);
-            Vector3 lookWant = U(look);
-            Vector3 lookVelWant = tHaveB ? (targetVel + tBVel) * 0.5f : targetVel;
-            if (rest) { lookPos = lookWant; lookVel = lookVelWant; }
-            else if (dt > 0) lookPos = Vector3.SmoothDamp(lookPos, lookWant + lookVelWant * lookSmooth, ref lookVel, lookSmooth, float.MaxValue, dt);
+            // The look point is smoothed as an offset from the camera, like the camera's offset from the target, so
+            // the speed of the two units adds no lag (and needs no lead) at 300 m/s.
+            Vector3 lookRelWant = U(look) - camPos;
+            if (rest) { tLookRel = lookRelWant; tLookRelVel = Vector3.zero; }
+            else if (dt > 0) tLookRel = Vector3.SmoothDamp(tLookRel, lookRelWant, ref tLookRelVel, lookSmooth, float.MaxValue, dt);
+            lookPos = camPos + tLookRel;
             float wantFov = Mathf.Clamp(need, fovMin, fovMax);
             if (rest || curFov <= 0) { curFov = wantFov; fovVel = 0; }
             else if (dt > 0) curFov = Mathf.Exp(Mathf.SmoothDamp(Mathf.Log(curFov), Mathf.Log(wantFov), ref fovVel, wantFov > curFov ? zoomSmooth / 3f : zoomSmooth, float.MaxValue, dt));
@@ -153,9 +155,10 @@ namespace NuclearReplay.Playback
             {
                 nextLog = shotTime + 0.5f;
                 log.LogInfo(string.Format(CultureInfo.InvariantCulture,
-                    "Cine two_shot t+{0:F2}: cam {1} target {2} second {3} gap {4:F0} m, dist {5:F0} m, fov {6:F1} (need {7:F1}{8})",
+                    "Cine two_shot t+{0:F2}: cam {1} target {2} second {3} gap {4:F0} m, dist {5:F0} m, fov {6:F1} (need {7:F1}{8}), target {9:F1} deg off centre, second {10:F1} deg",
                     shotTime, Fmt(camPos), Fmt(targetPos), tHaveB ? Fmt(tB) : "none", tHaveB ? (tB - targetPos).magnitude : 0f,
-                    (camPos - targetPos).magnitude, curFov, need, frame.Fits ? "" : ", backed off to the limit"));
+                    (camPos - targetPos).magnitude, curFov, need, frame.Fits ? "" : ", backed off to the limit",
+                    Vector3.Angle(rot * Vector3.forward, targetPos - camPos), tHaveB ? Vector3.Angle(rot * Vector3.forward, tB - camPos) : 0f));
             }
         }
 
