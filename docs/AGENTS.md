@@ -148,6 +148,26 @@ use the pair: on a paired kill they start on the shooter, ride the missile and e
 - `fov` in degrees and `hold` in seconds are optional. `hold` is how long the camera stays on a destroyed target before it cuts to the nearest live aircraft (default 3); a detonated missile holds a still view of the explosion.
 - `then`: optional shot object (`camera`, `target`, `fov`, `hold`) to cut to once the target is gone and the hold is over, instead of the nearest aircraft. `victim_cut` uses `"hold": 0` with `"then"` on the victim, so the cut follows the missile even when the recording has only the kill feed time, which can be seconds after the hit.
 
+Lighting (optional; docs/LIGHTING.md has the details). Lists without these keys render as before:
+
+- `time_of_day` (hours 0-24; 6.5 dawn, 17.3 golden hour, 17.8 dusk), `sun_azimuth` (compass degrees, or `"camera"`
+  to put the sun `sun_camera_off` degrees, default 15, right of the view), `fog` (haze multiplier, 0.25 clear air to
+  4 thick), `weather` (0 clear to 1 storm), `cloud_height` (meters). On a shot, or in a root `"lighting"` object as
+  the default for every shot; a shot's key wins.
+- `backlight: true` on `chase_cine`, `flyby`, `track_from` or `keyframe` puts the camera on the far side of the
+  subject from the sun. Tune with `backlight_off` (0-90 degrees, default 15), `backlight_side` (`left`/`right`),
+  `backlight_pitch` (-89 to 89), `backlight_at` (track_from seconds ahead), `backlight_height` (chase_cine meters
+  up), `backlight_min` / `backlight_max` (ground search, meters).
+- The sun's path is fixed per map; a time sets its elevation. A backlit look wants a low sun: 17.3-17.8 h or 6.5 h.
+  After about 17.9 h the sun light is off.
+- `nr shots validate` errors on out-of-range values and warns on `backlight` for other cameras, `backlight_*`
+  without `backlight`, `fog` above 10, `cloud_height` above 12000 and unknown keys in the root `lighting`.
+
+```json
+{ "lighting": { "time_of_day": 17.3 },
+  "shots": [ { "t": 15, "camera": "chase_cine", "target": "unit:11706", "fov": 45, "backlight": true } ] }
+```
+
 Workflow for a custom cut:
 
 ```
@@ -213,10 +233,17 @@ Keys in the viewer:
 | C | Record the clip: it plays at 1x in real time and is encoded at screen resolution, with the GPU encoder when one is available. C or Esc while recording stops it |
 | H | Hide all UI |
 | G | Show or hide the game's own HUD |
+| F2 | Lighting panel. While open: Y time preset (as recorded, dawn, golden hour, dusk, night), PageUp/PageDown 15 min later/earlier, N haze, V weather, Z sun behind subject (moves the free camera, and a selected Camera Studio key, to the backlit side), Home as recorded |
 | F1 | Help panel |
 | Backspace | Leave to the main menu |
 
 The game's main menu also gets a **Replays** button that lists the recordings.
+
+The Lighting panel's settings stay through seeks and camera changes until the replay closes. Clips (C) record
+with them (the clip's `job.json` gets them as its root `lighting`), and Camera Studio saves them with the path in
+`<recording>.path.json` and restores them when the studio opens. A shot list's lighting keys win over the panel.
+Test command: `light time 17.3|dawn|golden hour|dusk|night|recorded`, `light haze <x>`, `light weather <0-1>`,
+`light behind`, `light recorded`, `light on|off`; the status file has a `lighting` object.
 
 The viewer looks for ffmpeg in this order: `-ncFfmpeg`, the config `FfmpegPath` (when the file
 exists), then `<game>/NuclearReplay/tools/ffmpeg/ffmpeg.exe`. When none exists, C asks first: "Clips

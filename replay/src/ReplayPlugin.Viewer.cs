@@ -202,6 +202,9 @@ namespace NuclearReplay.Playback
             s.Studio = studio;
             s.StudioOpen = studio.Open;
             s.StudioPlaying = studio.Playing;
+            s.LightingOpen = lightingOpen;
+            s.LightingSet = LightingOverride.Viewer != null;
+            if (lightingOpen) s.LightingText = LightingPanel.Describe(LightingOverride.Viewer, LightingOverride.RecordedTime(), LightingOverride.ShotListLighting);
             return s;
         }
 
@@ -273,6 +276,8 @@ namespace NuclearReplay.Playback
             if (Input.GetKeyDown(KeyCode.O)) ViewerSetOut();
             if (Input.GetKeyDown(KeyCode.H)) ViewerToggleHide();
             if (Input.GetKeyDown(KeyCode.F1)) ViewerToggleHelp();
+            if (Input.GetKeyDown(KeyCode.F2)) ViewerToggleLighting();
+            else if (lightingOpen) LightingKeys();
             if (Input.GetKeyDown(KeyCode.Backspace)) ViewerExit();
             if (freeCamOn && flyUntil > Time.realtimeSinceStartupAsDouble && freeFly != null) freeFly.ScriptMove += flyMove;
             return true;
@@ -558,6 +563,7 @@ namespace NuclearReplay.Playback
             recorder = null; clipFinishing = false; clipRestoreUi = false;
             if (freeCamOn) { freeFly?.StopLook(); freeCamOn = false; }
             studio.Open = false; studio.Playing = false; studioClip = false;
+            LightingReset();
             try { director?.Shutdown(); } catch (Exception) { }
             try { server?.Close(); } catch (Exception) { }
             server = null; director = null; finishedAt = -1; capturing = false;
@@ -622,6 +628,9 @@ namespace NuclearReplay.Playback
                 ["moment"] = viewerFocus != null ? new JObject { ["t"] = viewerFocus.T, ["event"] = viewerFocus.Event, ["summary"] = viewerFocus.Summary } : null,
                 ["shots"] = shots
             };
+            // The panel's lighting, as the list's default for every shot, so the record renders with the same light.
+            var light = LightingOverride.ToJson(LightingOverride.Viewer);
+            if (light != null) record["lighting"] = light;
             try
             {
                 recorder = new ClipRecorder(Logger, ffmpeg, clipQuality.Value, from, to, 60, clips, GameData("viewer-clips"),
@@ -801,6 +810,7 @@ namespace NuclearReplay.Playback
                 case "gamehud": ViewerToggleGameHud(); return "game hud " + viewerGameHud;
                 case "free": SetFreeCam(arg != "off"); return "free " + freeCamOn;
                 case "studio": return StudioCommand(arg);
+                case "light": return LightingCommand(arg);
                 case "msgstats":
                     {
                         // Research for docs/JUMP-POINTS.md: message types, counts and bytes in a recording, split into
@@ -895,7 +905,7 @@ namespace NuclearReplay.Playback
                     ["free_cam"] = freeCamOn, ["camera_state"] = CameraStateManager.i?.currentState?.GetType().Name,
                     ["following"] = s.Following, ["ui_hidden"] = viewerUiHidden, ["help"] = viewerHelp,
                     ["clip_in"] = clipIn, ["clip_out"] = clipOut, ["fps"] = Math.Round(fpsNow, 1), ["screen"] = Screen.width + "x" + Screen.height,
-                    ["encoder"] = ClipRecorder.ProbedCodec, ["studio"] = StudioStatus(),
+                    ["encoder"] = ClipRecorder.ProbedCodec, ["studio"] = StudioStatus(), ["lighting"] = LightingStatus(),
                     ["ffmpeg"] = new JObject
                     {
                         ["path"] = ViewerFfmpeg(), ["download"] = ffmpegDownload.State.ToString(), ["fraction"] = Math.Round(ffmpegDownload.Fraction, 3),

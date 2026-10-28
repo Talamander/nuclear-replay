@@ -32,6 +32,9 @@ fan-made and not affiliated with Shockfront Studios. It is a beta.
   flyby, cockpit and action cam. Or fly the camera yourself.
 - **Camera Studio.** Lay down keys with the free camera and the replay flies that path for you, with
   optional camera shake.
+- **Lighting.** Press **F2** to set the time of day (dawn, golden hour, dusk, night), haze and weather for the
+  replay, or put the sun behind the aircraft you follow for a backlit shot. Clips and camera paths keep the light.
+  The recording itself does not change.
 - **Full control of time.** Pause, skip 10 seconds, and play from 0.25x to 4x speed.
 - **Clips with one key.** Mark the start and the end, press **C**, and the game records that part as an
   MP4 video at 60 fps and your screen's resolution.
@@ -113,6 +116,7 @@ These are the keys that matter most. Press **F1** in a replay for the full list.
 | [ and ] | Previous or next aircraft |
 | F | Free camera: WASD to move, Q and E for down and up, hold the right mouse button to look, Ctrl and the mouse wheel to zoom |
 | P | Camera Studio: lay down a camera path with the free camera (K adds a key, Enter plays the path, C clips it) |
+| F2 | Lighting: Y time of day, Page Up / Page Down 15 minutes, N haze, V weather, Z sun behind the aircraft, Home as recorded |
 | I and O | Clip start and clip end at the current time |
 | C | Clip this |
 | H | Hide all controls |

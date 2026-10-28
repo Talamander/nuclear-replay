@@ -94,8 +94,9 @@ public static class ShotValidator
             return result;
         }
         if (root is not JsonObject obj) { Error("$", "The shot list must be a JSON object: {\"shots\": [...]}."); return result; }
-        foreach (var key in obj.Select(p => p.Key).Where(k => k != "shots" && k != "$schema"))
+        foreach (var key in obj.Select(p => p.Key).Where(k => k != "shots" && k != "$schema" && k != "lighting"))
             Warn($"$.{key}", $"Unknown field \"{key}\" is ignored.");
+        if (obj.ContainsKey("lighting")) ShotLightingFields.Root(obj["lighting"], Error, Warn);
         if (obj["shots"] is not JsonArray shots) { Error("$.shots", "Missing \"shots\" array."); return result; }
         if (shots.Count == 0) Warn("$.shots", "No shots; the director will use orbit/auto.");
 
@@ -105,7 +106,7 @@ public static class ShotValidator
         {
             var p = $"$.shots[{i}]";
             if (shots[i] is not JsonObject s) { Error(p, "Each shot must be an object."); continue; }
-            foreach (var key in s.Select(x => x.Key).Where(k => !KnownShotFields.Contains(k)))
+            foreach (var key in s.Select(x => x.Key).Where(k => !KnownShotFields.Contains(k) && !ShotLightingFields.IsField(k)))
                 Warn($"{p}.{key}", $"Unknown field \"{key}\" is ignored by the director.");
 
             double t = 0;
@@ -118,6 +119,7 @@ public static class ShotValidator
             previous = t;
 
             var shot = Body(s, p, Error, Warn) with { T = t };
+            ShotLightingFields.Shot(s, p, s["camera"] is null ? null : shot.Camera, Error, Warn);
             if (s["then"] is not null)
             {
                 if (s["then"] is not JsonObject then) Error($"{p}.then", "\"then\" must be a shot object (camera, target, fov, hold).");

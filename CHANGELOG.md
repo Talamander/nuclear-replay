@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- **Lighting** (F2 in a replay): time of day presets (dawn, golden hour, dusk, night, or as recorded),
+  15-minute steps, haze and weather. **Z** puts the sun behind the aircraft you follow: the free camera moves to
+  the backlit side. The settings stay while you move through the replay, clips record with them, and Camera
+  Studio saves them with its path. Home goes back to the recording's own light. Only the replay's look changes;
+  what happened in the match stays the same.
+- Shot lists take lighting fields: `time_of_day`, `sun_azimuth`, `fog`, `weather` and `cloud_height` per shot
+  or as a root `lighting` default, and `backlight` (with `backlight_off`, `_side`, `_pitch` and more) to put
+  `chase_cine`, `flyby`, `track_from` and `keyframe` cameras on the sun line. `nr shots validate` checks them.
+  Lists without them render as before. docs/LIGHTING.md has the details.
+
 ## 0.5.2 (2026-10-27)
 
 - Record matches you join as a client. The recorder writes `<time>-<mission>-client.ncdemo` with what the

@@ -130,6 +130,7 @@ namespace NuclearReplay.Playback
             ReadTarget(0f);
             heading = Flat(targetVel.sqrMagnitude > 1f ? targetVel : unit != null ? unit.transform.forward : Vector3.forward, 1f);
             headingVel = Vector3.zero;
+            BacklightBegin();
 
             switch (mode)
             {
@@ -168,7 +169,7 @@ namespace NuclearReplay.Playback
             fov = fieldOfView;
             lookSmooth = 0.25f; posSmooth = 0.2f; minAgl = 3f; horizonLock = true; lead = 0f;
             frame = null; sizeFrac = 0f; fovMin = 4f; fovMax = 70f; zoomSmooth = 0.8f; driftDeg = 0f;
-            fromUnit = null; keys = null; targetSmooth = 0f; smoothRender = false;
+            fromUnit = null; keys = null; targetSmooth = 0f; smoothRender = false; backlight = false;
             targetPos = lookGlobal; rawTargetPos = lookGlobal; targetVel = Vector3.zero;
             // The game's chase camera sits a few metres behind a missile, which would put the hold inside the
             // smoke; back off along the same line so the explosion and the falling target read.
@@ -204,6 +205,7 @@ namespace NuclearReplay.Playback
             }
             Vector3 flatDir = Flat(dir.sqrMagnitude > 1f ? dir : unit.transform.forward, 1f);
             Vector3 right = Vector3.Cross(Vector3.up, flatDir).normalized;
+            if (BacklightFlyby(pass)) return;
             float offset = F("offset", 80f);
             float height = F("height", 0f);
             string side = ((string)raw["side"] ?? "left").ToLowerInvariant();
@@ -271,6 +273,7 @@ namespace NuclearReplay.Playback
         private void SetupTrackFrom()
         {
             fromOffset = raw["from_offset"] != null ? V3(raw["from_offset"]) : new Vector3(0, 4, 0);
+            if (BacklightTrackFrom()) return;
             var from = raw["from"];
             if (from is JArray)
             {
@@ -440,6 +443,7 @@ namespace NuclearReplay.Playback
                 else if (IsAction) StepAction(cam, dt, preview);
                 else StepPath(cam, dt, preview);
                 if (!preview) WriteTrace(cam, dt);
+                if (!preview) LightingOverride.CameraPosed(cam.transform);
                 if (!preview) snap = false;
                 return;
             }
@@ -480,6 +484,7 @@ namespace NuclearReplay.Playback
                     break;
                 }
                 case "keyframe":
+                    if (backlight) BacklightFrame(out fwd, out right, out up);
                     EvalKeys(fwd, right, up, out desiredCam, out lookTarget, out wantFov);
                     break;
             }
@@ -558,6 +563,7 @@ namespace NuclearReplay.Playback
                     mode, shotTime, Fmt(camPos), Fmt(targetPos), (targetPos - camPos).magnitude, ground, curFov, wantFov, cam.mainCamera.fieldOfView, place.x, place.y, pitch));
             }
             if (!preview) WriteTrace(cam, dt);
+            if (!preview) LightingOverride.CameraPosed(cam.transform);
             if (!preview) snap = false;
         }
 
@@ -666,6 +672,7 @@ namespace NuclearReplay.Playback
 
         private Vector3 ChaseOffsetWorld(Vector3 fwd, Vector3 right, Vector3 up)
         {
+            if (backlight) return BacklightChaseOffset();
             float dist = F("distance", 35f), side = F("side", 8f), height = F("height", -3f);
             Vector3 local = new Vector3(side, height, -dist);
             local = Quaternion.AngleAxis(driftDeg, Vector3.up) * local;
