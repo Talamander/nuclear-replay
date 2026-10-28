@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using NuclearOption.Networking;
 using UnityEngine;
 
 namespace NuclearReplay.Playback
@@ -29,9 +30,57 @@ namespace NuclearReplay.Playback
             return UnitKind.Other;
         }
 
+        // The player flying the unit. In a replay Aircraft.Player is often empty while the Player object's Aircraft is
+        // set, so the Player objects are read too (once a frame).
+        private static readonly Dictionary<Unit, string> playerNames = new Dictionary<Unit, string>();
+        private static int playerFrame = -1;
+
+        // Player names by unit id from the recording's event annotations ("player", "kill", "launch" ... carry
+        // {id, player}). A replay often has no Player object for a unit, so this is the main source.
+        private static readonly Dictionary<string, string> recordedPlayers = new Dictionary<string, string>();
+
+        public static void ClearRecordedPlayers() => recordedPlayers.Clear();
+        public static int RecordedPlayerCount => recordedPlayers.Count;
+
+        // One annotation's JSON: every object in it with an id and a player name.
+        public static void LearnPlayers(Newtonsoft.Json.Linq.JToken token)
+        {
+            if (token is Newtonsoft.Json.Linq.JObject o)
+            {
+                var id = o["id"];
+                string player = o["player"]?.Type == Newtonsoft.Json.Linq.JTokenType.String ? (string)o["player"] : null;
+                if (id != null && (id.Type == Newtonsoft.Json.Linq.JTokenType.Integer || id.Type == Newtonsoft.Json.Linq.JTokenType.String) && !string.IsNullOrEmpty(player))
+                    recordedPlayers[id.ToString()] = player;
+                foreach (var p in o.Properties()) if (p.Value is Newtonsoft.Json.Linq.JContainer) LearnPlayers(p.Value);
+            }
+            else if (token is Newtonsoft.Json.Linq.JArray a)
+                foreach (var item in a) LearnPlayers(item);
+        }
+
         public static string Player(Unit unit)
         {
-            try { return unit is Aircraft aircraft && aircraft.Player != null ? aircraft.Player.GetPlayerName()?.SanitizedName : null; }
+            if (!(unit is Aircraft aircraft)) return null;
+            try
+            {
+                if (recordedPlayers.Count > 0 && recordedPlayers.TryGetValue(unit.persistentID.ToString(), out string recorded)) return recorded;
+                if (aircraft.Player != null)
+                {
+                    string own = aircraft.Player.GetPlayerName()?.SanitizedName;
+                    if (!string.IsNullOrEmpty(own)) return own;
+                }
+                if (playerFrame != Time.frameCount)
+                {
+                    playerFrame = Time.frameCount;
+                    playerNames.Clear();
+                    foreach (var player in UnityEngine.Object.FindObjectsOfType<Player>())
+                    {
+                        if (player == null || player.Aircraft == null) continue;
+                        string name = player.GetPlayerName()?.SanitizedName;
+                        if (!string.IsNullOrEmpty(name)) playerNames[player.Aircraft] = name;
+                    }
+                }
+                return playerNames.TryGetValue(unit, out string found) ? found : null;
+            }
             catch (Exception) { return null; }
         }
 

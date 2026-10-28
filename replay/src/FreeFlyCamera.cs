@@ -61,7 +61,8 @@ namespace NuclearReplay.Playback
         {
             float dt = Mathf.Min(Time.unscaledDeltaTime, 0.1f);
             bool typing = UnityEngine.EventSystems.EventSystem.current != null && UnityEngine.EventSystems.EventSystem.current.currentSelectedGameObject != null
-                && UnityEngine.EventSystems.EventSystem.current.currentSelectedGameObject.GetComponent<TMPro.TMP_InputField>() != null;
+                && UnityEngine.EventSystems.EventSystem.current.currentSelectedGameObject.GetComponent<TMPro.TMP_InputField>() != null
+                || ViewerUi.KeyboardTaken;   // the viewer's unit list takes typing
 
             // Mouse look while the right button is held.
             if (Input.GetMouseButton(1) && !ViewerUi.PointerOverViewerUi)

@@ -14,6 +14,7 @@ namespace NuclearReplay.Playback
 
         public static string Label(string id)
         {
+            if (id == "ride") return "Ride-along";   // key 0, placed with the free camera (ReplayPlugin.Cameras.cs)
             int i = Array.IndexOf(Ids, id);
             return i >= 0 ? Labels[i] : id;
         }

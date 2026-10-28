@@ -130,6 +130,8 @@ use the pair: on a paired kill they start on the shooter, ride the missile and e
 | `orbit` | Circles the aircraft (the victim on a kill). |
 | `flyby` | A spotter camera watching the action pass by. |
 | `cockpit` | From the pilot's seat. |
+| `action` | Behind the aircraft on a springy arm: swings out in turns, drops back under thrust, leads into the turn. |
+| `two_shot` | Frames the shooter and its target together (the killer and the victim on a kill), with the `two_shot` camera. |
 
 `nr presets --json` lists them with the sizes, shot cameras and targets.
 
@@ -143,10 +145,52 @@ use the pair: on a paired kill they start on the shooter, ride the missile and e
 ```
 
 - `t`: replay seconds. Required. Each shot runs until the next one.
-- `camera`: `orbit`, `chase`, `cockpit`, `tv`, `free`, `relative`, or the cinematic `chase_cine`. Default `orbit`.
-- `target`: `host`, `auto`, `latest_missile`, `latest_host_missile`, `unit:<id>`, `name:<text>`. Default `host`.
+- `camera`: `orbit`, `chase`, `cockpit`, `tv`, `free`, `relative`, or the cinematic `chase_cine`, `action`, `ride`
+  and `two_shot` (options below). Default `orbit`. `cockpit` needs an aircraft; every other camera works on any unit.
+- `target`: `host`, `auto`, `latest_missile`, `latest_host_missile`, `unit:<id>`, `name:<text>`, `type:<text>`.
+  Default `host`. `unit:` and `name:` work for every kind of unit: aircraft, helicopters, ships, ground vehicles,
+  missiles and buildings. `name:` matches part of the unit's name, else part of a player's name (player names come from the recording's event annotations, so they work in replays). `type:` picks a
+  live unit whose type or type code contains the text (`type:frigate`, `type:Spearhead`), or whose kind is the text
+  (`aircraft`, `helicopter`, `ship`, `ground`, `missile`, `building`); with several matches it takes the one nearest
+  the last view. Unit ids, names and types are in `nr events --json` and in the viewer's unit list (B).
 - `fov` in degrees and `hold` in seconds are optional. `hold` is how long the camera stays on a destroyed target before it cuts to the nearest live aircraft (default 3); a detonated missile holds a still view of the explosion.
 - `then`: optional shot object (`camera`, `target`, `fov`, `hold`) to cut to once the target is gone and the hold is over, instead of the nearest aircraft. `victim_cut` uses `"hold": 0` with `"then"` on the victim, so the cut follows the missile even when the recording has only the kill feed time, which can be seconds after the hit.
+
+Options of the `ride` camera (a camera holding formation with a unit), all optional:
+
+- `offset`: `[x, y, z]` metres in the unit's own frame (x right, y up, z forward). Default off the right side, a
+  little behind and above, scaled to the unit (about `[16, 3, -7]` for a fighter).
+- Where it looks: `look_dir` `[x, y, z]` (a direction in the unit's frame), or `look` `[x, y, z]` (a point in the
+  unit's frame), or `look_at` (another unit, same selectors as `target`). With none, it looks at the unit.
+- `roll`: `"unit"` (the horizon banks with the unit, default), `"level"`, or a number from 0 (level) to 1 (unit).
+- `lag` (0.12 s; 0 is rigid), `rot_smooth` (0.15 s), `look_smooth` (0.25 s), `min_agl` (1 m), `fov` (50).
+  The unit's pose is filtered and the unit is drawn at that pose, so network jitter does not show.
+
+Options of the `two_shot` camera (the target and a second unit in one frame), all optional:
+
+- `second`: the second unit, same selectors as `target`. Default: the unit the target is fighting (the target of
+  its newest missile, the shooter of a missile at it, its target list, else the nearest enemy aircraft). When the
+  second unit is gone the camera holds for `second_hold` (2 s), then picks again.
+- `side`: `left`, `right` or `auto` (chosen once, so the camera never crosses the line between the two).
+- `distance` (2.5 times the target's size, at least 30 m) and `distance_max` (6 times `distance`): the camera backs
+  off up to `distance_max` when the lens limit is not enough.
+- `fov_min` (20) and `fov_max` (65): limits of the automatic lens. `margin` (0.3): spare frame around the two.
+- `azimuth` (35 degrees off the line between the two), `elevation` (0.15 of the distance).
+- `swing_smooth` (1 s) and `max_swing` (40 degrees per second): how fast the line between the two may turn, so the
+  camera does not swing around when they pass close. `pos_smooth`, `look_smooth`, `zoom_smooth`, `min_agl`.
+
+Both take the shake layers (`handheld`, `rumble`, `buffet`, `shake_speed`). When the target dies they hold on it
+for `hold` seconds, then take `then` like every other camera. `nr shots validate` warns about an option on a
+camera that does not read it.
+
+```json
+{ "shots": [
+  { "t": 8,  "camera": "ride", "target": "unit:11627", "offset": [14, 2.5, -10], "roll": "unit", "fov": 55 },
+  { "t": 15, "camera": "orbit", "target": "type:frigate", "fov": 45 },
+  { "t": 26, "camera": "two_shot", "target": "unit:11249", "second": "unit:11627", "side": "auto",
+    "then": { "camera": "orbit", "target": "unit:11249" } }
+] }
+```
 
 Workflow for a custom cut:
 
@@ -206,8 +250,13 @@ Keys in the viewer:
 | Space | Play or pause |
 | Left / Right | Skip back or forward 10 seconds |
 | Up / Down, or + / - | Playback speed, 0.25x to 4x |
-| 1 to 7 | Camera presets: cinematic chase, victim cut, missile follow, chase, orbit, flyby, cockpit |
-| [ and ] | Previous or next unit |
+| 1 to 9 | Camera presets: cinematic chase, victim cut, missile follow, chase, orbit, flyby, cockpit, action cam, two-shot (the unit on screen and its opponent, or the Shift+B pick) |
+| 0 | Ride-along. The first time it pauses and puts the free camera next to the unit on screen; fly it to the spot and press R. After that, 0 plays the ride-along |
+| R | In the free camera: lock a ride-along on that unit (or the nearest one). During a ride-along: unlock it to place it again |
+| Shift+R | Ride-along roll: the horizon banks with the unit, or stays level |
+| [ and ] | Previous or next unit in the filter: aircraft, unless the unit list picked ground, sea or all |
+| B | Unit list: type to search by callsign, player, type or side; Up/Down and Enter or a click targets the unit; Tab changes the filter; Esc closes. Players come first, then by type; destroyed units only with its Destroyed button |
+| Shift+B | The unit list again, but the pick becomes the two-shot's second unit. It stays the second unit for later targets until the viewer command `second-clear` or a new pick |
 | F | Free camera: WASD to move, Q/E down and up, Shift to go faster, hold the right mouse button to look |
 | I / O | Set the clip in and out points |
 | C | Record the clip: it plays at 1x in real time and is encoded at screen resolution, with the GPU encoder when one is available. C or Esc while recording stops it |

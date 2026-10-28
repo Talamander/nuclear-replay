@@ -32,6 +32,9 @@ namespace NuclearReplay.Playback
             public FfmpegDownload Ffmpeg;
             public CameraStudio Studio;
             public bool StudioOpen, StudioPlaying;
+            public UnitPanel Units;
+            public string UnitFilter = "aircraft";
+            public bool RideLocked;
         }
 
         public static bool PointerOverViewerUi;
@@ -266,8 +269,10 @@ namespace NuclearReplay.Playback
                 string id = ViewerPresets.Ids[i];
                 presetButtons.Add(MakeButton(presetsRow, (i + 1) + " " + ViewerPresets.Labels[i], ViewerPresets.Labels[i].Length * 9f + 44, () => host.ViewerPreset(id), 40, 16));
             }
+            BuildCameraButtons(presetsRow);
 
             BuildStudio();
+            BuildUnits();
         }
 
         // A fixed-width text cell in a control row (speed, unit, clip in/out); it never shrinks to nothing.
@@ -303,8 +308,10 @@ namespace NuclearReplay.Playback
             "<b>Left / Right</b>  back / forward 10 s\n" +
             "<b>Up / Down</b> or <b>+ / -</b>  speed 0.25x to 4x\n" +
             "<b>Click the timeline</b>  jump; a marker jumps to that moment\n" +
-            "<b>1 - 8</b>  cameras: cinematic chase, victim cut, missile follow, chase, orbit, flyby, cockpit, action cam\n" +
-            "<b>[ / ]</b>  previous / next aircraft\n" +
+            "<b>1 - 9</b>  cameras: cinematic chase, victim cut, missile follow, chase, orbit, flyby, cockpit, action cam, two-shot (the unit on screen and its opponent)\n" +
+            "<b>0</b>  ride-along: pauses and puts the free camera next to the unit on screen; fly it to the spot, <b>R</b> locks it (R again unlocks), <b>Shift+R</b> roll with the unit or level\n" +
+            "<b>[ / ]</b>  previous / next unit in the filter (aircraft unless the unit list picked ground, sea or all)\n" +
+            "<b>B</b>  unit list: type to search, <b>Up / Down</b> + <b>Enter</b> or click targets, <b>Tab</b> filter, <b>Esc</b> closes; <b>Shift+B</b> picks the two-shot's second unit\n" +
             "<b>F</b>  free camera: <b>WASD</b> move, <b>Q/E</b> down/up, <b>Shift</b> faster, wheel sets speed, <b>Ctrl</b> + wheel zooms, hold <b>right mouse</b> to look\n" +
             "<b>P</b>  Camera Studio: <b>K</b> add key, <b>U</b> update, <b>X</b> delete, <b>[ ]</b> select, <b>, .</b> retime, <b>T</b> timing, <b>L</b> aim, <b>J</b> shake, <b>M</b> space, <b>Enter</b> play, <b>C</b> clip the path\n" +
             "<b>I / O</b>  clip in / out at the current time\n" +
@@ -719,6 +726,7 @@ namespace NuclearReplay.Playback
                 BuildMarkers(s.Events, s.Focus, duration);
             PlaceMarkers(duration, width);
             UpdateStudio(s, duration, width);
+            UpdateUnits(s);
             PointerOverViewerUi |= RectTransformUtility.RectangleContainsScreenPoint(bottom, Input.mousePosition, null)
                 || help.gameObject.activeSelf && RectTransformUtility.RectangleContainsScreenPoint(help, Input.mousePosition, null);
             UpdateTooltip(duration);
