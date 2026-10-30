@@ -206,6 +206,7 @@ namespace NuclearReplay.Playback
             s.LensText = LensPanelText();
             s.HudOpen = hudPanel;
             s.HudText = HudPanelText();
+            s.HudMode = hudViewer.Mode;
             s.Studio = studio;
             s.StudioOpen = studio.Open;
             s.StudioPlaying = studio.Playing;

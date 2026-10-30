@@ -42,7 +42,9 @@ fan-made and not affiliated with Shockfront Studios. It is a beta.
   grain, chromatic aberration and motion blur from the Lens panel (F3), per camera path or per shot.
 - **Target HUD.** Press **F4** to draw the game's own targeting HUD over any replay camera: unit and missile
   markers, target boxes and lines from each missile to its target, in friend or foe colours from your side.
-  Story mode shows the fight of the unit you follow; Shift+F4 switches to every missile or every unit.
+  Story mode shows the fight of the unit you follow; Shift+F4 switches to every missile or every unit. The
+  **Target HUD** button at the end of the camera row shows the mode: click for the next one, right-click for
+  the one before.
 - **Full control of time.** Pause, skip 10 seconds, and play from 0.25x to 4x speed.
 - **Clips with one key.** Mark the start and the end, press **C**, and the game records that part as an
   MP4 video at 60 fps and your screen's resolution.
@@ -128,7 +130,7 @@ These are the keys that matter most. Press **F1** in a replay for the full list.
 | P | Camera Studio: lay down a camera path with the free camera (K adds a key, Enter plays the path, C clips it) |
 | F2 | Lighting: Y time of day, Page Up / Page Down 15 minutes, N haze, V weather, Z sun behind the aircraft, Home as recorded |
 | F3 | Lens panel: focal length, sensor, depth of field, vignette, film grain, chromatic aberration, motion blur (Tab picks a row, Page Up and Page Down change it) |
-| F4 | Target HUD panel: markers, target boxes and missile lines over the replay (Tab picks a row, Page Up and Page Down change it). Shift+F4: next mode (off, story, missiles, all) |
+| F4 | Target HUD panel: markers, target boxes and missile lines over the replay (Tab picks a row, Page Up and Page Down change it). Shift+F4: next mode (off, story, missiles, all); the Target HUD button in the camera row does the same with a click (right-click goes back) |
 | I and O | Clip start and clip end at the current time |
 | C | Clip this |
 | H | Hide all controls |

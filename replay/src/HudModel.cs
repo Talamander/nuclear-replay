@@ -149,6 +149,10 @@ namespace NuclearReplay.Playback
             return i >= 0 ? ModeLabels[i] : mode;
         }
 
+        // The viewer's Target HUD button (ViewerUi.Hud.cs): its text and its hover hint.
+        public const string ButtonHint = "Target HUD (F4)   click: next mode, right-click: previous";
+        public static string ButtonLabel(string mode) => "Target HUD: " + ModeLabel(Array.IndexOf(Modes, mode) >= 0 ? mode : "off");
+
         public static string NextMode(string mode, int step, bool skipOff = false)
         {
             int n = Modes.Length, i = Array.IndexOf(Modes, mode);

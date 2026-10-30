@@ -313,7 +313,8 @@ namespace NuclearReplay.Playback
         // Viewer command "targethud": "targethud" (state), "targethud off|story|missiles|all",
         // "targethud side <faction|both>", "targethud home <faction|auto>", "targethud labels on|off",
         // "targethud arrows on|off", "targethud size <x>", "targethud units metric|imperial",
-        // "targethud focus <selector|none>", "targethud panel on|off", "targethud row <n>", "targethud adjust <+1|-1>".
+        // "targethud focus <selector|none>", "targethud panel on|off", "targethud row <n>", "targethud adjust <+1|-1>",
+        // "targethud click [right]" (a pointer click on the viewer's Target HUD button).
         private string HudCommand(string arg)
         {
             var parts = (arg ?? "").Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
@@ -341,6 +342,11 @@ namespace NuclearReplay.Playback
                     hudRow = row; break;
                 case "adjust": HudAdjust(lower.StartsWith("-") ? -1 : 1); break;
                 case "cycle": HudCycleMode(1); break;
+                case "click":
+                    if (ui == null) return "no viewer UI";
+                    string clicked = ui.ClickHudButton(lower == "right");
+                    if (!clicked.StartsWith("clicked")) return clicked;
+                    break;
                 default: return "unknown targethud command";
             }
             return "targethud " + hudViewer.Summary() + (hudPanel ? " (panel open, row " + HudRows[hudRow] + ")" : "");
@@ -353,8 +359,11 @@ namespace NuclearReplay.Playback
             {
                 ["panel"] = hudPanel, ["row"] = HudRows[hudRow], ["source"] = hudSource, ["viewer"] = HudJson.ToJson(hudViewer),
                 ["active"] = hudOverlay != null && hudOverlay.Active, ["error"] = hudOverlay?.LastError,
-                ["home"] = HudHome(), ["rpc_messages"] = HudTargets.Messages, ["text"] = HudPanelText()
+                ["home"] = HudHome(), ["rpc_messages"] = HudTargets.Messages, ["text"] = HudPanelText(),
+                ["button"] = ui?.HudButtonText, ["button_hint"] = ui != null && ui.HudHintShown
             };
+            var rect = ui?.HudButtonRect();
+            if (rect != null) o["button_rect"] = new JArray(rect.Select(v => (double)Math.Round(v)));
             if (frame != null)
             {
                 o["units"] = hudOverlay.LastUnits;

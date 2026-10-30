@@ -261,13 +261,16 @@ focus as errors, and unknown keys or `arrows` outside story as warnings.
 
 Viewer: **F4** opens the Target HUD panel (it turns the overlay on at story when it was off); Tab / Shift+Tab
 pick a row (mode, side, home side, labels, size, arrows), PageUp / PageDown change it, Home resets it.
-**Shift+F4** cycles the mode (off, story, missiles, all). H does not hide the overlay. Viewer clips (C) and
+**Shift+F4** cycles the mode (off, story, missiles, all). The "Target HUD: <mode>" button at the end of the
+camera row shows the viewer's mode; a click steps forward, a right click back, and hovering it shows "Target HUD
+(F4)". It is part of the viewer UI, so H hides it and it is never in a clip. H does not hide the overlay. Viewer clips (C) and
 Camera Studio paths keep the panel's settings as their root `target_hud`. Viewer test commands:
 `targethud` (state), `targethud off|story|missiles|all`, `targethud side <faction|both>`,
 `targethud home <faction|auto>`, `targethud labels|arrows on|off`, `targethud size <x>`,
 `targethud units metric|imperial`, `targethud focus <selector|none>`, `targethud panel on|off`,
-`targethud row <n>`, `targethud adjust +1|-1`. The status file has a `target_hud` object (settings, source,
-focus, home side, marks, lines, labels, and the count of target-list messages seen). Render logs have a
+`targethud row <n>`, `targethud adjust +1|-1`, `targethud click [right]` (a click on the button through the
+event system). The status file has a `target_hud` object (settings, source, focus, home side, marks, lines,
+labels, the button's text, `button_rect` and `button_hint`, and the count of target-list messages seen). Render logs have a
 `Target HUD <t>s (...)` line each replay second and `Target HUD RPC n: SetStationTargets ...` for the first
 40 target-list messages.
 

@@ -93,6 +93,30 @@ public class HudTests
     }
 
     [Theory]
+    [InlineData("off", "Target HUD: Off")]
+    [InlineData("story", "Target HUD: Story")]
+    [InlineData("missiles", "Target HUD: Missiles")]
+    [InlineData("all", "Target HUD: All")]
+    [InlineData("bogus", "Target HUD: Off")]
+    [InlineData(null, "Target HUD: Off")]
+    public void ButtonLabelNamesTheMode(string mode, string label)
+    {
+        Assert.Equal(label, HudSettings.ButtonLabel(mode));
+    }
+
+    [Fact]
+    public void ButtonClicksWalkAllFourModesBothWays()
+    {
+        // Left click steps forward, right click back; four clicks either way come home.
+        string forward = "off", back = "off";
+        var seenForward = new List<string>();
+        for (int i = 0; i < 4; i++) { forward = HudSettings.NextMode(forward, 1); seenForward.Add(forward); back = HudSettings.NextMode(back, -1); }
+        Assert.Equal(new[] { "story", "missiles", "all", "off" }, seenForward);
+        Assert.Equal("off", back);
+        Assert.StartsWith("Target HUD (F4)", HudSettings.ButtonHint);
+    }
+
+    [Theory]
     [InlineData(850, "metric", "850 m")]
     [InlineData(4200, "metric", "4.2 km")]
     [InlineData(12400, "metric", "12 km")]

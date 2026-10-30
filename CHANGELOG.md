@@ -7,7 +7,8 @@
   target box on what the followed unit is after, and lines from each missile to its target, solid once its own
   seeker has it. Story mode shows the followed unit's fight, Missiles every missile in flight, All every unit
   in range; a side filter shows one side's units and shots. Labels stay few and inside the safe area, salvos
-  share one label, new missiles flash and destroyed units fade. Shift+F4 cycles the mode. Clips and camera
+  share one label, new missiles flash and destroyed units fade. Shift+F4 cycles the mode, and so does the
+  "Target HUD: <mode>" button in the viewer's camera row (click: next mode, right-click: previous). Clips and camera
   paths record with it, and H does not hide it.
 - Shot lists take `target_hud` per shot or at the root (`"story"`, or an object with `mode`, `focus`,
   `side`, `home`, `labels`, `arrows`, `size`, `units`). `nr shots validate` checks it. Lists without it render
