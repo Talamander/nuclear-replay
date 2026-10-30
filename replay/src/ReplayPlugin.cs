@@ -591,7 +591,7 @@ namespace NuclearReplay.Playback
                     matte.SetTarget(director.MatteUnit);
                 }
                 if (live) ApplyHud();
-                if (live && job != null) HudLog(replayTime);
+                if (live && (job != null || capturing)) HudLog(replayTime);
                 if (live) LogClock(replayTime);
                 if (perfLog) LogPerf(replayTime);
                 status = $"REPLAY {replayTime:F1}/{server.EndTime - server.StartTime:F1}s  x{server.Speed:0.###}{(server.Paused ? " PAUSED" : "")}"

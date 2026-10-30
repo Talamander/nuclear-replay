@@ -36,6 +36,8 @@ namespace NuclearReplay.Playback
     // How a marker is drawn: the unit's full HUD icon, a small icon, or the game's minimized pip.
     internal enum HudLook { Full, Small, Pip }
 
+    internal enum HudLabelSide { Right, Left, Above, Below }
+
     internal enum HudLineKind { Missile, Designation }
 
     // One unit as the overlay sees it this frame.
@@ -79,7 +81,7 @@ namespace NuclearReplay.Playback
         public bool Box;              // the game's target box around it (designated targets)
         public bool Arrow;            // off screen: an arrow on the safe-area edge points at it
         public string Label;          // null: no label
-        public bool LabelLeft;        // the label sits left of the marker (moved there to clear another label)
+        public HudLabelSide LabelAt;  // where the label sits: right of the marker, else left, above or below (to clear others)
         public int Salvo;             // missiles grouped under this one's label
         public override string ToString() => $"{Unit.Id} {Role} {Side} {Look}{(Box ? " box" : "")}{(Arrow ? " arrow" : "")}{(Label != null ? " \"" + Label.Replace("\n", " / ") + "\"" : "")}";
     }
@@ -428,6 +430,14 @@ namespace NuclearReplay.Playback
             double h = TextPx * 1.25 * scale, gap = (MarkerPx * 0.6 + 6) * scale;
             view.Safe(out double sx0, out double sy0, out double sx1, out double sy1);
             var placed = new List<(double x0, double y0, double x1, double y1)>();
+            // Other markers are obstacles too: a label never covers another unit's icon or box.
+            var markers = new List<(HudMark m, (double x0, double y0, double x1, double y1) r)>();
+            foreach (var o in frame.Marks)
+            {
+                if (o.Arrow || !o.Unit.InFront) continue;
+                double half = MarkerPx * o.Size * scale * (o.Look == HudLook.Full ? (o.Box ? 0.75 : 0.5) : 0.3);
+                markers.Add((o, (o.Unit.X - half, o.Unit.Y - half, o.Unit.X + half, o.Unit.Y + half)));
+            }
 
             // Salvos: three or more missiles of one shooter within 40 px share the lead missile's label.
             var grouped = new HashSet<HudMark>();
@@ -455,13 +465,22 @@ namespace NuclearReplay.Playback
                 double lh = h * lines;
                 double ax = m.Unit.X, ay = m.Unit.Y;
                 if (m.Arrow) { m.Label = text; count++; continue; }           // arrows carry their label inward
-                // Right of the marker, else left of it, else no label.
+                // Right of the marker, else left of it, else no label. A label must stay in the safe area and clear
+                // every other label and every other marker.
                 var right = (ax + gap, ay - lh / 2, ax + gap + w, ay + lh / 2);
                 var left = (ax - gap - w, ay - lh / 2, ax - gap, ay + lh / 2);
-                bool rightOk = Inside(right, sx0, sy0, sx1, sy1) && !placed.Any(p => Overlap(p, right));
-                bool leftOk = Inside(left, sx0, sy0, sx1, sy1) && !placed.Any(p => Overlap(p, left));
-                if (rightOk) { placed.Add(right); m.Label = text; count++; }
-                else if (leftOk) { placed.Add(left); m.Label = text; m.LabelLeft = true; count++; }
+                bool Free((double x0, double y0, double x1, double y1) r) => Inside(r, sx0, sy0, sx1, sy1)
+                    && !placed.Any(p => Overlap(p, r)) && !markers.Any(o => o.m != m && !(m.Salvo >= 3 && grouped.Contains(o.m)) && Overlap(o.r, r));
+                // Screen y runs up: above is the larger y.
+                var above = (ax - w / 2, ay + gap, ax + w / 2, ay + gap + lh);
+                var below = (ax - w / 2, ay - gap - lh, ax + w / 2, ay - gap);
+                var spots = new[] { (right, HudLabelSide.Right), (left, HudLabelSide.Left), (above, HudLabelSide.Above), (below, HudLabelSide.Below) };
+                foreach (var (r, side) in spots)
+                {
+                    if (!Free(r)) continue;
+                    placed.Add(r); m.Label = text; m.LabelAt = side; count++;
+                    break;
+                }
             }
         }
 

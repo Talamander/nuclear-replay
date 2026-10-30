@@ -455,9 +455,13 @@ namespace NuclearReplay.Playback
                     var t = Take(labels, nt++, NewLabel);
                     SetLabel(t, m.Label, color, scale);
                     float gap = (float)(HudModel.MarkerPx * 0.6 + 6) * scale;
-                    t.alignment = m.LabelLeft ? TextAnchor.MiddleRight : TextAnchor.MiddleLeft;
-                    t.rectTransform.pivot = new Vector2(m.LabelLeft ? 1 : 0, 0.5f);
-                    t.rectTransform.anchoredPosition = pos + new Vector2(m.LabelLeft ? -gap : gap, 0);
+                    switch (m.LabelAt)
+                    {
+                        case HudLabelSide.Left: t.alignment = TextAnchor.MiddleRight; t.rectTransform.pivot = new Vector2(1, 0.5f); t.rectTransform.anchoredPosition = pos + new Vector2(-gap, 0); break;
+                        case HudLabelSide.Above: t.alignment = TextAnchor.LowerCenter; t.rectTransform.pivot = new Vector2(0.5f, 0); t.rectTransform.anchoredPosition = pos + new Vector2(0, gap); break;
+                        case HudLabelSide.Below: t.alignment = TextAnchor.UpperCenter; t.rectTransform.pivot = new Vector2(0.5f, 1); t.rectTransform.anchoredPosition = pos + new Vector2(0, -gap); break;
+                        default: t.alignment = TextAnchor.MiddleLeft; t.rectTransform.pivot = new Vector2(0, 0.5f); t.rectTransform.anchoredPosition = pos + new Vector2(gap, 0); break;
+                    }
                 }
             }
             HideFrom(icons, ni); HideFrom(boxes, nb); HideFrom(lines, nl); HideFrom(labels, nt); HideFrom(arrows, na);

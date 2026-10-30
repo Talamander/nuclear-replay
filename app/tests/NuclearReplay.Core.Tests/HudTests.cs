@@ -170,6 +170,32 @@ public class HudTests
     }
 
     [Fact]
+    public void LabelsNeverCoverAnotherMarker()
+    {
+        var units = PointBlank();
+        var f = HudModel.Build(Mode("all"), units, Focus(units), Wide, "Boscali");
+        double scale = Wide.Scale;
+        foreach (var m in f.Marks.Where(m => m.Label != null && !m.Arrow && m.Salvo < 3))
+        {
+            double w = HudModel.LabelWidth(m.Label) * scale, h = HudModel.TextPx * 1.25 * scale, gap = (HudModel.MarkerPx * 0.6 + 6) * scale;
+            double x = m.Unit.X, y = m.Unit.Y;
+            var r = m.LabelAt switch
+            {
+                HudLabelSide.Right => (x + gap, y - h / 2, x + gap + w, y + h / 2),
+                HudLabelSide.Left => (x - gap - w, y - h / 2, x - gap, y + h / 2),
+                HudLabelSide.Above => (x - w / 2, y + gap, x + w / 2, y + gap + h),
+                _ => (x - w / 2, y - gap - h, x + w / 2, y - gap),
+            };
+            foreach (var o in f.Marks.Where(o => o != m && !o.Arrow && o.Look == HudLook.Full && o.Unit.InFront))
+            {
+                double half = HudModel.MarkerPx * o.Size * scale * (o.Box ? 0.75 : 0.5);
+                bool hit = r.Item1 < o.Unit.X + half && o.Unit.X - half < r.Item3 && r.Item2 < o.Unit.Y + half && o.Unit.Y - half < r.Item4;
+                Assert.False(hit, $"label of {m.Unit.Id} covers {o.Unit.Id}");
+            }
+        }
+    }
+
+    [Fact]
     public void PrimaryTargetLabelCarriesTheRangeFromTheFocus()
     {
         var units = PointBlank();
