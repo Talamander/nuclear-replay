@@ -134,7 +134,9 @@ These are the keys that matter most. Press **F1** in a replay for the full list.
 | H | Hide all controls |
 | Backspace | Leave the replay |
 
-You can also click anywhere on the timeline to jump there.
+You can also click anywhere on the timeline to jump there. A replay only runs forward, so a jump plays the
+match quickly up to that point. A jump back reloads the mission and plays from the start. A jump runs about
+10x faster than real time, and the CPU sets the speed. The label shows its progress, and Space stops it early.
 
 ### Make a clip
 

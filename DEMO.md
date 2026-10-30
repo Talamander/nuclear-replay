@@ -141,7 +141,8 @@ start it (docs/AGENTS.md).
   the file (`menu-button`, `menu-pick`, `menu-watch`, `seek`, `skip`, `speed`, `preset`, `unit`,
   `free`, `fly`, `look`, `hide`, `help`, `toast`, `gamehud`, `in`, `out`, `clip`, `moment`, `timeline`, `shot`,
   `studio on|off|key|update|delete|select <n>|play|stop|timing|aim|shake|space|retime <s>|clip|clear`,
-  `exit`, `quit`, and `msgstats`, `uiat` for research) and writes `<file>.status` (JSON, with a `studio`
+  `exit`, `quit`, `stopjump`, and `msgstats`, `uiat`, `seekturbo`, `seekfixed`, `seekprofile`, `seekstep`,
+  `probe`, `dumpunits` for research; docs/AGENTS.md has the jump commands) and writes `<file>.status` (JSON, with a `studio`
   object) every 0.5 s.
   Headless screenshots use `shot <png>`.
 
