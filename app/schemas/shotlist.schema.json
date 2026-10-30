@@ -15,6 +15,10 @@
     "lighting": {
       "$ref": "#/$defs/lighting",
       "description": "Lighting defaults for every shot (a shot's own lighting keys win key by key). Leave it out to render the recorded lighting."
+    },
+    "target_hud": {
+      "$ref": "#/$defs/target_hud",
+      "description": "Target HUD default for every shot (a shot's own target_hud keys win key by key). Leave it out to render without the overlay."
     }
   },
   "additionalProperties": false,
@@ -42,6 +46,10 @@
           "exclusiveMinimum": 0,
           "exclusiveMaximum": 180,
           "description": "Field of view in degrees. Optional; 30-90 looks natural."
+        },
+        "target_hud": {
+          "$ref": "#/$defs/target_hud",
+          "description": "The game's targeting HUD over this shot: unit and missile markers, target boxes, missile-to-target lines."
         },
         "hold": {
           "type": "number",
@@ -102,6 +110,27 @@
       },
       "additionalProperties": false
     },
+    "target_hud": {
+      "description": "A mode (\"story\", \"missiles\", \"all\", \"off\"), true (story), false (off), or an object.",
+      "anyOf": [
+        { "enum": ["off", "story", "missiles", "all"] },
+        { "type": "boolean" },
+        {
+          "type": "object",
+          "properties": {
+            "mode": { "enum": ["off", "story", "missiles", "all"], "description": "story (default): the focus unit's fight in full, everyone else within 15 km as quiet small marks. missiles: every missile in flight, its target and its line. all: every unit in range." },
+            "focus": { "type": "string", "description": "Whose fight the story tells, in target syntax (unit:221, name:Talamander, host). Default: the shot's target; a missile's focus is its shooter." },
+            "side": { "type": "string", "description": "\"both\" (default) or a faction (Boscali, Primeva): only that side's units, the missiles it fired and their targets." },
+            "home": { "type": "string", "description": "The faction drawn friendly. Default: the recording player's side." },
+            "labels": { "type": "boolean", "description": "Labels on the units of the fight (default true)." },
+            "arrows": { "type": "boolean", "description": "Story mode: arrows at the screen edge towards incoming missiles and the primary target (default true)." },
+            "size": { "type": "number", "minimum": 0.5, "maximum": 2.5, "description": "Marker, text and line size (default 1)." },
+            "units": { "enum": ["metric", "imperial"], "description": "Distances in labels (default metric: m and km)." }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
     "vector": {
       "type": "array",
       "items": { "type": "number" },
@@ -116,6 +145,7 @@
         "target": { "$ref": "#/$defs/shot/properties/target" },
         "fov": { "$ref": "#/$defs/shot/properties/fov" },
         "hold": { "$ref": "#/$defs/shot/properties/hold" },
+        "target_hud": { "$ref": "#/$defs/target_hud" },
         "offset": { "$ref": "#/$defs/shot/properties/offset" },
         "look_dir": { "$ref": "#/$defs/shot/properties/look_dir" },
         "look": { "$ref": "#/$defs/shot/properties/look" },

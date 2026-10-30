@@ -24,6 +24,7 @@
     <Compile Include="../../../replay/src/LensMath.cs" Link="Viewer/LensMath.cs" />
     <Compile Include="../../../replay/src/UnitList.cs" Link="Viewer/UnitList.cs" />
     <Compile Include="../../../replay/src/CameraFraming.cs" Link="Viewer/CameraFraming.cs" />
+    <Compile Include="../../../replay/src/HudModel.cs" Link="Viewer/HudModel.cs" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />

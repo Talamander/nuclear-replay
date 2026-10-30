@@ -66,7 +66,7 @@ public static class ShotValidator
     public static readonly string[] Cameras = { "orbit", "chase", "chase_cine", "action", "cockpit", "tv", "free", "relative", "ride", "two_shot" };
     public static readonly string[] FixedTargets = { "host", "auto", "latest_missile", "latest_host_missile" };
     private static readonly Regex UnitTarget = new(@"^unit:[0-9]+$", RegexOptions.CultureInvariant);
-    private static readonly string[] KnownShotFields = new[] { "t", "camera", "target", "fov", "hold", "then" }.Concat(ShotLens.Fields).ToArray();
+    private static readonly string[] KnownShotFields = new[] { "t", "camera", "target", "fov", "hold", "then", ShotTargetHud.Field }.Concat(ShotLens.Fields).ToArray();
 
     // Options of the ride and two_shot cameras (replay/src/CineRide.cs, CineTwoShot.cs; light shake from CinePath.cs).
     private static readonly string[] ShakeFields = { "handheld", "rumble", "buffet", "shake_speed" };
@@ -116,9 +116,10 @@ public static class ShotValidator
             return result;
         }
         if (root is not JsonObject obj) { Error("$", "The shot list must be a JSON object: {\"shots\": [...]}."); return result; }
-        foreach (var key in obj.Select(p => p.Key).Where(k => k != "shots" && k != "$schema" && k != "lighting"))
+        foreach (var key in obj.Select(p => p.Key).Where(k => k != "shots" && k != "$schema" && k != "lighting" && k != ShotTargetHud.Field))
             Warn($"$.{key}", $"Unknown field \"{key}\" is ignored.");
         if (obj.ContainsKey("lighting")) ShotLightingFields.Root(obj["lighting"], Error, Warn);
+        if (obj.ContainsKey(ShotTargetHud.Field)) ShotTargetHud.Validate(obj[ShotTargetHud.Field], "$." + ShotTargetHud.Field, IsValidTarget, Error, Warn);
         if (obj["shots"] is not JsonArray shots) { Error("$.shots", "Missing \"shots\" array."); return result; }
         if (shots.Count == 0) Warn("$.shots", "No shots; the director will use orbit/auto.");
 
@@ -202,6 +203,7 @@ public static class ShotValidator
             else hold = h;
         }
         ShotLens.Validate(s, p, Error, Warn);
+        if (s.ContainsKey(ShotTargetHud.Field)) ShotTargetHud.Validate(s[ShotTargetHud.Field], $"{p}.{ShotTargetHud.Field}", IsValidTarget, Error, Warn);
         if (camera == "ride" || camera == "two_shot") CameraOptions(s, camera, p, Error, Warn);
         string? second = camera == "two_shot" && TryString(s["second"], out var sec) && IsValidTarget(sec) ? sec : null;
         return new Shot { Camera = camera, Target = target, Fov = fov, Hold = hold, Second = second };
