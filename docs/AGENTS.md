@@ -386,7 +386,28 @@ Keys in the viewer:
 | F1 | Help panel |
 | Backspace | Leave to the main menu |
 
-The game's main menu also gets a **Replays** button that lists the recordings.
+The game's main menu also gets a **Replays** button that lists the recordings, newest first. Rows show at
+once from the file names, sizes and dates; mission, map, length, players and counts fill in from a background
+reader, the rows on screen first. What it reads is kept in `<game>/NuclearReplay/replay-list-cache.txt`
+(ReplayIndex: one line per recording, valid while the file's path, size and write time match), so the next
+open reads only new or changed recordings. A missing or damaged cache file is rebuilt. Only the rows on screen
+are built (the list is virtual), so hundreds of recordings scroll as smoothly as a few.
+
+In the list, a click highlights a row (Watch, double-click, and Delete without ticks use it). The checkbox, or
+Ctrl+click, ticks a row; Shift+click ticks the range from the last click; Shift on a checkbox gives the range
+that box's new state, so a range can be unticked too. The header box and **Select all** / **Clear** tick or
+clear every row, as does Ctrl+A. With rows ticked, **Delete** (or the Delete key) names how many and how big
+and asks once more; the second press deletes them on a background thread with each recording's
+`.shots.json` and `.path.json` (clips stay). Any that cannot be deleted stay ticked and the message names
+each with why. The recording that is playing is never deleted.
+
+Replays list test commands: `menu-button` (opens it), `menu-click <row> [shift] [ctrl]`,
+`menu-check <row> [shift]` (the checkbox), `menu-all`, `menu-clear`, `menu-scroll <row>`,
+`menu-pick <row or name>`, `menu-delete` (press Delete: once asks, twice deletes), `menu-watch`,
+`menu-close`. The status file's `menu` object has the rows, how many are read (`detailed`, `pending`), the
+ticks (`checked`, `checked_bytes`, `checked_rows`), `current`, `armed`, `deleting`, the note under the list,
+and the timings of the last open: `rows_ms` (rows on screen), `details_ms` (every row read), `max_frame_ms`,
+`list_ms`, `read_ms`, `from_cache` and `from_disk`.
 
 The Lighting panel's settings stay through seeks and camera changes until the replay closes. Clips (C) record
 with them (the clip's `job.json` gets them as its root `lighting`), and Camera Studio saves them with the path in

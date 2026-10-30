@@ -25,6 +25,9 @@
     <Compile Include="../../../replay/src/UnitList.cs" Link="Viewer/UnitList.cs" />
     <Compile Include="../../../replay/src/CameraFraming.cs" Link="Viewer/CameraFraming.cs" />
     <Compile Include="../../../replay/src/HudModel.cs" Link="Viewer/HudModel.cs" />
+    <Compile Include="../../../replay/src/ListSelection.cs" Link="Viewer/ListSelection.cs" />
+    <Compile Include="../../../replay/src/ReplayIndex.cs" Link="Viewer/ReplayIndex.cs" />
+    <Compile Include="../../../replay/src/DemoQuickScan.cs" Link="Viewer/DemoQuickScan.cs" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />

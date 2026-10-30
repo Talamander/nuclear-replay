@@ -47,6 +47,9 @@ fan-made and not affiliated with Shockfront Studios. It is a beta.
 - **Clips with one key.** Mark the start and the end, press **C**, and the game records that part as an
   MP4 video at 60 fps and your screen's resolution.
 - **Delete recordings** you do not want from the Replays screen, which shows how much space they take.
+  Tick several (Shift+click for a range, Ctrl+click for one more) and delete them together.
+- **Big libraries open fast.** The Replays list shows hundreds of recordings at once and fills in their
+  details in the background; after the first time it remembers them.
 
 ## Gallery
 
