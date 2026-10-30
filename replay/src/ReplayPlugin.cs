@@ -294,6 +294,7 @@ namespace NuclearReplay.Playback
             bool reached = replayNow >= startAt - preroll || server.Finished;
             if (!reached)
             {
+                if (viewer) SeekTick(replayNow);
                 if (!fastForwarding)
                 {
                     fastForwarding = true;
@@ -448,6 +449,8 @@ namespace NuclearReplay.Playback
         {
             Logger.LogInfo("Restarting the replay");
             preview?.OnRestarting();
+            SeekAbort(keepStats: true);
+            restartIssuedAt = Time.realtimeSinceStartupAsDouble; menuSeenAt = -1;
             LensTeardown();
             HudTeardown();
             try { director?.Shutdown(); } catch (Exception e) { Logger.LogWarning("Preview restart: director: " + e.Message); }
@@ -628,13 +631,13 @@ namespace NuclearReplay.Playback
             if (MainMenu.State != MainMenu.LoadingState.Loaded) return;
             var manager = NetworkManagerNuclearOption.i;
             if (manager == null || manager.Server.Active || manager.Client.Active) return;
-            if (restartAfter >= 0 && (Time.realtimeSinceStartupAsDouble < restartAfter || NetworkManagerNuclearOption.IsLoadingScene)) return;
+            if (restartAfter >= 0 && (!RestartWaitOver() || NetworkManagerNuclearOption.IsLoadingScene)) return;
             restartAfter = -1;
             var path = pendingPath;
             pendingPath = null;
             try
             {
-                var demo = DemoReader.Load(path);
+                var demo = viewer ? LoadDemo(path) : DemoReader.Load(path);
                 Logger.LogInfo($"Replay loaded {demo.Records.Count} records{(demo.Truncated ? " (truncated tail ignored)" : "")}; header {demo.HeaderJson}");
                 // A preview restart reuses the factory component; CreatePair makes fresh sockets.
                 factory = manager.gameObject.GetComponent<LoopbackSocketFactory>() ?? manager.gameObject.AddComponent<LoopbackSocketFactory>();

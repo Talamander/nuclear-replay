@@ -117,7 +117,7 @@ These are the keys that matter most. Press **F1** in a replay for the full list.
 
 | Key | What it does |
 |---|---|
-| Space | Play or pause |
+| Space | Play or pause. During a jump: stop the jump where it is |
 | Left / Right | Back or forward 10 seconds |
 | Up / Down | Faster or slower (0.25x to 4x) |
 | 1 to 9 | Cameras: cinematic chase, victim cut, missile follow, chase, orbit, flyby, cockpit, action cam, two-shot |

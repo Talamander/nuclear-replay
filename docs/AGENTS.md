@@ -362,7 +362,7 @@ Keys in the viewer:
 
 | Key | Action |
 | --- | --- |
-| Space | Play or pause |
+| Space | Play or pause. While a jump runs: stop it where it is |
 | Left / Right | Skip back or forward 10 seconds |
 | Up / Down, or + / - | Playback speed, 0.25x to 4x |
 | 1 to 7 | Camera presets: cinematic chase, victim cut, missile follow, chase, orbit, flyby, cockpit |
