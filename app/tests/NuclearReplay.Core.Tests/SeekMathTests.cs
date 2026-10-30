@@ -8,8 +8,26 @@ public class SeekMathTests
     [Fact]
     public void FastForwardStepIsUnchangedFrom05()
     {
-        // The game's per-frame state during a jump must stay what it was: 8/60 s of replay per game frame.
+        // The replay clock during a jump advances as in 0.5: 8/60 s of replay per game frame (a 16/60 s step was
+        // measured: no faster, since physics cost scales with replay time, and less accurate).
         Assert.Equal(8f / 60f, SeekMath.FastForwardSpeed / SeekMath.FastForwardStepFps, 6);
+    }
+
+    [Theory]
+    [InlineData(1f / 60, 0.05f, 0.05f)]     // the game's 60 Hz physics: three times fewer steps while jumping
+    [InlineData(0.02f, 0.05f, 0.05f)]
+    [InlineData(0.08f, 0.05f, 0.08f)]       // never finer than the game's own step
+    [InlineData(1f / 60, 0f, 1f / 60)]      // "seekfixed 0": the game's step
+    [InlineData(1f / 60, float.NaN, 1f / 60)]
+    public void JumpPhysicsStepIsNeverFinerThanTheGame(float game, float jump, float expected) =>
+        Assert.Equal(expected, SeekMath.PhysicsStep(game, jump), 6);
+
+    [Fact]
+    public void JumpPhysicsStepStaysCoarseButBounded()
+    {
+        // Measured on 2026-10-30 (seek/RESULTS.md): 1/20 s keeps units, states, targets and the Target HUD equal
+        // to a jump at the game's step. Larger steps are untested.
+        Assert.InRange(SeekMath.JumpPhysicsStep, 1f / 60, 0.05f);
     }
 
     [Theory]

@@ -17,22 +17,26 @@ namespace NuclearReplay.Playback
 {
     // Faster viewer timeline jumps (0.6). The replay still only runs forward: a forward jump fast-forwards from where
     // the replay is, a backward jump reloads the mission and fast-forwards from the start (docs/JUMP-POINTS.md). The
-    // fast-forward runs the same fixed steps as before (SeekMath), so the game simulates exactly what it did in 0.5;
-    // what changed:
-    //   - Drawing: while a viewer jump fast-forwards, only about 12 frames a second are drawn
-    //     (OnDemandRendering.renderFrameInterval). The game loop, physics and network messages run every frame as
-    //     before; the frames in between are not rendered. Game sound is muted for the jump.
+    // replay clock still advances 8/60 s a game frame as in 0.5 (SeekMath); what changed while a viewer jump
+    // fast-forwards ("turbo"):
+    //   - Physics runs at a 1/20 s step instead of the game's 1/60 s (SeekMath.JumpPhysicsStep). Physics was about
+    //     two thirds of a jump's time. The recorded network messages still set every unit's position, state, targets
+    //     and kills, and the game's own step is back before the replay reaches the target.
+    //   - Only about 12 frames a second are drawn (OnDemandRendering.renderFrameInterval); the frames in between run
+    //     the game loop but are not rendered. Game sound is muted for the jump.
     //   - Backward jumps: the recording is not read from disk again (the loaded records are kept while the viewer
     //     has the replay open), and the reload starts as soon as the main menu scene is up instead of after a fixed
     //     5 s wait.
     //   - The label shows how far the jump is; Space stops it where it is.
-    // Render jobs, frame exports, previews, audio ranges and -ncStart without the viewer never take this path, so
-    // renders are unchanged.
+    // Render jobs, frame exports, previews, audio ranges and -ncStart without the viewer never take this path, and a
+    // clip recording's own jump keeps the 0.5 behaviour, so renders and clips are unchanged. Test command
+    // "seekturbo off" gives the 0.5 behaviour for comparisons.
     public sealed partial class ReplayPlugin
     {
         private bool seekTurboAllowed = true;      // test command "seekturbo off" measures the old way
         private bool seekTurboOn;
         private int seekSavedInterval = 1;
+        private float seekFixedDt = SeekMath.JumpPhysicsStep, seekSavedFixedDt = -1;   // test command "seekfixed <dt>|0"
         private float seekSavedVolume = 1f;
         // Jump bookkeeping for the log line and the progress label.
         private Stopwatch seekWatch;
@@ -40,6 +44,7 @@ namespace NuclearReplay.Playback
         private long seekDemoMs = -1;
         private bool seekRestart, seekDemoCached;
         private int seekFrames, seekDrawn, seekGc0, seekGc2;
+        private float seekStepUsed = -1;
         // Backward jumps reuse the recording already in memory.
         private DemoReader cachedDemo;
         private string cachedDemoKey;
@@ -51,6 +56,8 @@ namespace NuclearReplay.Playback
         private static readonly string[] profPhases = { "Initialization", "EarlyUpdate", "FixedUpdate", "PreUpdate", "Update", "PreLateUpdate", "PostLateUpdate" };
         private static readonly long[] profTicks = new long[7], profStart = new long[7];
         private static int profFixedRuns;
+        private static readonly Dictionary<string, long> profFixedChild = new Dictionary<string, long>();
+        private static long profChildStart;
         private static bool profInstalled, profOn;
         private bool seekProfile;
         private sealed class SeekProfStart { }
@@ -62,9 +69,9 @@ namespace NuclearReplay.Playback
             seekWatch = Stopwatch.StartNew();
             seekFrom = from; seekTo = to; seekRestart = restart;
             seekFastFrom = -1; seekMenuAt = -1; seekLiveAt = -1; seekDemoMs = -1; seekDemoCached = false;
-            seekFrames = 0; seekDrawn = 0;
+            seekFrames = 0; seekDrawn = 0; seekStepUsed = -1;
             seekGc0 = GC.CollectionCount(0); seekGc2 = GC.CollectionCount(2);
-            Array.Clear(profTicks, 0, profTicks.Length); profFixedRuns = 0;
+            Array.Clear(profTicks, 0, profTicks.Length); profFixedRuns = 0; profFixedChild.Clear();
         }
 
         // Wraps each top-level phase of Unity's player loop in two timing systems (only after "seekprofile on").
@@ -79,6 +86,28 @@ namespace NuclearReplay.Playback
                 int k = Array.IndexOf(profPhases, subs[i].type?.Name);
                 if (k < 0) continue;
                 var list = new List<PlayerLoopSystem>(subs[i].subSystemList ?? new PlayerLoopSystem[0]);
+                if (k == 2)
+                {
+                    // FixedUpdate: time each child system too.
+                    var wrapped = new List<PlayerLoopSystem>();
+                    foreach (var child in list)
+                    {
+                        string name = child.type?.Name ?? "?";
+                        wrapped.Add(new PlayerLoopSystem { type = typeof(SeekProfStart), updateDelegate = () => profChildStart = Stopwatch.GetTimestamp() });
+                        wrapped.Add(child);
+                        wrapped.Add(new PlayerLoopSystem
+                        {
+                            type = typeof(SeekProfEnd),
+                            updateDelegate = () =>
+                            {
+                                if (!profOn) return;
+                                profFixedChild.TryGetValue(name, out long t);
+                                profFixedChild[name] = t + Stopwatch.GetTimestamp() - profChildStart;
+                            },
+                        });
+                    }
+                    list = wrapped;
+                }
                 list.Insert(0, new PlayerLoopSystem { type = typeof(SeekProfStart), updateDelegate = () => profStart[k] = Stopwatch.GetTimestamp() });
                 list.Add(new PlayerLoopSystem
                 {
@@ -104,7 +133,9 @@ namespace NuclearReplay.Playback
                 parts.Add(profPhases[k] + " " + sec.ToString("F1", c));
             }
             return $"; profile s: {string.Join(", ", parts)}, other (drawing, present, waiting) {(fastSeconds - sum).ToString("F1", c)}; "
-                + $"FixedUpdate runs {profFixedRuns} ({(profFixedRuns / (double)seekFrames).ToString("F2", c)} a frame)";
+                + $"FixedUpdate runs {profFixedRuns} ({(profFixedRuns / (double)seekFrames).ToString("F2", c)} a frame): "
+                + string.Join(", ", profFixedChild.OrderByDescending(kv => kv.Value).Take(4)
+                    .Select(kv => kv.Key + " " + (kv.Value / (double)Stopwatch.Frequency).ToString("F1", c)));
         }
 
         // Every frame of a viewer jump's fast-forward (StartSeek, before the target is reached).
@@ -138,11 +169,15 @@ namespace NuclearReplay.Playback
                     seekSavedInterval = Math.Max(1, OnDemandRendering.renderFrameInterval);
                     seekSavedVolume = AudioListener.volume;
                     AudioListener.volume = 0f;
+                    float step = SeekMath.PhysicsStep(Time.fixedDeltaTime, seekFixedDt);
+                    if (step != Time.fixedDeltaTime) { seekSavedFixedDt = Time.fixedDeltaTime; Time.fixedDeltaTime = step; }
+                    seekStepUsed = step;
                 }
                 else
                 {
                     OnDemandRendering.renderFrameInterval = seekSavedInterval;
                     AudioListener.volume = seekSavedVolume;
+                    if (seekSavedFixedDt > 0) { Time.fixedDeltaTime = seekSavedFixedDt; seekSavedFixedDt = -1; }
                 }
             }
             catch (Exception e) { Logger.LogWarning("Jump: " + e.Message); }
@@ -164,7 +199,7 @@ namespace NuclearReplay.Playback
                 + $"fast-forward {covered.ToString("F1", c)} replay s in {fast.ToString("F1", c)} s ({SeekMath.Rate(covered, fast).ToString("F1", c)}x), "
                 + $"{seekFrames} frames ({(fast > 0 ? seekFrames / fast : 0).ToString("F0", c)}/s), {seekDrawn} drawn, "
                 + $"GC {GC.CollectionCount(0) - seekGc0} gen0 / {GC.CollectionCount(2) - seekGc2} gen2, turbo {(seekTurboAllowed ? "on" : "off")}, "
-                + $"fixedDeltaTime {Time.fixedDeltaTime.ToString("0.####", c)}, maximumDeltaTime {Time.maximumDeltaTime.ToString("0.###", c)}"
+                + $"physics step {(seekStepUsed > 0 ? seekStepUsed : Time.fixedDeltaTime).ToString("0.####", c)} (game {Time.fixedDeltaTime.ToString("0.####", c)}), maximumDeltaTime {Time.maximumDeltaTime.ToString("0.###", c)}"
                 + SeekProfileText(fast));
             seekWatch = null; profOn = false;
         }
@@ -260,6 +295,9 @@ namespace NuclearReplay.Playback
                         fastForwardStepFps = (int)Math.Max(10, Num(p.Length > 1 ? p[1] : null, SeekMath.FastForwardStepFps));
                         return $"seek step {fastForwardSpeed}/{fastForwardStepFps}";
                     }
+                case "seekfixed":
+                    seekFixedDt = (float)Math.Max(0, Math.Min(0.1, Num(arg, SeekMath.JumpPhysicsStep)));
+                    return "seek fixed step " + seekFixedDt;
                 case "probe":
                     {
                         var parts = arg.Split(new[] { ' ' }, 2);
