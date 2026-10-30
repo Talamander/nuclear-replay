@@ -592,6 +592,24 @@ namespace NuclearReplay.Playback
         }
     }
 
+    // The game's DebugUI toggles its debug panels on Rewired actions; PerfDebug (the performance and network panel,
+    // "(toggle F4)") is on F4, which the viewer uses for the Target HUD. While the viewer has the keyboard, a frame
+    // in which F1-F4 (the viewer's panel keys) went down toggles no debug panel. Without the viewer the game's keys
+    // work as before.
+    [HarmonyPatch(typeof(DebugUI), "CheckToggle")]
+    internal static class DebugKeysPatch
+    {
+        [HarmonyPrefix]
+        private static bool Prefix(ref bool __result)
+        {
+            var p = ReplayPlugin.Instance;
+            if (p == null || !p.ViewerOwnsKeys) return true;
+            if (!Input.GetKeyDown(KeyCode.F1) && !Input.GetKeyDown(KeyCode.F2) && !Input.GetKeyDown(KeyCode.F3) && !Input.GetKeyDown(KeyCode.F4)) return true;
+            __result = false;
+            return false;
+        }
+    }
+
     // Patched on its own (ReplayPlugin.HudPatch), so a game update that changes the RPC cannot break the other patches.
     [HarmonyPatch(typeof(Unit), "UserCode_RpcSetStationTargets_1363862903")]
     internal static class HudTargetsPatch

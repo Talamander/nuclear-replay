@@ -20,6 +20,7 @@ namespace NuclearReplay.Playback
         private TextMeshProUGUI hudButtonLabel;
         private RectTransform hudHint;
         private string hudButtonMode;
+        internal bool HudHoverTest;   // test hook: show the hint as if hovered (headless runs have no pointer)
 
         internal string HudButtonText => hudButton != null && hudButton.gameObject.activeInHierarchy ? hudButtonLabel.text : null;
         internal bool HudHintShown => hudHint != null && hudHint.gameObject.activeInHierarchy;
@@ -80,7 +81,7 @@ namespace NuclearReplay.Playback
                 hudButtonLabel.text = on ? "<b>" + label + "</b>" : label;
                 hudButton.image.color = on ? accent : Color.white;
             }
-            bool hover = RectTransformUtility.RectangleContainsScreenPoint((RectTransform)hudButton.transform, Input.mousePosition, null);
+            bool hover = HudHoverTest || RectTransformUtility.RectangleContainsScreenPoint((RectTransform)hudButton.transform, Input.mousePosition, null);
             if (hudHint.gameObject.activeSelf != hover) hudHint.gameObject.SetActive(hover);
         }
 

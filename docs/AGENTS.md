@@ -269,7 +269,9 @@ Camera Studio paths keep the panel's settings as their root `target_hud`. Viewer
 `targethud home <faction|auto>`, `targethud labels|arrows on|off`, `targethud size <x>`,
 `targethud units metric|imperial`, `targethud focus <selector|none>`, `targethud panel on|off`,
 `targethud row <n>`, `targethud adjust +1|-1`, `targethud click [right]` (a click on the button through the
-event system). The status file has a `target_hud` object (settings, source, focus, home side, marks, lines,
+event system), `targethud hover on|off` (shows its hint; headless gamescope has no pointer).
+While the viewer has the keyboard, F1-F4 no longer toggle the game's own debug panels (PerfDebug, the
+performance and network panel, is on F4); `gamedebug` / `gamedebug off` report or clear them. The status file has a `target_hud` object (settings, source, focus, home side, marks, lines,
 labels, the button's text, `button_rect` and `button_hint`, and the count of target-list messages seen). Render logs have a
 `Target HUD <t>s (...)` line each replay second and `Target HUD RPC n: SetStationTargets ...` for the first
 40 target-list messages.

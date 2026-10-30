@@ -92,7 +92,12 @@ namespace NuclearReplay.Playback
         {
             try { harmony.PatchAll(typeof(HudTargetsPatch)); Logger.LogInfo("Target HUD: listening for target lists (Unit.RpcSetStationTargets)"); }
             catch (Exception e) { Logger.LogWarning("Target HUD: could not patch Unit.RpcSetStationTargets; target lists come from the game state only: " + e.Message); }
+            try { harmony.PatchAll(typeof(DebugKeysPatch)); }
+            catch (Exception e) { Logger.LogWarning("Viewer: could not patch DebugUI.CheckToggle; F1-F4 may also toggle the game's debug panels: " + e.Message); }
         }
+
+        // The viewer has the keyboard (ViewerKeys runs): a replay is open in the viewer and nr is not driving a preview.
+        internal bool ViewerOwnsKeys => viewer && server != null && preview == null;
 
         private void HudSave()
         {
@@ -314,7 +319,7 @@ namespace NuclearReplay.Playback
         // "targethud side <faction|both>", "targethud home <faction|auto>", "targethud labels on|off",
         // "targethud arrows on|off", "targethud size <x>", "targethud units metric|imperial",
         // "targethud focus <selector|none>", "targethud panel on|off", "targethud row <n>", "targethud adjust <+1|-1>",
-        // "targethud click [right]" (a pointer click on the viewer's Target HUD button).
+        // "targethud click [right]" (a pointer click on the viewer's Target HUD button), "targethud hover on|off" (its hint).
         private string HudCommand(string arg)
         {
             var parts = (arg ?? "").Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
@@ -342,6 +347,7 @@ namespace NuclearReplay.Playback
                     hudRow = row; break;
                 case "adjust": HudAdjust(lower.StartsWith("-") ? -1 : 1); break;
                 case "cycle": HudCycleMode(1); break;
+                case "hover": if (ui != null) ui.HudHoverTest = lower != "off"; break;
                 case "click":
                     if (ui == null) return "no viewer UI";
                     string clicked = ui.ClickHudButton(lower == "right");
@@ -350,6 +356,27 @@ namespace NuclearReplay.Playback
                 default: return "unknown targethud command";
             }
             return "targethud " + hudViewer.Summary() + (hudPanel ? " (panel open, row " + HudRows[hudRow] + ")" : "");
+        }
+
+        // Viewer command "gamedebug" (state) / "gamedebug off": the game's own debug panels (DebugUI: MissionDebug,
+        // GraphDebug, PerfDebug), which it keeps on or off in PlayerPrefs. Test runs use it to put a shared test copy
+        // back after F4 toggled the performance panel (before DebugKeysPatch).
+        private string GameDebugCommand(string arg)
+        {
+            string[] inputs = { "MissionDebug", "GraphDebug", "PerfDebug" };
+            string[] fields = { "mission", "graphy", "performanceText" };
+            var ui = FindObjectOfType<DebugUI>();
+            if ((arg ?? "").Trim().ToLowerInvariant() == "off")
+            {
+                for (int i = 0; i < inputs.Length; i++)
+                {
+                    PlayerPrefs.SetInt("DebugUI_" + inputs[i], 0);
+                    if (ui != null && AccessTools.Field(typeof(DebugUI), fields[i])?.GetValue(ui) is GameObject g) g.SetActive(false);
+                }
+                PlayerPrefs.Save();
+                if (ui != null) AccessTools.Method(typeof(DebugUI), "OnChange")?.Invoke(ui, null);
+            }
+            return string.Join(", ", inputs.Select(n => n + " " + PlayerPrefs.GetInt("DebugUI_" + n, 0)));
         }
 
         private JObject HudStatus()

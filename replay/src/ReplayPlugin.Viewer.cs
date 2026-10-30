@@ -835,6 +835,7 @@ namespace NuclearReplay.Playback
                 case "light": return LightingCommand(arg);
                 case "lens": return LensCommand(arg);
                 case "targethud": return HudCommand(arg);
+                case "gamedebug": return GameDebugCommand(arg);
                 case "msgstats":
                     {
                         // Research for docs/JUMP-POINTS.md: message types, counts and bytes in a recording, split into
