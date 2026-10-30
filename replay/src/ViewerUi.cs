@@ -316,7 +316,7 @@ namespace NuclearReplay.Playback
 
         internal const string HelpText =
             "<b><size=22>REPLAY KEYS</size></b>\n\n" +
-            "<b>Space</b>  play / pause\n" +
+            "<b>Space</b>  play / pause; during a jump, stop it there\n" +
             "<b>Left / Right</b>  back / forward 10 s\n" +
             "<b>Up / Down</b> or <b>+ / -</b>  speed 0.25x to 4x\n" +
             "<b>Click the timeline</b>  jump; a marker jumps to that moment\n" +

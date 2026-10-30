@@ -363,11 +363,24 @@ nr open latest --at 35 --focus 40 --json        # start at 0:35, focus the momen
   (`local.nuclearoption.context.replay.cfg`), it copies that to the new name first and fills the
   copy. So "Clip this" works in a game started from Steam right after the install.
 
+Timeline jumps (0.6, `replay/src/ReplayPlugin.Seek.cs`, `SeekMath.cs`): a forward jump fast-forwards from where the
+replay is, a backward jump reloads the mission and fast-forwards from the start, as before. While a viewer jump
+fast-forwards, physics steps at 1/20 s instead of 1/60 s, only about 12 frames a second are drawn and the sound is
+muted; the replay clock still moves 8/60 s a frame. Backward jumps reuse the recording already in memory and
+reload as soon as the main menu is up. Clip recordings' own jumps and every render path keep the 0.5 behaviour.
+Each jump logs `Jump A -> B s took W s: reload ..., fast-forward X replay s in Y s (Zx), ...`. Viewer test
+commands: `seekturbo on|off` (off: the 0.5 jump, for comparisons), `seekfixed <dt>|0` (physics step while
+jumping), `stopjump` (what Space does during a jump), `seekprofile on` (adds the time per player-loop phase to
+the jump log line), `probe <t> <path>` (at replay time t: pause, write the units to `<path>.json`, a
+screenshot to `<path>.png` and `<path>.json.done`), `dumpunits <path>`, and `seekstep <speed> [fps]`
+(research: replay seconds per frame; 16 was no faster and less exact). Measurements and the comparison
+method: release workspace `seek/RESULTS.md`.
+
 Keys in the viewer:
 
 | Key | Action |
 | --- | --- |
-| Space | Play or pause |
+| Space | Play or pause. While a jump runs: stop it where it is |
 | Left / Right | Skip back or forward 10 seconds |
 | Up / Down, or + / - | Playback speed, 0.25x to 4x |
 | 1 to 7 | Camera presets: cinematic chase, victim cut, missile follow, chase, orbit, flyby, cockpit |

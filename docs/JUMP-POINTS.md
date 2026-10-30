@@ -1,7 +1,8 @@
 # Jump points: research
 
-Status: research only (2026-10-10, ingame-viewer branch). Nothing here is built. The recorder format
-is unchanged.
+Status: research (2026-10-10, ingame-viewer branch). Jump points are not built. The recorder format
+is unchanged. 0.6 made the existing jumps about twice as fast (option C, below). Jump points (option A) are
+still the next step.
 
 ## The problem
 
@@ -118,11 +119,25 @@ connection and writes the messages as a keyframe. The state is then exact, inclu
   ("Unsupported demo format version"). Otherwise they would send keyframe bytes to the client. A
   side file avoids that.
 
-### C. Keep fast-forward, make it faster
+### C. Keep fast-forward, make it faster (done in 0.6)
 
-Fast-forward is capped by frame rate (8x at 60 Hz in gamescope). A visible window without vsync may
-reach a higher multiple. Larger fixed steps risk physics and missile-guidance differences. This
-helps forward jumps only. Backward jumps still restart from 0.
+Fast-forward is capped by how fast the game can run frames. Larger replay steps per frame do not help,
+because physics runs at 60 steps per replay second whatever the frame step. Measured on 2026-10-30 with a
+38-minute multiplayer recording of about 1 200 units, using the `seekprofile` test command: physics was about
+56 % of a jump (engine plus the game's FixedUpdate scripts), drawing 23 %, and the rest of the loop 21 %.
+Since 0.6, a viewer jump:
+
+- runs physics at 1/20 s instead of 1/60 s while it fast-forwards. The recorded messages still set every
+  unit's position, state, targets and kills. 3 s after the target, units, states, missile targets, the
+  followed unit and the Target HUD match a 0.5 jump, and positions differ by about as much as a 0.5 jump
+  differs from straight play.
+- draws about 12 frames a second (OnDemandRendering) and mutes the sound.
+- on a backward jump, keeps the recording in memory and reloads as soon as the main menu is up.
+
+Result: 1:00 to 10:00 took 44 s instead of 96 s, 10:00 back to 5:00 took 27 s instead of 61 s, and 5:00 to
+37:00 took 218 s instead of 368 s (9x to 12.5x instead of 5x to 6x). A jump to the end of a long match still
+takes minutes, which only jump points can fix. Clip recordings' own jumps and every render path keep the 0.5
+behaviour.
 
 ## Risks
 
@@ -151,7 +166,7 @@ helps forward jumps only. Backward jumps still restart from 0.
 Recordings without jump points (all recordings today, and new ones if A is not built) keep the
 current behaviour:
 
-- A forward jump fast-forwards from the current position at about 8x.
+- A forward jump fast-forwards from the current position (9x to 12.5x since 0.6).
 - A backward jump restarts the mission and fast-forwards from the start.
 - The viewer shows "Jumping to m:ss (reloading the mission)..." while it works.
 

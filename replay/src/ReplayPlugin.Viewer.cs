@@ -128,10 +128,10 @@ namespace NuclearReplay.Playback
             quitAtEnd = false;
             startAt = -1; startSeeking = false;
             preroll = 0;
-            fastForwardSpeed = 8f; fastForwardStepFps = 60;
+            fastForwardSpeed = SeekMath.FastForwardSpeed; fastForwardStepFps = SeekMath.FastForwardStepFps;
             viewerPaused = false; viewerSpeed = 1f; viewerUiHidden = false; viewerHelp = false; viewerGameHud = false;
             freeCamOn = false;
-            if (at > 0.5) { startAt = at; startSeeking = true; viewerSeekTarget = at; }
+            if (at > 0.5) { startAt = at; startSeeking = true; viewerSeekTarget = at; SeekBegin(0, at, restart: true); }
             else viewerSeekTarget = -1;
         }
 
@@ -189,7 +189,7 @@ namespace NuclearReplay.Playback
             s.Paused = viewerPaused;
             s.Speed = viewerSpeed;
             s.Seeking = startSeeking || server == null;
-            s.SeekText = viewerSeekTarget >= 0 ? $"Jumping to {ViewerCatalog.Clock(viewerSeekTarget)}{(viewerRestarting || server == null ? " (reloading the mission)" : "")}..." : "Loading the replay...";
+            s.SeekText = SeekLabel();
             s.Ended = finishedAt >= 0;
             s.FreeCam = freeCamOn;
             s.Preset = viewerPreset;
@@ -268,7 +268,8 @@ namespace NuclearReplay.Playback
             // The game's own menu: bring the UI back so it can be seen.
             if (Input.GetKeyDown(KeyCode.Escape) && viewerUiHidden) ViewerToggleHide();
             if (Input.GetKeyDown(KeyCode.G)) ViewerToggleGameHud();
-            if (Input.GetKeyDown(KeyCode.Space)) ViewerTogglePause();
+            // Space during a jump stops it where it is; otherwise it pauses.
+            if (Input.GetKeyDown(KeyCode.Space)) { if (startSeeking && server != null && viewerLive) ViewerStopJump(); else ViewerTogglePause(); }
             if (Input.GetKeyDown(KeyCode.LeftArrow)) ViewerSkip(-10);
             if (Input.GetKeyDown(KeyCode.RightArrow)) ViewerSkip(10);
             if (Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.KeypadPlus) || Input.GetKeyDown(KeyCode.Equals)) ViewerSpeed(1);
@@ -310,6 +311,7 @@ namespace NuclearReplay.Playback
         {
             viewerLive = live;
             if (live && !startSeeking) viewerSeekTarget = -1;
+            ProbeStep(replayTime, live);
             if (recorder == null || clipFinishing) return;
             if (startSeeking || !live) return;
             if (!recorder.Started && recorder.FpsBefore <= 0) recorder.FpsBefore = fpsHistory.Count > 0 ? fpsHistory.Average() : fpsNow;
@@ -337,6 +339,7 @@ namespace NuclearReplay.Playback
         // Called when a fast-forward seek reaches its target.
         private void ViewerSeekReached(double replayNow)
         {
+            SeekEnd(replayNow);
             viewerRestarting = false;
             viewerSeekTarget = -1;
             if (recorder != null) { server.Paused = false; server.Speed = 1f; }
@@ -435,7 +438,7 @@ namespace NuclearReplay.Playback
             if (server == null)
             {
                 // Still loading: start there instead.
-                if (target > 0.5) { startAt = target; startSeeking = true; } else { startAt = -1; startSeeking = false; }
+                if (target > 0.5) { startAt = target; startSeeking = true; SeekBegin(0, target, restart: true); } else { startAt = -1; startSeeking = false; }
                 return;
             }
             double now = server.Clock - server.StartTime;
@@ -443,6 +446,8 @@ namespace NuclearReplay.Playback
             if (target >= now - 0.05)
             {
                 if (target - now < 0.3) { viewerSeekTarget = -1; return; }
+                if (!startSeeking) SeekBegin(now, target, restart: false);
+                else seekTo = target;
                 startAt = target;
                 startSeeking = true;
                 return;
@@ -452,6 +457,7 @@ namespace NuclearReplay.Playback
             if (freeCamOn) { resumeFreeCam = true; SetFreeCam(false); }
             startAt = target > 0.5 ? target : -1;
             startSeeking = target > 0.5;
+            SeekBegin(now, target, restart: true);
             viewerRestarting = true;
             SoftRestart();
         }
@@ -589,6 +595,7 @@ namespace NuclearReplay.Playback
             server = null; director = null; finishedAt = -1; capturing = false;
             cockpitView.Leave();
             startSeeking = false; startAt = -1; viewerRestarting = false; viewerSeekTarget = -1;
+            SeekAbort(keepStats: false); ForgetCachedDemo(); restartIssuedAt = -1;
             if (fastForwarding && savedVSync >= 0) { QualitySettings.vSyncCount = savedVSync; Application.targetFrameRate = savedTargetFrameRate; }
             fastForwarding = false;
             hiddenCanvases.Clear();
@@ -911,7 +918,7 @@ namespace NuclearReplay.Playback
                     }
                 case "exit": ViewerExit(); return "exit";
                 case "quit": quitRequested = true; return "quit";
-                default: return CamerasCommand(cmd, arg) ?? "unknown command";
+                default: return SeekCommand(cmd, arg) ?? CamerasCommand(cmd, arg) ?? "unknown command";
             }
         }
 
