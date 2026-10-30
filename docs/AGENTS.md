@@ -218,6 +218,57 @@ Viewer test commands (`-ncViewerCommands`): `lens` (state), `lens panel on|off`,
 (`dof on|off`, `f_stop`, `focus`). The status file has a `lens` object (settings, the lens on screen,
 the focus distance in use, and the Volume report).
 
+### Target HUD (`target_hud`)
+
+The game's targeting HUD drawn over the replay camera: each unit's own HUD icon in the theme's friend or foe
+colour, the game's target box on what the focus unit is after, lines from missiles to their targets (solid
+once the missile's own seeker has the target, dashed before), labels and edge arrows. It is drawn on its own
+canvas, so renders and viewer clips include it. A replay client knows every missile's target and seeker state
+and every unit's designated targets (`Unit.RpcSetStationTargets`), so the overlay shows every lock and the true
+positions; it has no pilot's radar picture, stale tracks or RWR warnings.
+
+`target_hud` goes on a shot or at the root of the list (the default for every shot; a shot's keys win key by
+key; a `then` shot uses its own or the root's). A string is the mode, `true` is `story`, `false` is `off`:
+
+- `mode`: `story` (default when the field is there): the focus unit's fight in full (its designated targets,
+  its missiles and their targets, missiles at it and their shooters), everyone else within 15 km as quiet small
+  marks without labels. `missiles`: every missile in flight, its target and its line, and the launchers while
+  their missile flies. `all`: every unit within range, all missile lines. `off`.
+- `focus`: whose fight the story tells, in target syntax (`unit:221`, `name:Talamander`, `host`). Default: the
+  shot's target; when that is a missile, its shooter.
+- `side`: `both` (default) or a faction (`Boscali`, `Primeva`): only that side's units, the missiles it fired
+  and their targets.
+- `home`: the faction drawn friendly. Default: the recording player's side (the `player` annotation), so the
+  colours do not flip when the camera cuts to an enemy.
+- `labels` (true), `arrows` (true; story only: at most two, incoming missiles and the primary target),
+  `size` (0.5 to 2.5, default 1), `units` (`metric`, default, or `imperial`).
+
+```json
+{ "target_hud": "story",
+  "shots": [
+    { "t": 215, "camera": "chase", "target": "unit:221" },
+    { "t": 111, "camera": "orbit", "target": "unit:221", "target_hud": { "mode": "all", "side": "Primeva" } } ] }
+```
+
+Declutter: a unit taller than 8 % of the frame gets no marker (its lines still start there); bystanders fade
+from 10 to 15 km; at most 8 labels (4 in a vertical frame), missiles at the focus unit first; three or more
+missiles of one shooter within 40 px share one label (`AGR-18 ×10`); labels and arrows stay inside the safe
+area (9:16: x 6-90 %, y 12-75 % from the top). New missiles flash for a second; a destroyed unit flashes,
+fades and goes. `nr shots validate` reports an unknown mode, a size out of range, an unknown faction or a bad
+focus as errors, and unknown keys or `arrows` outside story as warnings.
+
+Viewer: **F4** opens the Target HUD panel (it turns the overlay on at story when it was off); Tab / Shift+Tab
+pick a row (mode, side, home side, labels, size, arrows), PageUp / PageDown change it, Home resets it.
+**Shift+F4** cycles the mode (off, story, missiles, all). H does not hide the overlay. Viewer clips (C) and
+Camera Studio paths keep the panel's settings as their root `target_hud`. Viewer test commands:
+`targethud` (state), `targethud off|story|missiles|all`, `targethud side <faction|both>`,
+`targethud home <faction|auto>`, `targethud labels|arrows on|off`, `targethud size <x>`,
+`targethud units metric|imperial`, `targethud focus <selector|none>`, `targethud panel on|off`,
+`targethud row <n>`, `targethud adjust +1|-1`. The status file has a `target_hud` object (settings, source,
+focus, home side, marks, lines, labels, and the count of target-list messages seen). Render logs have a
+`Target HUD <t>s (...)` line each replay second and `Target HUD RPC n: SetStationTargets ...` for the first
+40 target-list messages.
+
 Options of the `ride` camera (a camera holding formation with a unit), all optional:
 
 - `offset`: `[x, y, z]` metres in the unit's own frame (x right, y up, z forward). Default off the right side, a
@@ -316,6 +367,7 @@ Keys in the viewer:
 | [ and ] | Previous or next unit |
 | F | Free camera: WASD to move, Q/E down and up, Shift to go faster, hold the right mouse button to look, Ctrl + wheel focal length (mm), Alt + wheel focus distance |
 | F3 | Lens panel. While it is open: Tab / Shift+Tab pick a row, PageUp / PageDown change it (Shift: bigger steps), Home resets the row |
+| F4 | Target HUD panel (mode, side, home side, labels, size, arrows). While it is open: Tab / Shift+Tab pick a row, PageUp / PageDown change it, Home resets the row. Shift+F4 cycles the mode: off, story, missiles, all |
 | 1 to 9 | Camera presets: cinematic chase, victim cut, missile follow, chase, orbit, flyby, cockpit, action cam, two-shot (the unit on screen and its opponent, or the Shift+B pick) |
 | 0 | Ride-along. The first time it pauses and puts the free camera next to the unit on screen; fly it to the spot and press R. After that, 0 plays the ride-along |
 | R | In the free camera: lock a ride-along on that unit (or the nearest one). During a ride-along: unlock it to place it again |

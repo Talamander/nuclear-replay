@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **Target HUD** (F4 in a replay). The game's own targeting HUD drawn over any replay camera: each unit's
+  HUD icon in friend or foe colours (from the recording player's side, so they do not flip on a cut), the
+  target box on what the followed unit is after, and lines from each missile to its target, solid once its own
+  seeker has it. Story mode shows the followed unit's fight, Missiles every missile in flight, All every unit
+  in range; a side filter shows one side's units and shots. Labels stay few and inside the safe area, salvos
+  share one label, new missiles flash and destroyed units fade. Shift+F4 cycles the mode. Clips and camera
+  paths record with it, and H does not hide it.
+- Shot lists take `target_hud` per shot or at the root (`"story"`, or an object with `mode`, `focus`,
+  `side`, `home`, `labels`, `arrows`, `size`, `units`). `nr shots validate` checks it. Lists without it render
+  as before.
+
 - **Lighting** (F2 in a replay): time of day presets (dawn, golden hour, dusk, night, or as recorded),
   15-minute steps, haze and weather. **Z** puts the sun behind the aircraft you follow: the free camera moves to
   the backlit side. The settings stay while you move through the replay, clips record with them, and Camera

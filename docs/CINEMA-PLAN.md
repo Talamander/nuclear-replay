@@ -18,6 +18,10 @@ Not in v1: per-segment ease, Bezier handles, roll and focus keys, look-at-a-poin
 you can drag, and loop preview. It builds on [JUMP-POINTS.md](JUMP-POINTS.md),
 which covers faster seeking in more depth.
 
+Status (2026-10-30): the target HUD (F4 panel, Shift+F4 mode cycle, shot-list `target_hud`) is built on
+branch ct-hud (`replay/src/HudModel.cs`, `HudOverlay.cs`, `ReplayPlugin.Hud.cs`, `ViewerUi.Hud.cs`), unit
+tested and rendered headless on the Point Blank demo. A person has not yet used the panel in the game.
+
 Status (2026-10-28): lighting (the F2 panel, shot list lighting and backlight fields,
 [LIGHTING.md](LIGHTING.md)) is built, unit tested and rendered headless on the HAW demo. A person has not yet
 checked the panel in the game.
