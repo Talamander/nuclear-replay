@@ -257,7 +257,8 @@ namespace NuclearReplay.Playback
         public const double NoDistanceUnder = 300;                     // a missile label drops its distance this close
         public const double FlashTime = 1, KillFlash = 0.5, KillFade = 1;
 
-        public static HudFrame Build(HudSettings s, IList<HudUnit> units, HudUnit focus, HudView view, string home)
+        // previous: the last frame drawn, so labels keep their unit and side from frame to frame instead of flickering.
+        public static HudFrame Build(HudSettings s, IList<HudUnit> units, HudUnit focus, HudView view, string home, HudFrame previous = null)
         {
             var frame = new HudFrame { Focus = focus, Home = home };
             if (s == null || !s.On || units == null) return frame;
@@ -369,7 +370,8 @@ namespace NuclearReplay.Playback
                     else continue;
                 }
                 // Subject rule: a unit that fills enough of the frame is plain to see; no marker or label on it.
-                if (onScreen && u.ScreenSize > SubjectShare * view.Height) { frame.Hidden++; continue; }
+                // Missiles keep theirs: a chased missile's marker, label and line are the point of the shot.
+                if (onScreen && u.Kind != UnitKind.Missile && u.ScreenSize > SubjectShare * view.Height) { frame.Hidden++; continue; }
                 candidates.Add(m);
             }
 
@@ -380,7 +382,7 @@ namespace NuclearReplay.Playback
             candidates.Sort((a, b) => Priority(b, focus).CompareTo(Priority(a, focus)));
             frame.Marks.AddRange(candidates);
 
-            if (s.Labels) PlaceLabels(s, frame, focus, view, byId);
+            if (s.Labels) PlaceLabels(s, frame, focus, view, byId, previous);
             AddLines(s, frame, focus, byId, home);
             return frame;
         }
@@ -423,8 +425,12 @@ namespace NuclearReplay.Playback
             return p - Math.Min(999, m.Unit.Distance / 100.0);
         }
 
-        private static void PlaceLabels(HudSettings s, HudFrame frame, HudUnit focus, HudView view, Dictionary<string, HudUnit> byId)
+        public const double KeepLabel = 400;                           // priority bonus for a unit labelled last frame
+
+        private static void PlaceLabels(HudSettings s, HudFrame frame, HudUnit focus, HudView view, Dictionary<string, HudUnit> byId, HudFrame previous)
         {
+            var before = new Dictionary<string, HudLabelSide>();
+            if (previous != null) foreach (var m in previous.Marks) if (m.Label != null && !m.Arrow) before[m.Unit.Id] = m.LabelAt;
             int budget = view.Vertical ? 4 : 8;
             double scale = view.Scale * s.Size;
             double h = TextPx * 1.25 * scale, gap = (MarkerPx * 0.6 + 6) * scale;
@@ -452,7 +458,8 @@ namespace NuclearReplay.Playback
             }
 
             int count = 0;
-            foreach (var m in frame.Marks)
+            var order = frame.Marks.OrderByDescending(m => Priority(m, focus) + (before.ContainsKey(m.Unit.Id) ? KeepLabel : 0)).ToList();
+            foreach (var m in order)
             {
                 if (count >= budget) break;
                 if (grouped.Contains(m) || !m.Unit.Alive) continue;
@@ -474,7 +481,8 @@ namespace NuclearReplay.Playback
                 // Screen y runs up: above is the larger y.
                 var above = (ax - w / 2, ay + gap, ax + w / 2, ay + gap + lh);
                 var below = (ax - w / 2, ay - gap - lh, ax + w / 2, ay - gap);
-                var spots = new[] { (right, HudLabelSide.Right), (left, HudLabelSide.Left), (above, HudLabelSide.Above), (below, HudLabelSide.Below) };
+                var spots = new List<((double, double, double, double) r, HudLabelSide side)> { (right, HudLabelSide.Right), (left, HudLabelSide.Left), (above, HudLabelSide.Above), (below, HudLabelSide.Below) };
+                if (before.TryGetValue(m.Unit.Id, out var was)) { var keep = spots.First(x => x.side == was); spots.Remove(keep); spots.Insert(0, keep); }
                 foreach (var (r, side) in spots)
                 {
                     if (!Free(r)) continue;

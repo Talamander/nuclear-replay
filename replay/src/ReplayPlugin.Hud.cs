@@ -380,6 +380,9 @@ namespace NuclearReplay.Playback
                 replayTime, hudSource, hudOverlay.Settings?.Mode, frame.Focus != null ? frame.Focus.Id + " " + HudModel.Name(frame.Focus) : "none", frame.Home ?? "none",
                 frame.Marks.Count, hudOverlay.LastUnits, frame.Lines.Count, string.Join(", ", frame.Lines.Take(6)), frame.Hidden, HudTargets.Messages,
                 string.Join("; ", frame.Marks.Take(8))));
+            // Where the labels went (screen pixels, y up), to check placement against the rendered frame.
+            Logger.LogInfo("Target HUD labels: " + string.Join("; ", frame.Marks.Where(m => m.Label != null).Select(m =>
+                string.Format(CultureInfo.InvariantCulture, "{0} {1:F0},{2:F0} {3} \"{4}\"", m.Unit.Id, m.Unit.X, m.Unit.Y, m.Arrow ? "arrow" : m.LabelAt.ToString(), m.Label))));
         }
     }
 }

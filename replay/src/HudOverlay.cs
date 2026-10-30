@@ -169,7 +169,7 @@ namespace NuclearReplay.Playback
                 // The plugin sets Focus: the settings' focus selector resolved, else the shot's target.
                 HudUnit focus = Focus != null && byUnit.TryGetValue(Focus, out var fu) ? fu : null;
                 var view = new HudView(sw, sh);
-                var frame = HudModel.Build(Settings, units, focus, view, !string.IsNullOrEmpty(Settings.Home) ? Settings.Home : Home ?? focus?.Side);
+                var frame = HudModel.Build(Settings, units, focus, view, !string.IsNullOrEmpty(Settings.Home) ? Settings.Home : Home ?? focus?.Side, LastFrame);
                 wasCast.Clear();
                 foreach (var m in frame.Marks) if (m.Role != HudRole.Context) wasCast.Add(m.Unit.Id);
                 LastFrame = frame;

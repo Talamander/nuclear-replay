@@ -196,6 +196,30 @@ public class HudTests
     }
 
     [Fact]
+    public void LabelsKeepTheirUnitAndSideFromFrameToFrame()
+    {
+        List<HudUnit> Scene(double d300, double d301)
+        {
+            var units = PointBlank().Where(u => u.Kind != UnitKind.Missile).ToList();
+            units.Add(Missile("300", "221", "137", "Boscali", 900, 500, d300, d300));
+            units.Add(Missile("301", "221", "138", "Boscali", 900, 505, d301, d301));
+            return units;
+        }
+        var one = Scene(1100, 1150);
+        var first = HudModel.Build(Mode("all"), one, Focus(one), Wide, "Boscali");
+        var side300 = first.Find("300")!.LabelAt;
+        var side301 = first.Find("301")!.LabelAt;
+        Assert.NotEqual(side300, side301);
+        // 301 is now nearer, so it would win the first spot; the last frame's placement holds instead.
+        var two = Scene(1150, 1100);
+        var second = HudModel.Build(Mode("all"), two, Focus(two), Wide, "Boscali", first);
+        Assert.Equal(side300, second.Find("300")!.LabelAt);
+        Assert.Equal(side301, second.Find("301")!.LabelAt);
+        var fresh = HudModel.Build(Mode("all"), two, Focus(two), Wide, "Boscali");
+        Assert.Equal(side300, fresh.Find("301")!.LabelAt);
+    }
+
+    [Fact]
     public void PrimaryTargetLabelCarriesTheRangeFromTheFocus()
     {
         var units = PointBlank();
