@@ -49,7 +49,7 @@ namespace NuclearReplay.Playback
 
         public Canvas Canvas => canvas;
 
-        public HudOverlay(ManualLogSource log) { this.log = log; }
+        public HudOverlay(ManualLogSource log) { this.log = log; HudIcons.Init(log); }
 
         public void Hook()
         {
@@ -425,11 +425,20 @@ namespace NuclearReplay.Playback
                     px = (float)(HudModel.MarkerPx * m.Size) * IconFactor(u) * scale * (m.Look == HudLook.Small ? 0.6f : 1f);
                     if (u.Kind == UnitKind.Missile) px = Mathf.Max(px * 0.75f, 14f * scale);
                 }
+                Material iconMaterial = null;
                 if (sprite == null)
                 {
                     sprite = m.Look == HudLook.Pip ? pipSprite : u.Kind == UnitKind.Missile ? diamondSprite : squareSprite;
                     if (!loggedFallback) { loggedFallback = true; log.LogWarning($"Target HUD: no game sprite for {u.Code} ({m.Look}); drawing a plain shape"); }
                 }
+                else
+                {
+                    // The game's icons are a symbol on opaque black: draw them with the game's additive marker
+                    // material when it has one, else from a copy with the black keyed out (HudIcons.cs).
+                    iconMaterial = HudIcons.GameMaterial();
+                    if (iconMaterial == null) sprite = HudIcons.Keyed(sprite);
+                }
+                if (icon.material != (iconMaterial ?? Graphic.defaultGraphicMaterial)) icon.material = iconMaterial;
                 icon.sprite = sprite;
                 icon.color = color;
                 icon.rectTransform.anchoredPosition = pos;
