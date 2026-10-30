@@ -383,8 +383,6 @@ Keys in the viewer:
 | Space | Play or pause. While a jump runs: stop it where it is |
 | Left / Right | Skip back or forward 10 seconds |
 | Up / Down, or + / - | Playback speed, 0.25x to 4x |
-| 1 to 7 | Camera presets: cinematic chase, victim cut, missile follow, chase, orbit, flyby, cockpit |
-| [ and ] | Previous or next unit |
 | F | Free camera: WASD to move, Q/E down and up, Shift to go faster, hold the right mouse button to look, Ctrl + wheel focal length (mm), Alt + wheel focus distance |
 | F3 | Lens panel. While it is open: Tab / Shift+Tab pick a row, PageUp / PageDown change it (Shift: bigger steps), Home resets the row |
 | F4 | Target HUD panel (mode, side, home side, labels, size, arrows). While it is open: Tab / Shift+Tab pick a row, PageUp / PageDown change it, Home resets the row. Shift+F4 cycles the mode: off, story, missiles, all |
@@ -395,7 +393,6 @@ Keys in the viewer:
 | [ and ] | Previous or next unit in the filter: aircraft, unless the unit list picked ground, sea or all |
 | B | Unit list: type to search by callsign, player, type or side; Up/Down and Enter or a click targets the unit; Tab changes the filter; Esc closes. Players come first, then by type; destroyed units only with its Destroyed button |
 | Shift+B | The unit list again, but the pick becomes the two-shot's second unit. It stays the second unit for later targets until the viewer command `second-clear` or a new pick |
-| F | Free camera: WASD to move, Q/E down and up, Shift to go faster, hold the right mouse button to look |
 | I / O | Set the clip in and out points |
 | C | Record the clip: it plays at 1x in real time and is encoded at screen resolution, with the GPU encoder when one is available. C or Esc while recording stops it |
 | H | Hide all UI |
