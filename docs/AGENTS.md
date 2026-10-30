@@ -373,8 +373,8 @@ commands: `seekturbo on|off` (off: the 0.5 jump, for comparisons), `seekfixed <d
 jumping), `stopjump` (what Space does during a jump), `seekprofile on` (adds the time per player-loop phase to
 the jump log line), `probe <t> <path>` (at replay time t: pause, write the units to `<path>.json`, a
 screenshot to `<path>.png` and `<path>.json.done`), `dumpunits <path>`, and `seekstep <speed> [fps]`
-(research: replay seconds per frame; 16 was no faster and less exact). Measurements and the comparison
-method: release workspace `seek/RESULTS.md`.
+(research: replay seconds per frame; 16 was no faster and less exact). The comparison method: pause at
+the same replay time after a jump and after straight play, dump the units with `probe`, and compare them.
 
 Keys in the viewer:
 

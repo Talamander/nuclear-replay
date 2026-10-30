@@ -8,7 +8,7 @@
     NcVersionCore  numeric part, used where only a System.Version fits (BepInPlugin, AssemblyVersion).
   -->
   <PropertyGroup>
-    <NcVersion>0.5.2</NcVersion>
+    <NcVersion>0.6.0</NcVersion>
     <NcVersionCore>$(NcVersion.Split('-')[0])</NcVersionCore>
     <Version>$(NcVersion)</Version>
     <AssemblyVersion>$(NcVersionCore).0</AssemblyVersion>

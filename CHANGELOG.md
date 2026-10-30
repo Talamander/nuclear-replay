@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.0 (2026-10-30)
 
 - **Bulk delete in the Replays list.** Every row has a checkbox. Shift+click ticks a range, Ctrl+click ticks
   one more, and a ticked row can be unticked again (Shift on a checkbox unticks a range). Select all and
@@ -65,6 +65,8 @@
   recording, 1:00 to 10:00 went from 96 s to 44 s, 10:00 back to 5:00 from 61 s to 27 s, and 5:00 to the last
   minute from 6 min 8 s to 3 min 38 s. The label shows the jump's progress, and **Space** during a jump stops it
   where it is. Clips and renders are made exactly as before.
+- In a replay, F1 to F4 no longer also switch the game's own debug panels (F4 opened its network stats
+  panel). Outside replays the game's keys work as before.
 
 ## 0.5.2 (2026-10-27)
 
