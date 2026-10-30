@@ -94,7 +94,7 @@ namespace NuclearReplay.Playback
             // Test harnesses that launch through nr set the hook by environment instead.
             if (commandsPath == null && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NC_VIEWER_COMMANDS")))
                 commandsPath = HostPath(Environment.GetEnvironmentVariable("NC_VIEWER_COMMANDS"));
-            catalog = new ViewerCatalog(Logger);
+            catalog = new ViewerCatalog(Logger, GameData(ReplayIndex.FileName));
             catalog.AddDirectory(GameData("demos"));
             // Recordings an install from before the rename (Nuclear Context) made stay where they are and still show.
             string legacyDemos = ModFolders.LegacyDemos(BepInEx.Paths.GameRootPath);
@@ -109,7 +109,7 @@ namespace NuclearReplay.Playback
             if (jobPath != null || previewPath != null) { viewer = false; Logger.LogWarning("-ncViewer is ignored with a render job or a preview."); return; }
             if (pendingPath == null) { viewerMenuOnStart = true; viewer = false; Logger.LogInfo("Viewer: opening the Replays list at the main menu"); return; }
             try { catalog.AddDirectory(Path.GetDirectoryName(pendingPath)); } catch (Exception) { }
-            viewerDemo = catalog.Get(pendingPath);
+            viewerDemo = catalog.GetFull(pendingPath);
             if (viewerFocusAt >= 0) viewerFocus = viewerDemo.Moments.OrderBy(e => Math.Abs(e.T - viewerFocusAt)).FirstOrDefault(e => Math.Abs(e.T - viewerFocusAt) < 1.0);
             if (viewerFocus != null) { clipIn = Math.Max(0, viewerFocus.T - 5); clipOut = viewerFocus.T + 6; }
             if (viewerAt < 0 && viewerFocus != null) viewerAt = Math.Max(0, viewerFocus.T - 5);
@@ -374,6 +374,22 @@ namespace NuclearReplay.Playback
             return catalog.Delete(demo);
         }
 
+        // Replays list bulk delete: removes the recordings on a background thread, then calls back on the game
+        // thread with what went and what could not (and why). The recording that is playing is never deleted.
+        internal void ViewerDeleteMany(List<ViewerDemo> demos, Action<List<ViewerDemo>, List<KeyValuePair<ViewerDemo, string>>> done)
+        {
+            var go = new List<ViewerDemo>();
+            var refused = new List<KeyValuePair<ViewerDemo, string>>();
+            foreach (var d in demos)
+            {
+                if (server != null && viewerDemo != null && string.Equals(viewerDemo.Path, d.Path, StringComparison.OrdinalIgnoreCase))
+                    refused.Add(new KeyValuePair<ViewerDemo, string>(d, "it is playing; leave the replay first"));
+                else go.Add(d);
+            }
+            if (go.Count == 0) { done(new List<ViewerDemo>(), refused); return; }
+            catalog.DeleteMany(go, (deleted, failed) => { failed.InsertRange(0, refused); done(deleted, failed); });
+        }
+
         internal void ViewerCursor(bool visible)
         {
             try { CursorManager.SetFlag(ViewerCursorFlag, visible); } catch (Exception) { }
@@ -385,7 +401,7 @@ namespace NuclearReplay.Playback
             Logger.LogInfo("Viewer: opening " + demo.Path);
             if (server != null) StopViewerReplay(reopenMenu: false);
             ui.ShowMenu(false);
-            viewerDemo = catalog.Get(demo.Path);
+            viewerDemo = catalog.GetFull(demo.Path);
             viewerFocus = focus >= 0 ? viewerDemo.Moments.OrderBy(e => Math.Abs(e.T - focus)).FirstOrDefault() : null;
             clipIn = viewerFocus != null ? Math.Max(0, viewerFocus.T - 5) : -1;
             clipOut = viewerFocus != null ? viewerFocus.T + 6 : -1;
@@ -814,6 +830,19 @@ namespace NuclearReplay.Playback
                     }
                 // Presses the list's Delete button: the first press asks, a second one deletes.
                 case "menu-delete": ui.DeleteClicked(); return ui.SelectedDemo != null ? "selected " + ui.SelectedDemo.FileName : "nothing selected";
+                // Row clicks as the mouse makes them: "menu-click 5 shift", "menu-click 7 ctrl", "menu-check 9 [shift]".
+                case "menu-click":
+                case "menu-check":
+                    {
+                        var words = arg.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                        if (words.Length == 0 || !int.TryParse(words[0], out var row)) return "usage: " + cmd + " <row> [shift] [ctrl]";
+                        bool shift = words.Skip(1).Any(w => w == "shift"), ctrl = words.Skip(1).Any(w => w == "ctrl");
+                        if (cmd == "menu-click") ui.RowClicked(row, shift, ctrl); else ui.BoxClicked(row, shift);
+                        return cmd + " " + row + (shift ? " shift" : "") + (ctrl ? " ctrl" : "");
+                    }
+                case "menu-all": ui.MenuSelectAll(true); return "all";
+                case "menu-clear": ui.MenuSelectAll(false); return "clear";
+                case "menu-scroll": ui.ScrollTo((int)N(), top: true); return "scroll " + N();
                 case "menu-watch": if (ui.SelectedDemo == null) return "nothing selected"; ViewerOpen(ui.SelectedDemo, -1, -1); return "opening " + ui.SelectedDemo.FileName;
                 case "seek": ViewerSeek(N()); return "seek " + N();
                 case "skip": ViewerSkip(N()); return "skip " + N();
@@ -929,7 +958,7 @@ namespace NuclearReplay.Playback
                 var s = BuildState();
                 var o = new JObject
                 {
-                    ["wall"] = Time.realtimeSinceStartupAsDouble, ["viewer"] = viewer, ["menu_open"] = ui.MenuOpen,
+                    ["wall"] = Time.realtimeSinceStartupAsDouble, ["viewer"] = viewer, ["menu_open"] = ui.MenuOpen, ["menu"] = ui.MenuStatus(),
                     ["menu_button"] = GameObject.Find("NuclearReplay Replays") != null, ["demos"] = catalog.Demos.Count,
                     ["main_menu"] = MainMenu.State.ToString(), ["server"] = server != null, ["live"] = viewerLive,
                     ["time"] = Math.Round(s.Time, 2), ["duration"] = Math.Round(s.Duration, 2), ["seeking"] = startSeeking, ["restarting"] = viewerRestarting,

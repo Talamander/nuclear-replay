@@ -51,8 +51,8 @@ namespace NuclearReplay.Playback
         private readonly ManualLogSource log;
         private GameObject root;
         private Canvas canvas;
-        private RectTransform overlay, bottom, help, menu, menuList, toastBox, tooltip;
-        private TextMeshProUGUI status, subStatus, seekLabel, toast, tooltipText, menuEmpty, playLabel, speedLabel, unitLabel, freeLabel, clipLabel, recordLabel;
+        private RectTransform overlay, bottom, help, menu, toastBox, tooltip;
+        private TextMeshProUGUI status, subStatus, seekLabel, toast, tooltipText, playLabel, speedLabel, unitLabel, freeLabel, clipLabel, recordLabel;
         private readonly List<Button> presetButtons = new List<Button>();
         private Button freeButton;
         private RectTransform timeline, timelineFill, playhead, clipBand, markerLayer;
@@ -61,16 +61,8 @@ namespace NuclearReplay.Playback
         private ViewerEvent markerFocus;
         private double markerDuration;
         private float toastUntil;
-        private int menuVersion = -1;
         private GameObject menuButton;
         private MainMenu menuButtonOwner;
-        private ViewerDemo selectedDemo;
-        private GameObject mapHeader;
-        private LayoutElement missionHeader;
-        private readonly List<KeyValuePair<Image, ViewerDemo>> rows = new List<KeyValuePair<Image, ViewerDemo>>();
-        private TextMeshProUGUI menuHint, deleteLabel, deleteNote;
-        private ViewerDemo deleteArmed;
-        private float deleteArmedUntil;
         private RectTransform ffmpegPanel, ffmpegBar, ffmpegBarFill;
         private TextMeshProUGUI ffmpegTitle, ffmpegBody, ffmpegDetail, ffmpegPrimaryLabel, ffmpegSecondaryLabel;
         private Button ffmpegPrimary, ffmpegSecondary;
@@ -418,122 +410,6 @@ namespace NuclearReplay.Playback
                 : phase == FfmpegDownload.Phase.Downloading ? "Cancel" : "Close  (N)";
         }
 
-        private void BuildMenu()
-        {
-            // Right of the main menu's button column.
-            menu = Rect("Replays", root.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(-450, -385), new Vector2(900, 330));
-            Fill(menu, new Color(panelColor.r, panelColor.g, panelColor.b, 0.93f), true);
-            var title = Rect("Title", menu, new Vector2(0, 1), new Vector2(1, 1), new Vector2(28, -70), new Vector2(-28, -14));
-            Text(title, "<b>REPLAYS</b>", 34, TextAlignmentOptions.Left, accent);
-            var hint = Rect("Hint", menu, new Vector2(0, 1), new Vector2(1, 1), new Vector2(28, -70), new Vector2(-28, -14));
-            if (LegacyWarning != null) Text(hint, "Old Nuclear Context installed: delete BepInEx/plugins/NuclearContext", 17, TextAlignmentOptions.Right, new Color(1f, 0.35f, 0.3f));
-            else menuHint = Text(hint, "Recordings made by Nuclear Replay", 17, TextAlignmentOptions.Right, new Color(textColor.r, textColor.g, textColor.b, 0.6f));
-
-            var header = Row(menu, "Header", 0);
-            header.anchorMin = new Vector2(0, 1); header.anchorMax = new Vector2(1, 1);
-            header.offsetMin = new Vector2(28, -104); header.offsetMax = new Vector2(-28, -74);
-            foreach (var (label, width) in Columns)
-            {
-                var cell = Cell(header, label, width, 16, new Color(textColor.r, textColor.g, textColor.b, 0.6f));
-                if (label == "Map") mapHeader = cell;
-                if (label == "Mission") missionHeader = cell.GetComponent<LayoutElement>();
-            }
-
-            var view = Rect("List", menu, Vector2.zero, Vector2.one, new Vector2(28, 84), new Vector2(-28, -108));
-            Fill(view, new Color(1, 1, 1, 0.03f), true);
-            view.gameObject.AddComponent<RectMask2D>();
-            menuList = Rect("Content", view, new Vector2(0, 1), new Vector2(1, 1), Vector2.zero, Vector2.zero);
-            menuList.pivot = new Vector2(0.5f, 1);
-            var v = menuList.gameObject.AddComponent<VerticalLayoutGroup>();
-            v.spacing = 4; v.childForceExpandHeight = false; v.childControlHeight = true; v.childControlWidth = true; v.childForceExpandWidth = true;
-            menuList.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            var scroll = view.gameObject.AddComponent<ScrollRect>();
-            scroll.content = menuList; scroll.horizontal = false; scroll.vertical = true; scroll.viewport = view;
-            scroll.movementType = ScrollRect.MovementType.Clamped; scroll.scrollSensitivity = 40;
-            menuEmpty = Text(view, "Looking for recordings...", 20, TextAlignmentOptions.Center);
-
-            var buttons = Row(menu, "Buttons", 10);
-            buttons.anchorMin = new Vector2(0, 0); buttons.anchorMax = new Vector2(1, 0);
-            buttons.offsetMin = new Vector2(28, 20); buttons.offsetMax = new Vector2(-28, 68);
-            buttons.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleRight;
-            // Delete sits apart on the left and asks first: the first click (or the Delete key) arms it, a second one
-            // within a few seconds deletes.
-            MakeButton(buttons, "Delete", 160, () => DeleteClicked(), out deleteLabel, 46, 20);
-            var note = Rect("DeleteNote", buttons, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero);
-            var noteLayout = note.gameObject.AddComponent<LayoutElement>();
-            noteLayout.flexibleWidth = 1; noteLayout.preferredHeight = 46;
-            deleteNote = Text(note, "", 17, TextAlignmentOptions.Left, KillColor);
-            deleteNote.rectTransform.offsetMin = new Vector2(8, 0);
-            deleteNote.enableWordWrapping = true;
-            MakeButton(buttons, "Refresh", 120, () => host.ViewerRefreshMenu(), 46, 20);
-            MakeButton(buttons, "Close", 120, () => ShowMenu(false), 46, 20);
-            MakeButton(buttons, "Watch", 160, () => { if (selectedDemo != null) host.ViewerOpen(selectedDemo, -1, -1); }, 46, 22);
-        }
-
-        private static readonly (string, float)[] Columns =
-        {
-            ("Mission", 360), ("Map", 170), ("Date", 190), ("Length", 100), ("Players", 230), ("Kills", 80), ("Launches", 90)
-        };
-
-        private static GameObject Cell(Transform row, string text, float width, float size, Color? color = null)
-        {
-            var rt = Rect("Cell", row, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero);
-            var le = rt.gameObject.AddComponent<LayoutElement>();
-            le.preferredWidth = width; le.minWidth = width; le.preferredHeight = 30;
-            var t = Text(rt, text, size, TextAlignmentOptions.Left, color);
-            t.rectTransform.offsetMin = new Vector2(8, 0);
-            return rt.gameObject;
-        }
-
-        private void FillMenu(List<ViewerDemo> demos, bool scanning)
-        {
-            foreach (Transform child in menuList) UnityEngine.Object.Destroy(child.gameObject);
-            rows.Clear();
-            menuEmpty.gameObject.SetActive(demos.Count == 0);
-            menuEmpty.text = scanning ? "Looking for recordings..." : "No recordings yet. Host a mission with Nuclear Replay installed and it records automatically.";
-            // Older recordings and the stock maps record no map name; the column shows only when one row has it.
-            bool showMap = demos.Any(x => x.Error == null && x.Map != null);
-            mapHeader.SetActive(showMap);
-            // Without the Map column the Mission column takes its width, so the table still fills the panel.
-            float missionWidth = showMap ? 360 : 530;
-            if (menuHint != null && (!scanning || demos.Count > 0)) menuHint.text = ViewerText.LibrarySummary(demos.Count, demos.Sum(x => x.Size));
-            missionHeader.preferredWidth = missionHeader.minWidth = missionWidth;
-            foreach (var demo in demos)
-            {
-                var d = demo;
-                var row = Row(menuList, "Row", 0);
-                row.gameObject.AddComponent<LayoutElement>().preferredHeight = 40;
-                var img = Fill(row, d == selectedDemo ? RowSelected : RowColor, true);
-                var b = row.gameObject.AddComponent<Button>();
-                var colors = b.colors; colors.normalColor = Color.white; colors.highlightedColor = new Color(1.25f, 1.25f, 1.25f, 1f); colors.colorMultiplier = 1.5f;
-                b.colors = colors; b.targetGraphic = img; b.navigation = new Navigation { mode = Navigation.Mode.None };
-                float lastClick = -1;
-                b.onClick.AddListener(() =>
-                {
-                    bool twice = selectedDemo == d && Time.unscaledTime - lastClick < 0.4f;
-                    lastClick = Time.unscaledTime;
-                    SelectDemo(d);
-                    if (twice) host.ViewerOpen(d, -1, -1);
-                });
-                rows.Add(new KeyValuePair<Image, ViewerDemo>(img, d));
-                string date = d.Created.HasValue ? d.Created.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) : d.Modified.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
-                if (d.Error != null)
-                {
-                    Cell(row, d.FileName, 360, 18);
-                    Cell(row, "Cannot read: " + d.Error, 800, 16, KillColor);
-                    continue;
-                }
-                Cell(row, d.Title + (d.Truncated ? "  (cut short)" : ""), missionWidth, 18);
-                if (showMap) Cell(row, d.Map ?? "-", 170, 17);
-                Cell(row, date, 190, 17);
-                Cell(row, ViewerCatalog.Clock(d.Duration), 100, 17);
-                Cell(row, d.Players.Count == 0 ? "-" : string.Join(", ", d.Players), 230, 16);
-                Cell(row, d.Kills.ToString(CultureInfo.InvariantCulture), 80, 17);
-                Cell(row, d.Launches.ToString(CultureInfo.InvariantCulture), 90, 17);
-            }
-            SelectDemo(selectedDemo != null && demos.Contains(selectedDemo) ? selectedDemo : demos.FirstOrDefault(x => x.Error == null));
-        }
-
         // ---------------- main menu ----------------
 
         // Called every frame while the main menu is up: adds the Replays button once per menu instance and
@@ -604,55 +480,6 @@ namespace NuclearReplay.Playback
         private static Color Mul(Color a, Color b, float alphaMin) => new Color(a.r * b.r, a.g * b.g, a.b * b.b, Mathf.Max(alphaMin * a.a * b.a, a.a * b.a));
         private static bool Approximately(Color a, Color b) => Mathf.Abs(a.r - b.r) + Mathf.Abs(a.g - b.g) + Mathf.Abs(a.b - b.b) < 0.05f;
 
-        public void ShowMenu(bool show)
-        {
-            EnsureRoot();
-            menu.gameObject.SetActive(show);
-            Disarm();
-            if (show) { host.ViewerRefreshMenu(); menuVersion = -1; }
-            host.ViewerCursor(show || overlay.gameObject.activeSelf);
-        }
-
-        // Selects a recording and moves the row highlight to it (row clicks and the menu-pick test command).
-        public void SelectDemo(ViewerDemo demo)
-        {
-            if (demo != deleteArmed) Disarm();
-            selectedDemo = demo;
-            foreach (var r in rows) r.Key.color = r.Value == demo ? RowSelected : RowColor;
-        }
-        public ViewerDemo SelectedDemo => selectedDemo;
-
-        // Delete button / Delete key: arms on the first press, deletes the selected recording on the second.
-        internal void DeleteClicked()
-        {
-            if (selectedDemo == null) return;
-            if (deleteArmed != selectedDemo || Time.unscaledTime > deleteArmedUntil)
-            {
-                deleteArmed = selectedDemo;
-                deleteArmedUntil = Time.unscaledTime + 6f;
-                deleteLabel.text = "<b>Yes, delete</b>";
-                deleteNote.text = ViewerText.DeleteQuestion(selectedDemo.Error != null ? selectedDemo.FileName : selectedDemo.Title, selectedDemo.Size);
-                return;
-            }
-            var demo = selectedDemo;
-            var list = rows.Select(r => r.Value).ToList();
-            int at = list.IndexOf(demo);
-            Disarm();
-            string error = host.ViewerDelete(demo);
-            if (error != null) { Toast("Could not delete the recording: " + error + ".", 5f); return; }
-            list.Remove(demo);
-            // Keep the place in the list: the next recording down, or the last one.
-            selectedDemo = list.Count == 0 ? null : list[Math.Max(0, Math.Min(at, list.Count - 1))];
-            Toast("Deleted " + (demo.Error != null ? demo.FileName : demo.Title) + ".", 3f);
-        }
-
-        private void Disarm()
-        {
-            deleteArmed = null;
-            if (deleteLabel != null) deleteLabel.text = "Delete";
-            if (deleteNote != null) deleteNote.text = "";
-        }
-
         // ---------------- per frame ----------------
 
         // Screen point of a fraction of the timeline (test hook: clicks the bar there).
@@ -676,16 +503,12 @@ namespace NuclearReplay.Playback
             UpdateFfmpegPrompt(s.Ffmpeg);
             // The Replays screen closes with Escape, and when the main menu hides its button column (another screen
             // took over without a click on one of its buttons).
-            if (MenuOpen && (Input.GetKeyDown(KeyCode.Escape) || menuButton != null && !menuButton.activeInHierarchy)) ShowMenu(false);
+            // Escape first takes back an armed Delete.
+            if (MenuOpen && Input.GetKeyDown(KeyCode.Escape) && deleteArmed != null) Disarm();
+            else if (MenuOpen && (Input.GetKeyDown(KeyCode.Escape) || menuButton != null && !menuButton.activeInHierarchy)) ShowMenu(false);
             if (MenuOpen)
             {
-                if (catalog.Version != menuVersion && !catalog.Scanning || menuVersion == -1 && catalog.Demos.Count > 0)
-                {
-                    menuVersion = catalog.Version;
-                    FillMenu(catalog.Demos, catalog.Scanning);
-                }
-                if (deleteArmed != null && Time.unscaledTime > deleteArmedUntil) Disarm();
-                if (Input.GetKeyDown(KeyCode.Delete)) DeleteClicked();
+                UpdateMenu(catalog);
                 PointerOverViewerUi = true;
             }
             bool showOverlay = s.InReplay && !uiHidden && !s.Recording;

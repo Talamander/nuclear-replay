@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **Bulk delete in the Replays list.** Every row has a checkbox. Shift+click ticks a range, Ctrl+click ticks
+  one more, and a ticked row can be unticked again (Shift on a checkbox unticks a range). Select all and
+  Clear sit under the list with the count and size ticked ("3 selected, 1.2 GB"). Delete asks once, naming how
+  many recordings and how much space, then removes them with their shot lists and camera paths; clips stay.
+  Recordings that cannot be deleted are named with why and stay ticked.
+- **The Replays list opens at once with big libraries.** Rows show straight away from the file names, sizes
+  and dates, newest first, and the rest fills in from a background reader, the rows on screen first, without
+  hitching the menu. Reading a recording is one fast sequential pass. What was read is kept in
+  `NuclearReplay/replay-list-cache.txt`, so later opens read only new or changed recordings. Only the rows on
+  screen are built, so scrolling hundreds of recordings stays smooth.
+
 - **Target HUD** (F4 in a replay). The game's own targeting HUD drawn over any replay camera: each unit's
   HUD icon in friend or foe colours (from the recording player's side, so they do not flip on a cut), the
   target box on what the followed unit is after, and lines from each missile to its target, solid once its own
