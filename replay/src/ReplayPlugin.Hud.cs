@@ -134,7 +134,9 @@ namespace NuclearReplay.Playback
                 else hudSource = "none";
             }
             hudOverlay.Settings = use;
-            hudOverlay.Active = live && use != null && use.On;
+            // Not while a viewer jump fast-forwards (ReplayPlugin.Seek.cs): most of those frames are never drawn, and
+            // building the overlay for ~1 000 units each frame slowed the jump. It starts fresh when the jump lands.
+            hudOverlay.Active = live && use != null && use.On && !seekTurboOn;
             if (!hudOverlay.Active) return;
             hudOverlay.Focus = HudFocus(use);
             hudOverlay.Home = HudHome();
