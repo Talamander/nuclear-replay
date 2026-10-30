@@ -250,9 +250,11 @@ key; a `then` shot uses its own or the root's). A string is the mode, `true` is 
     { "t": 111, "camera": "orbit", "target": "unit:221", "target_hud": { "mode": "all", "side": "Primeva" } } ] }
 ```
 
-Declutter: a unit taller than 8 % of the frame gets no marker (its lines still start there); bystanders fade
+Declutter: a unit taller than 8 % of the frame gets no marker (its lines still start there; a chased missile keeps
+its marker); bystanders fade
 from 10 to 15 km; at most 8 labels (4 in a vertical frame), missiles at the focus unit first; three or more
-missiles of one shooter within 40 px share one label (`AGR-18 ×10`); labels and arrows stay inside the safe
+missiles of one shooter within 40 px share one label (`AGR-18 ×10`); a label sits right, left, above or below
+its marker, never over another label or marker, and keeps its unit and spot from frame to frame; labels and arrows stay inside the safe
 area (9:16: x 6-90 %, y 12-75 % from the top). New missiles flash for a second; a destroyed unit flashes,
 fades and goes. `nr shots validate` reports an unknown mode, a size out of range, an unknown faction or a bad
 focus as errors, and unknown keys or `arrows` outside story as warnings.
