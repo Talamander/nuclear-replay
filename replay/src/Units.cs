@@ -39,7 +39,11 @@ namespace NuclearReplay.Playback
         // {id, player}). A replay often has no Player object for a unit, so this is the main source.
         private static readonly Dictionary<string, string> recordedPlayers = new Dictionary<string, string>();
 
-        public static void ClearRecordedPlayers() => recordedPlayers.Clear();
+        public static void ClearRecordedPlayers() { recordedPlayers.Clear(); RecordedHome = null; }
+
+        // The recording player's side: the first "player" annotation that names a faction (null when none does).
+        // The target HUD draws this side friendly for the whole replay.
+        public static string RecordedHome { get; private set; }
         public static int RecordedPlayerCount => recordedPlayers.Count;
 
         // One annotation's JSON: every object in it with an id and a player name.
@@ -47,6 +51,9 @@ namespace NuclearReplay.Playback
         {
             if (token is Newtonsoft.Json.Linq.JObject o)
             {
+                if (RecordedHome == null && o["event"]?.Type == Newtonsoft.Json.Linq.JTokenType.String && (string)o["event"] == "player"
+                    && o["faction"]?.Type == Newtonsoft.Json.Linq.JTokenType.String && !string.IsNullOrEmpty((string)o["faction"]))
+                    RecordedHome = (string)o["faction"];
                 var id = o["id"];
                 string player = o["player"]?.Type == Newtonsoft.Json.Linq.JTokenType.String ? (string)o["player"] : null;
                 if (id != null && (id.Type == Newtonsoft.Json.Linq.JTokenType.Integer || id.Type == Newtonsoft.Json.Linq.JTokenType.String) && !string.IsNullOrEmpty(player))

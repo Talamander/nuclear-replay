@@ -171,6 +171,7 @@ namespace NuclearReplay.Playback
             }
             harmony = new Harmony(Id);
             harmony.PatchAll(typeof(ReplayPatches));
+            HudPatch(harmony);
             LightingOverride.Init(Logger);
             ViewerAwake();
             if (legacy != null) ui.LegacyWarning = "Nuclear Context (old version) is installed too. Delete BepInEx/plugins/NuclearContext and restart. Recording is off.";
@@ -448,6 +449,7 @@ namespace NuclearReplay.Playback
             Logger.LogInfo("Restarting the replay");
             preview?.OnRestarting();
             LensTeardown();
+            HudTeardown();
             try { director?.Shutdown(); } catch (Exception e) { Logger.LogWarning("Preview restart: director: " + e.Message); }
             try { server?.Close(); } catch (Exception e) { Logger.LogWarning("Preview restart: server: " + e.Message); }
             server = null;
@@ -578,6 +580,7 @@ namespace NuclearReplay.Playback
                 LightingOverride.Tick(live);
                 cockpitView.Step(live);
                 LensStep(live);
+                HudStep(live);
                 if (live) Capture(replayTime);
                 preview?.AfterFrame(replayTime, live);
                 JobUpdate(replayTime, live);
@@ -588,6 +591,7 @@ namespace NuclearReplay.Playback
                     matte.SetTarget(director.MatteUnit);
                 }
                 if (live) ApplyHud();
+                if (live && job != null) HudLog(replayTime);
                 if (live) LogClock(replayTime);
                 if (perfLog) LogPerf(replayTime);
                 status = $"REPLAY {replayTime:F1}/{server.EndTime - server.StartTime:F1}s  x{server.Speed:0.###}{(server.Paused ? " PAUSED" : "")}"
@@ -908,7 +912,7 @@ namespace NuclearReplay.Playback
             if (hudHidden)
             {
                 foreach (var canvas in FindObjectsOfType<Canvas>())
-                    if (canvas.isRootCanvas && canvas.enabled && canvas != ui?.Canvas && !cockpitView.Keeps(canvas)) { canvas.enabled = false; hiddenCanvases.Add(canvas); }
+                    if (canvas.isRootCanvas && canvas.enabled && canvas != ui?.Canvas && canvas != HudCanvas && !cockpitView.Keeps(canvas)) { canvas.enabled = false; hiddenCanvases.Add(canvas); }
             }
             else if (hiddenCanvases.Count > 0)
             {
@@ -956,6 +960,7 @@ namespace NuclearReplay.Playback
             server?.Close();
             preview?.Close();
             LensTeardown();
+            HudTeardown();
             if (lensRenderHook) { RenderPipelineManager.beginCameraRendering -= LensBeforeRender; lensRenderHook = false; }
         }
     }

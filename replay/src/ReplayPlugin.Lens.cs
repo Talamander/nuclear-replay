@@ -106,7 +106,7 @@ namespace NuclearReplay.Playback
         {
             if (!viewer) return;
             lensPanel = !lensPanel;
-            if (lensPanel) lightingOpen = false;   // both panels use Page Up, Page Down and Home
+            if (lensPanel) { lightingOpen = false; hudPanel = false; }   // these panels share Page Up, Page Down and Home
         }
 
         internal void LensSelect(int step)

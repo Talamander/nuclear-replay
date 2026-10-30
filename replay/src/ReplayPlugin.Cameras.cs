@@ -130,7 +130,7 @@ namespace NuclearReplay.Playback
                 annotations++;
                 try { Units.LearnPlayers(Newtonsoft.Json.Linq.JToken.Parse(record.Text)); } catch (Exception) { }
             }
-            Logger.LogInfo($"Units: {Units.RecordedPlayerCount} player-flown units named in {annotations} annotations");
+            Logger.LogInfo($"Units: {Units.RecordedPlayerCount} player-flown units named in {annotations} annotations; recording player's side {Units.RecordedHome ?? "unknown"}");
         }
 
         internal void ViewerUnitList(bool pickSecond)

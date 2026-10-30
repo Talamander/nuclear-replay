@@ -46,6 +46,7 @@ namespace NuclearReplay.Playback
             public float? Fov;
             public double Hold = 3;
             public JObject Raw;
+            public JToken Hud;          // "target_hud" (a "then" shot without its own keeps its parent's)
             public string[] Mattes = new string[0];
             public override string ToString() => $"{T:F2}s {Camera} {Target}";
         }
@@ -68,6 +69,7 @@ namespace NuclearReplay.Playback
         private Missile newestMissile;
         private readonly CineCamera cine;
         private JObject rootLighting;       // the shot list's root "lighting" object: defaults for every shot
+        internal JToken RootHud { get; private set; }   // the shot list's root "target_hud": default for every shot
         internal readonly List<string> TraceUnits = new List<string>();   // root "trace_units": ids logged to traces/marks.csv
         private bool anyLighting;           // any lighting key anywhere in the list (else lighting is never touched)
         private bool lightingDirty;         // a shot from the list started; set its lighting
@@ -94,6 +96,7 @@ namespace NuclearReplay.Playback
             foreach (var item in (JArray)root["shots"] ?? new JArray()) shots.Add(ParseShot(item));
             shots.Sort((a, b) => a.T.CompareTo(b.T));
             SetLightingDefaults(root["lighting"] as JObject);
+            RootHud = root[HudSettings.Field];
             foreach (var u in (JArray)root["trace_units"] ?? new JArray()) TraceUnits.Add(u.ToString().Replace("unit:", ""));
             log.LogInfo($"Director loaded {shots.Count} shots from {shotListPath}" + (TraceUnits.Count > 0 ? $", tracing units {string.Join(",", TraceUnits)}" : ""));
         }
@@ -103,6 +106,7 @@ namespace NuclearReplay.Playback
             T = (double?)item["t"] ?? 0, Camera = (string)item["camera"] ?? "orbit",
             Target = (string)item["target"] ?? "host", Fov = (float?)item["fov"], Hold = (double?)item["hold"] ?? 3,
             Raw = item as JObject,
+            Hud = item[HudSettings.Field],
             Mattes = item["mattes"] is JArray m ? m.Select(x => ((string)x ?? "").ToLowerInvariant()).ToArray() : new string[0]
         };
 
@@ -302,6 +306,7 @@ namespace NuclearReplay.Playback
         public Unit CurrentUnit => currentUnit != null && !currentUnit.disabled ? currentUnit : null;
         // Lens pack: the shot on screen now (its lens fields), null when there is none.
         public JObject CurrentRaw => current?.Raw;
+        public JToken CurrentHud => current?.Hud;
         internal CineCamera Cine => cine;
 
         // Viewer "next / previous unit": follows the live unit `step` places after (or before) the one on screen, among

@@ -317,6 +317,8 @@ namespace NuclearReplay.Playback
                         ["lens"] = LensShots.ToJson(studio.Lens.ToShot())
                     }
                 };
+                // The target HUD panel's settings travel with the path, like its light, and render with it.
+                if (hudViewer.On) { root[HudSettings.Field] = HudJson.ToJson(hudViewer); ((JObject)root["studio"])[HudSettings.Field] = HudJson.ToJson(hudViewer); }
                 File.WriteAllText(path + ".tmp", root.ToString());
                 if (File.Exists(path)) File.Delete(path);
                 File.Move(path + ".tmp", path);
@@ -359,6 +361,7 @@ namespace NuclearReplay.Playback
                 // The path's light comes back with it (the Lighting panel shows it and can change it).
                 var light = s["lighting"] as JObject;
                 if (light != null) LightingOverride.SetViewer(LightingOverride.FromJson(light), "camera path");
+                if (s[HudSettings.Field] is JObject hud) { HudSettings.Apply(hudViewer, HudJson.Plain(hud)); HudSave(); }
                 Logger.LogInfo($"Camera Studio: loaded {studio.Count} keys from {path}" + (light != null ? ", lighting " + light.ToString(Newtonsoft.Json.Formatting.None) : ""));
             }
             catch (Exception e) { Logger.LogWarning("Camera Studio: could not read " + path + ": " + e.Message); }

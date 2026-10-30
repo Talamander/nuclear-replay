@@ -70,6 +70,7 @@ namespace NuclearReplay.Playback
         private void ViewerAwake()
         {
             LensAwake();
+            HudAwake();
             clipsDirectory = Config.Bind("Viewer", "ClipsDirectory", "", "Where \"Clip this\" saves videos. Empty: <game>/NuclearReplay/clips. nr passes its own with -ncClipsDir.");
             ffmpegPath = Config.Bind("Viewer", "FfmpegPath", "", "ffmpeg used for viewer clips. Empty: the copy downloaded into <game>/NuclearReplay/tools/ffmpeg. nr passes its own with -ncFfmpeg; the last one given is kept here.");
             clipQuality = Config.Bind("Viewer", "Quality", 19, "Clip quality (lower is better; CRF/CQ scale, 14-30).");
@@ -203,6 +204,8 @@ namespace NuclearReplay.Playback
                 s.Subtitle = $"speed {freeFly.BaseSpeed:F0} m/s" + (lens.FocalMm > 0 ? "   lens " + LensMath.Mm(lens.FocalMm) : "");
             s.LensOpen = lensPanel;
             s.LensText = LensPanelText();
+            s.HudOpen = hudPanel;
+            s.HudText = HudPanelText();
             s.Studio = studio;
             s.StudioOpen = studio.Open;
             s.StudioPlaying = studio.Playing;
@@ -288,6 +291,7 @@ namespace NuclearReplay.Playback
             if (Input.GetKeyDown(KeyCode.F2)) ViewerToggleLighting();
             else if (lightingOpen) LightingKeys();
             LensKeys();
+            HudKeys();
             if (Input.GetKeyDown(KeyCode.Backspace)) ViewerExit();
             if (freeCamOn && flyUntil > Time.realtimeSinceStartupAsDouble && freeFly != null) freeFly.ScriptMove += flyMove;
             return true;
@@ -578,6 +582,7 @@ namespace NuclearReplay.Playback
             LightingReset();
             LensTeardown();
             lensPanel = false;
+            HudTeardown();
             try { director?.Shutdown(); } catch (Exception) { }
             try { server?.Close(); } catch (Exception) { }
             server = null; director = null; finishedAt = -1; capturing = false;
@@ -645,6 +650,7 @@ namespace NuclearReplay.Playback
             // The panel's lighting, as the list's default for every shot, so the record renders with the same light.
             var light = LightingOverride.ToJson(LightingOverride.Viewer);
             if (light != null) record["lighting"] = light;
+            HudClipRecord(record);
             try
             {
                 recorder = new ClipRecorder(Logger, ffmpeg, clipQuality.Value, from, to, 60, clips, GameData("viewer-clips"),
@@ -827,6 +833,7 @@ namespace NuclearReplay.Playback
                 case "studio": return StudioCommand(arg);
                 case "light": return LightingCommand(arg);
                 case "lens": return LensCommand(arg);
+                case "targethud": return HudCommand(arg);
                 case "msgstats":
                     {
                         // Research for docs/JUMP-POINTS.md: message types, counts and bytes in a recording, split into
@@ -921,7 +928,7 @@ namespace NuclearReplay.Playback
                     ["free_cam"] = freeCamOn, ["camera_state"] = CameraStateManager.i?.currentState?.GetType().Name,
                     ["following"] = s.Following, ["ui_hidden"] = viewerUiHidden, ["help"] = viewerHelp,
                     ["clip_in"] = clipIn, ["clip_out"] = clipOut, ["fps"] = Math.Round(fpsNow, 1), ["screen"] = Screen.width + "x" + Screen.height,
-                    ["encoder"] = ClipRecorder.ProbedCodec, ["studio"] = StudioStatus(), ["lighting"] = LightingStatus(), ["lens"] = LensStatus(), ["cameras"] = CamerasStatus(),
+                    ["encoder"] = ClipRecorder.ProbedCodec, ["studio"] = StudioStatus(), ["lighting"] = LightingStatus(), ["lens"] = LensStatus(), ["target_hud"] = HudStatus(), ["cameras"] = CamerasStatus(),
                     ["ffmpeg"] = new JObject
                     {
                         ["path"] = ViewerFfmpeg(), ["download"] = ffmpegDownload.State.ToString(), ["fraction"] = Math.Round(ffmpegDownload.Fraction, 3),

@@ -36,6 +36,8 @@ namespace NuclearReplay.Playback
             public string LightingText;
             public bool LensOpen;
             public string LensText;
+            public bool HudOpen;
+            public string HudText;
             public UnitPanel Units;
             public string UnitFilter = "aircraft";
             public bool RideLocked;
@@ -279,6 +281,7 @@ namespace NuclearReplay.Playback
             BuildStudio();
             BuildLighting();
             BuildLens();
+            BuildHud();
             BuildUnits();
         }
 
@@ -322,6 +325,7 @@ namespace NuclearReplay.Playback
             "<b>F</b>  free camera: <b>WASD</b> move, <b>Q/E</b> down/up, <b>Shift</b> faster, wheel sets speed, <b>Ctrl</b> + wheel focal length, <b>Alt</b> + wheel focus, hold <b>right mouse</b> to look\n" +
             "<b>P</b>  Camera Studio: <b>K</b> add key, <b>U</b> update, <b>X</b> delete, <b>[ ]</b> select, <b>, .</b> retime, <b>T</b> timing, <b>L</b> aim, <b>J</b> shake, <b>M</b> space, <b>Enter</b> play, <b>C</b> clip the path\n" +
             "<b>F3</b>  Lens: focal length (mm), sensor, depth of field, vignette, grain, chromatic aberration, motion blur; <b>Tab</b> row, <b>PgUp / PgDn</b> change (<b>Shift</b> bigger), <b>Home</b> reset\n" +
+            "<b>F4</b>  Target HUD panel: markers, target boxes and missile lines over the replay; <b>Tab</b> row (mode, side, home side, labels, size, arrows), <b>PgUp / PgDn</b> change, <b>Home</b> reset; <b>Shift+F4</b> next mode (off, story, missiles, all)\n" +
             "<b>I / O</b>  clip in / out at the current time\n" +
             "<b>C</b>  clip this: plays the clip at 1x and records it (C again cancels)\n" +
             "<b>G</b>  the game's flight HUD on / off\n" +
@@ -737,6 +741,7 @@ namespace NuclearReplay.Playback
             UpdateStudio(s, duration, width);
             UpdateLighting(s);
             UpdateLens(s);
+            UpdateHud(s);
             UpdateUnits(s);
             PointerOverViewerUi |= RectTransformUtility.RectangleContainsScreenPoint(bottom, Input.mousePosition, null)
                 || help.gameObject.activeSelf && RectTransformUtility.RectangleContainsScreenPoint(help, Input.mousePosition, null);
