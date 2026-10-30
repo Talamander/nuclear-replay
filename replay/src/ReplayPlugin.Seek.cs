@@ -2,12 +2,14 @@ using System;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 using NuclearReplay.Demo;
 using NuclearOption.Networking;
 using NuclearOption.SceneLoading;
 using UnityEngine;
+using UnityEngine.LowLevel;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 
@@ -45,6 +47,14 @@ namespace NuclearReplay.Playback
         // Test hook: "probe <t> <path>" pauses at replay time t, writes the units to <path>.json and a screenshot.
         private double probeAt = -1;
         private string probePath;
+        // Test hook: "seekprofile on" times the game loop's phases during jumps (research; never on for players).
+        private static readonly string[] profPhases = { "Initialization", "EarlyUpdate", "FixedUpdate", "PreUpdate", "Update", "PreLateUpdate", "PostLateUpdate" };
+        private static readonly long[] profTicks = new long[7], profStart = new long[7];
+        private static int profFixedRuns;
+        private static bool profInstalled, profOn;
+        private bool seekProfile;
+        private sealed class SeekProfStart { }
+        private sealed class SeekProfEnd { }
 
         // A jump starts (ViewerSeek, opening a replay at a time).
         private void SeekBegin(double from, double to, bool restart)
@@ -54,12 +64,54 @@ namespace NuclearReplay.Playback
             seekFastFrom = -1; seekMenuAt = -1; seekLiveAt = -1; seekDemoMs = -1; seekDemoCached = false;
             seekFrames = 0; seekDrawn = 0;
             seekGc0 = GC.CollectionCount(0); seekGc2 = GC.CollectionCount(2);
+            Array.Clear(profTicks, 0, profTicks.Length); profFixedRuns = 0;
+        }
+
+        // Wraps each top-level phase of Unity's player loop in two timing systems (only after "seekprofile on").
+        private static void InstallSeekProfiler()
+        {
+            if (profInstalled) return;
+            profInstalled = true;
+            var root = PlayerLoop.GetCurrentPlayerLoop();
+            var subs = root.subSystemList;
+            for (int i = 0; i < subs.Length; i++)
+            {
+                int k = Array.IndexOf(profPhases, subs[i].type?.Name);
+                if (k < 0) continue;
+                var list = new List<PlayerLoopSystem>(subs[i].subSystemList ?? new PlayerLoopSystem[0]);
+                list.Insert(0, new PlayerLoopSystem { type = typeof(SeekProfStart), updateDelegate = () => profStart[k] = Stopwatch.GetTimestamp() });
+                list.Add(new PlayerLoopSystem
+                {
+                    type = typeof(SeekProfEnd),
+                    updateDelegate = () => { if (!profOn) return; profTicks[k] += Stopwatch.GetTimestamp() - profStart[k]; if (k == 2) profFixedRuns++; },
+                });
+                subs[i].subSystemList = list.ToArray();
+            }
+            root.subSystemList = subs;
+            PlayerLoop.SetPlayerLoop(root);
+        }
+
+        private string SeekProfileText(double fastSeconds)
+        {
+            if (!seekProfile || seekFrames == 0) return "";
+            var c = CultureInfo.InvariantCulture;
+            double sum = 0;
+            var parts = new List<string>();
+            for (int k = 0; k < profPhases.Length; k++)
+            {
+                double sec = profTicks[k] / (double)Stopwatch.Frequency;
+                sum += sec;
+                parts.Add(profPhases[k] + " " + sec.ToString("F1", c));
+            }
+            return $"; profile s: {string.Join(", ", parts)}, other (drawing, present, waiting) {(fastSeconds - sum).ToString("F1", c)}; "
+                + $"FixedUpdate runs {profFixedRuns} ({(profFixedRuns / (double)seekFrames).ToString("F2", c)} a frame)";
         }
 
         // Every frame of a viewer jump's fast-forward (StartSeek, before the target is reached).
         private void SeekTick(double replayNow)
         {
             bool live = server != null && server.ScenesLoaded > 0 && !server.WaitingForScene && !NetworkManagerNuclearOption.IsLoadingScene;
+            profOn = seekProfile && seekWatch != null && live;
             if (seekWatch != null && live)
             {
                 if (seekLiveAt < 0) { seekLiveAt = seekWatch.Elapsed.TotalSeconds; seekFastFrom = replayNow; }
@@ -112,14 +164,16 @@ namespace NuclearReplay.Playback
                 + $"fast-forward {covered.ToString("F1", c)} replay s in {fast.ToString("F1", c)} s ({SeekMath.Rate(covered, fast).ToString("F1", c)}x), "
                 + $"{seekFrames} frames ({(fast > 0 ? seekFrames / fast : 0).ToString("F0", c)}/s), {seekDrawn} drawn, "
                 + $"GC {GC.CollectionCount(0) - seekGc0} gen0 / {GC.CollectionCount(2) - seekGc2} gen2, turbo {(seekTurboAllowed ? "on" : "off")}, "
-                + $"fixedDeltaTime {Time.fixedDeltaTime.ToString("0.####", c)}, maximumDeltaTime {Time.maximumDeltaTime.ToString("0.###", c)}");
-            seekWatch = null;
+                + $"fixedDeltaTime {Time.fixedDeltaTime.ToString("0.####", c)}, maximumDeltaTime {Time.maximumDeltaTime.ToString("0.###", c)}"
+                + SeekProfileText(fast));
+            seekWatch = null; profOn = false;
         }
 
         // Leaving the replay, or a restart: drawing and sound come back.
         private void SeekAbort(bool keepStats)
         {
             SeekTurbo(false);
+            profOn = false;
             if (!keepStats) seekWatch = null;
         }
 
@@ -194,6 +248,10 @@ namespace NuclearReplay.Playback
                     if (!seekTurboAllowed) SeekTurbo(false);
                     return "seek turbo " + (seekTurboAllowed ? "on" : "off");
                 case "stopjump": ViewerStopJump(); return "stop jump";
+                case "seekprofile":
+                    seekProfile = arg != "off";
+                    if (seekProfile) InstallSeekProfiler();
+                    return "seek profile " + (seekProfile ? "on" : "off");
                 // Research only: a different fast-forward step for the following jumps (speed/fps replay s a frame).
                 case "seekstep":
                     {
