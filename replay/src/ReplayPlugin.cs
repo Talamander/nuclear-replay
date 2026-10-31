@@ -672,7 +672,7 @@ namespace NuclearReplay.Playback
                 };
                 server = new ReplayServer(Logger, demo.Records, factory.ServerSocket, config);
                 server.Annotation += text => Logger.LogInfo("Demo annotation: " + text);
-                if (viewer) ViewerStarted();
+                if (viewer) { JumpAttach(demo); ViewerStarted(); }
                 if (frameDirectory != null) Directory.CreateDirectory(frameDirectory);
                 if (screenshotDirectory != null) Directory.CreateDirectory(screenshotDirectory);
             }

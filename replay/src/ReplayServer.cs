@@ -45,6 +45,13 @@ namespace NuclearReplay.Playback
         public long BytesSent { get; private set; }
         public long PromotedToReliable { get; private set; }
         public event Action<string> Annotation;
+        // A jump point (JumpPlan) in progress: the prelude, then the burst, then normal playback from the cut.
+        private JumpPlan jump;
+        private List<DemoRecord> jumpRecords;
+        private int jumpPosition;
+        private bool jumpBurstBuilt;
+        public bool Jumping => jump != null;
+        public event Action JumpSceneReady, JumpBurstSent;
 
         // Recorded server NetworkTime at the current replay clock.
         public double ServerNetworkTime => lastNetTime + (Clock - lastRecordTime);
@@ -67,6 +74,51 @@ namespace NuclearReplay.Playback
 
         public void Receive() => peer.UpdateReceive();
 
+        // Before the first Advance. The client sees the cut's network time from its first ping on.
+        public void StartJump(JumpPlan plan)
+        {
+            jump = plan;
+            jumpRecords = plan.Prelude;
+            jumpPosition = 0;
+            jumpBurstBuilt = false;
+            lastRecordTime = Clock;
+            lastNetTime = plan.CutNetTime;
+        }
+
+        private void AdvanceJump()
+        {
+            while (!waitingForScene)
+            {
+                if (jumpPosition >= jumpRecords.Count)
+                {
+                    if (!jumpBurstBuilt)
+                    {
+                        JumpSceneReady?.Invoke();
+                        jumpRecords = jump.BuildBurst();
+                        jumpPosition = 0;
+                        jumpBurstBuilt = true;
+                        continue;
+                    }
+                    index = jump.ResumeIndex;
+                    Clock = jump.CutTime;
+                    lastRecordTime = jump.CutTime;
+                    lastNetTime = jump.CutNetTime;
+                    jump = null;
+                    jumpRecords = null;
+                    JumpBurstSent?.Invoke();
+                    return;
+                }
+                var record = jumpRecords[jumpPosition];
+                if (!Send(record)) return;
+                jumpPosition++;
+                if (record.MessageId == LoadMapId)
+                {
+                    waitingForScene = true;
+                    waitStarted = System.Diagnostics.Stopwatch.StartNew();
+                }
+            }
+        }
+
         public void Advance(double unscaledDelta)
         {
             if (client == null || client.State != ConnectionState.Connected) return;
@@ -75,6 +127,7 @@ namespace NuclearReplay.Playback
                 log.LogWarning($"Replay gave up waiting for the client scene load after {SceneWaitTimeout:F0}s; resuming");
                 waitingForScene = false;
             }
+            if (jump != null) { AdvanceJump(); return; }
             if (!Paused && !waitingForScene)
                 Clock += Math.Min(unscaledDelta, 0.25) * Speed;
             while (index < records.Count && !waitingForScene && records[index].Time <= Clock)

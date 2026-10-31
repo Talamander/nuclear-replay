@@ -459,7 +459,8 @@ namespace NuclearReplay.Playback
             }
             double now = server.Clock - server.StartTime;
             Logger.LogInfo($"Viewer: jump from {now:F1} s to {target:F1} s");
-            if (target >= now - 0.05)
+            bool jumpPoint = JumpWanted(target, keepClip);
+            if (target >= now - 0.05 && !jumpPoint)
             {
                 if (target - now < 0.3) { viewerSeekTarget = -1; return; }
                 if (!startSeeking) SeekBegin(now, target, restart: false);
@@ -474,6 +475,7 @@ namespace NuclearReplay.Playback
             startAt = target > 0.5 ? target : -1;
             startSeeking = target > 0.5;
             SeekBegin(now, target, restart: true);
+            jumpTarget = jumpPoint ? target : -1;
             viewerRestarting = true;
             SoftRestart();
         }

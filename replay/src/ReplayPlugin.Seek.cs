@@ -62,6 +62,36 @@ namespace NuclearReplay.Playback
         private bool seekProfile;
         private sealed class SeekProfStart { }
         private sealed class SeekProfEnd { }
+        // Jump points (docs/JUMP-POINTS.md): off unless the test command "seekmode snap" asks for them.
+        private bool jumpPointsOn;
+        private double jumpRunIn = 30, jumpTarget = -1, jumpSceneAt = -1, jumpSentAt = -1;
+        private JumpPlan jumpPlan;
+
+        private bool JumpWanted(double target, bool keepClip) => jumpPointsOn && !keepClip && recorder == null && target > jumpRunIn + 5;
+
+        // TryStart: a jump point restart replaces the fast-forward from zero with a burst up to the cut.
+        private void JumpAttach(DemoReader demo)
+        {
+            jumpPlan = null;
+            if (jumpTarget < 0) return;
+            double target = jumpTarget;
+            jumpTarget = -1;
+            try
+            {
+                jumpPlan = JumpPlan.Create(Logger, demo.Records, server.StartTime + target - jumpRunIn);
+                if (jumpPlan == null) { Logger.LogWarning("Jump point: no plan, fast-forwarding"); return; }
+                jumpSceneAt = jumpSentAt = -1;
+                server.JumpSceneReady += () => { if (seekWatch != null) jumpSceneAt = seekWatch.Elapsed.TotalSeconds; };
+                server.JumpBurstSent += () =>
+                {
+                    if (seekWatch != null) jumpSentAt = seekWatch.Elapsed.TotalSeconds;
+                    seekFastFrom = -1; seekLiveAt = -1;
+                    Logger.LogInfo($"Jump point: scene ready at {jumpSceneAt:F2} s, burst sent at {jumpSentAt:F2} s, replay at {server.Clock - server.StartTime:F1} s");
+                };
+                server.StartJump(jumpPlan);
+            }
+            catch (Exception e) { Logger.LogError("Jump point failed: " + e); jumpPlan = null; }
+        }
 
         // A jump starts (ViewerSeek, opening a replay at a time).
         private void SeekBegin(double from, double to, bool restart)
@@ -283,6 +313,8 @@ namespace NuclearReplay.Playback
                     if (!seekTurboAllowed) SeekTurbo(false);
                     return "seek turbo " + (seekTurboAllowed ? "on" : "off");
                 case "stopjump": ViewerStopJump(); return "stop jump";
+                case "seekmode": jumpPointsOn = arg == "snap"; return "seek mode " + (jumpPointsOn ? "snap" : "ff");
+                case "seekrunin": jumpRunIn = Math.Max(1, Num(arg, 30)); return "seek run-in " + jumpRunIn;
                 case "seekprofile":
                     seekProfile = arg != "off";
                     if (seekProfile) InstallSeekProfiler();
@@ -341,6 +373,10 @@ namespace NuclearReplay.Playback
                         ["p"] = new JArray(Math.Round(p.x, 1), Math.Round(p.y, 1), Math.Round(p.z, 1)),
                         ["v"] = new JArray(Math.Round(v.x, 1), Math.Round(v.y, 1), Math.Round(v.z, 1)),
                     };
+                    o["parts_off"] = u.damageables?.Count(d => d.Removed) ?? 0;
+                    if (u.weaponStations != null) o["ammo"] = new JArray(u.weaponStations.Select(w => w.Ammo).ToArray());
+                    if (u is Aircraft air) { o["fuel"] = Math.Round(air.fuelLevel, 3); o["radar"] = air.radar != null && air.radar.activated; }
+                    o["hq"] = u.NetworkHQ != null ? u.NetworkHQ.faction?.factionName : null;
                     if (u is Missile m) { o["target"] = m.targetID.ToString(); o["owner"] = m.ownerID.ToString(); o["seeker"] = m.seekerMode.ToString(); }
                     units.Add(o);
                 }
