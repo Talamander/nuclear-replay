@@ -291,6 +291,7 @@ namespace NuclearReplay.Playback
         private void StartSeek(double replayNow)
         {
             if (!startSeeking) return;
+            if (viewer) JumpTick();
             bool reached = replayNow >= startAt - preroll || server.Finished;
             if (!reached)
             {

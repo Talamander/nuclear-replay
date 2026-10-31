@@ -7,6 +7,7 @@ using HarmonyLib;
 using Mirage;
 using Mirage.RemoteCalls;
 using Mirage.Serialization;
+using NuclearOption.Networking;
 using NuclearOption.NetworkTransforms;
 using NuclearOption.SceneLoading;
 using NuclearReplay.Demo;
@@ -93,6 +94,7 @@ namespace NuclearReplay.Playback
         private readonly List<DemoRecord> records;
         private readonly int firstLoad, segment;
         private readonly List<int> loads;
+        private Dictionary<uint, (int Record, int BitPosition, int Bits)> lastTransforms;
 
         public List<DemoRecord> Prelude { get; }
         public int ResumeIndex { get; }
@@ -190,12 +192,40 @@ namespace NuclearReplay.Playback
             long burstBytes = 0;
             foreach (var r in burst) burstBytes += r.Payload.Length;
             int batches = AppendTransforms(burst, tracked, transforms, transformStamp, out int entries);
+            lastTransforms = transforms;
             Summary = $"segment {segment}/{loads.Count}, {ResumeIndex} records read in {watch.ElapsedMilliseconds} ms, {tracked.Count} live of {objectsSpawned} spawned ({objectsDestroyed} gone), "
                 + $"burst {burst.Count} records {burstBytes} bytes + {entries} transforms in {batches} batches";
             log.LogInfo("Jump plan: " + Summary);
             foreach (var kv in stats.OrderByDescending(k => k.Value[0]))
                 log.LogInfo($"Jump plan rpc: {kv.Key} {kv.Value[0]} seen, {kv.Value[1]} before dedupe");
             return burst;
+        }
+
+        // A stopped vehicle is kinematic on the client and ignores transform snapshots (GroundVehicleNetworkTransform),
+        // so one that drove and parked would stay at its spawn. Places those directly from their last recorded transform.
+        public int PlaceStoppedVehicles(NetworkWorld world)
+        {
+            int placed = 0;
+            foreach (var kv in lastTransforms)
+            {
+                if (!world.TryGetIdentity(kv.Key, out var identity) || identity == null) continue;
+                var vehicle = identity.GetComponent<GroundVehicle>();
+                if (vehicle == null || vehicle.rb == null || !vehicle.rb.isKinematic) continue;
+                using var outer = NetworkReaderPool.GetReader(records[kv.Value.Record].Payload, null);
+                outer.ReadUInt16();
+                outer.ReadDouble();
+                var data = outer.ReadBytesAndSizeSegment();
+                using var reader = NetworkReaderPool.GetReader(data, null);
+                reader.MoveBitPosition(kv.Value.BitPosition);
+                reader.ReadPackedUInt32();
+                var position = reader.ReadGlobalPosition().ToLocalPosition();
+                var rotation = reader.Read<Quaternion>();
+                vehicle.transform.SetPositionAndRotation(position, rotation);
+                vehicle.rb.position = position;
+                vehicle.rb.rotation = rotation;
+                placed++;
+            }
+            return placed;
         }
 
         private static void Count(SortedDictionary<string, long[]> stats, string key, int keptCount)
@@ -283,18 +313,14 @@ namespace NuclearReplay.Playback
         {
             private readonly ManualLogSource log;
             private readonly Dictionary<ulong, NetworkIdentity> scene = new Dictionary<ulong, NetworkIdentity>();
-            private readonly Dictionary<int, NetworkIdentity> prefabs = new Dictionary<int, NetworkIdentity>();
             private readonly Dictionary<long, string[]> tables = new Dictionary<long, string[]>();
 
             public RpcNames(ManualLogSource log)
             {
                 this.log = log;
                 foreach (var identity in Resources.FindObjectsOfTypeAll<NetworkIdentity>())
-                {
-                    if (identity.gameObject.scene.IsValid()) { if (identity.SceneId != 0) scene[identity.SceneId] = identity; }
-                    else if (identity.PrefabHash != 0) prefabs[identity.PrefabHash] = identity;
-                }
-                log.LogInfo($"Jump plan: {scene.Count} scene objects, {prefabs.Count} prefabs named");
+                    if (identity.gameObject.scene.IsValid() && identity.SceneId != 0) scene[identity.SceneId] = identity;
+                log.LogInfo($"Jump plan: {scene.Count} scene objects named");
             }
 
             public string Name(ulong? sceneId, int? prefabHash, int index)
@@ -308,7 +334,11 @@ namespace NuclearReplay.Playback
             {
                 NetworkIdentity identity = null;
                 if (sceneId.HasValue && sceneId.Value != 0) scene.TryGetValue(sceneId.Value, out identity);
-                else if (prefabHash.HasValue) prefabs.TryGetValue(prefabHash.Value, out identity);
+                else if (prefabHash.HasValue)
+                {
+                    try { identity = NetworkManagerNuclearOption.i.ClientObjectManager.GetSpawnHandler(prefabHash.Value).Prefab; }
+                    catch (Exception e) { log.LogWarning($"Jump plan: prefab {prefabHash}: {e.Message}"); }
+                }
                 if (identity == null) { log.LogWarning($"Jump plan: no object for scene {sceneId} prefab {prefabHash}"); return null; }
                 try { return identity.RemoteCallCollection.RemoteCalls.Select(c => c?.Name).ToArray(); }
                 catch (Exception e) { log.LogWarning($"Jump plan: rpc table of {identity.name}: {e.Message}"); return null; }

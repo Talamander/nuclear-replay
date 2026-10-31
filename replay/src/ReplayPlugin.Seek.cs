@@ -66,6 +66,7 @@ namespace NuclearReplay.Playback
         private bool jumpPointsOn;
         private double jumpRunIn = 30, jumpTarget = -1, jumpSceneAt = -1, jumpSentAt = -1;
         private JumpPlan jumpPlan;
+        private int jumpPlaceFrames;
 
         private bool JumpWanted(double target, bool keepClip) => jumpPointsOn && !keepClip && recorder == null && target > jumpRunIn + 5;
 
@@ -81,6 +82,7 @@ namespace NuclearReplay.Playback
                 jumpPlan = JumpPlan.Create(Logger, demo.Records, server.StartTime + target - jumpRunIn);
                 if (jumpPlan == null) { Logger.LogWarning("Jump point: no plan, fast-forwarding"); return; }
                 jumpSceneAt = jumpSentAt = -1;
+                jumpPlaceFrames = 0;
                 server.JumpSceneReady += () => { if (seekWatch != null) jumpSceneAt = seekWatch.Elapsed.TotalSeconds; };
                 server.JumpBurstSent += () =>
                 {
@@ -91,6 +93,16 @@ namespace NuclearReplay.Playback
                 server.StartJump(jumpPlan);
             }
             catch (Exception e) { Logger.LogError("Jump point failed: " + e); jumpPlan = null; }
+        }
+
+        // Runs for some frames after the burst, because the client takes a moment to handle all of it.
+        private void JumpTick()
+        {
+            if (jumpPlan == null || server == null || server.Jumping || jumpSentAt < 0) return;
+            int placed = jumpPlan.PlaceStoppedVehicles(NetworkManagerNuclearOption.i.Client.World);
+            if (++jumpPlaceFrames < 30) return;
+            Logger.LogInfo($"Jump point: {placed} stopped vehicles placed");
+            jumpPlan = null;
         }
 
         // A jump starts (ViewerSeek, opening a replay at a time).
