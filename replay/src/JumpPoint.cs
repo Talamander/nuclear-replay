@@ -312,6 +312,7 @@ namespace NuclearReplay.Playback
         private sealed class RpcNames
         {
             private readonly ManualLogSource log;
+            private NetworkMap map;
             private readonly Dictionary<ulong, NetworkIdentity> scene = new Dictionary<ulong, NetworkIdentity>();
             private readonly Dictionary<long, string[]> tables = new Dictionary<long, string[]>();
 
@@ -330,14 +331,27 @@ namespace NuclearReplay.Playback
                 return table != null && index >= 0 && index < table.Length ? table[index] : "(unknown rpc)";
             }
 
+            // Objects built into the map spawn by a hash of the map prefix (top byte) and their NetworkObjects index.
+            private NetworkIdentity MapObject(int hash)
+            {
+                map ??= UnityEngine.Object.FindObjectOfType<NetworkMap>();
+                if (map == null || (hash >> 24 & 0xFF) != map.MapPrefix) return null;
+                int index = hash & 0xFFFFFF;
+                return index < map.NetworkObjects.Length ? map.NetworkObjects[index] : null;
+            }
+
             private string[] Table(ulong? sceneId, int? prefabHash)
             {
                 NetworkIdentity identity = null;
                 if (sceneId.HasValue && sceneId.Value != 0) scene.TryGetValue(sceneId.Value, out identity);
                 else if (prefabHash.HasValue)
                 {
-                    try { identity = NetworkManagerNuclearOption.i.ClientObjectManager.GetSpawnHandler(prefabHash.Value).Prefab; }
-                    catch (Exception e) { log.LogWarning($"Jump plan: prefab {prefabHash}: {e.Message}"); }
+                    identity = MapObject(prefabHash.Value);
+                    if (identity == null)
+                    {
+                        try { identity = NetworkManagerNuclearOption.i.ClientObjectManager.GetSpawnHandler(prefabHash.Value).Prefab; }
+                        catch (Exception e) { log.LogWarning($"Jump plan: prefab {prefabHash}: {e.Message}"); }
+                    }
                 }
                 if (identity == null) { log.LogWarning($"Jump plan: no object for scene {sceneId} prefab {prefabHash}"); return null; }
                 try { return identity.RemoteCallCollection.RemoteCalls.Select(c => c?.Name).ToArray(); }
