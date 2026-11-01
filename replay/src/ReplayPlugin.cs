@@ -171,6 +171,8 @@ namespace NuclearReplay.Playback
             }
             harmony = new Harmony(Id);
             harmony.PatchAll(typeof(ReplayPatches));
+            try { harmony.PatchAll(typeof(JumpAmmoPatches)); harmony.PatchAll(typeof(JumpAmmoPatches.Counts)); }
+            catch (Exception e) { Logger.LogWarning("Jump points: ammo patches failed: " + e.Message); }
             HudPatch(harmony);
             LightingOverride.Init(Logger);
             ViewerAwake();
@@ -292,6 +294,7 @@ namespace NuclearReplay.Playback
         {
             if (!startSeeking) return;
             if (viewer) JumpTick();
+            if (server == null) return;   // the jump point failed and the replay reloads
             bool reached = replayNow >= startAt - preroll || server.Finished;
             if (!reached)
             {
@@ -551,6 +554,7 @@ namespace NuclearReplay.Playback
                 server.Receive();
                 double replayNow = server.Clock - server.StartTime;
                 if (startSeeking) StartSeek(replayNow);
+                if (server == null) return;   // a failed jump point reloads the replay
                 if (audioRanges.Count > 0) AudioRangeStep(replayNow);
                 if (preview != null)
                 {

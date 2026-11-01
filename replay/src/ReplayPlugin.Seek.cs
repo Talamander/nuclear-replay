@@ -4,6 +4,8 @@ using System.Globalization;
 using System.IO;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using BepInEx.Configuration;
 using Newtonsoft.Json.Linq;
 using NuclearReplay.Demo;
 using NuclearOption.Networking;
@@ -62,28 +64,87 @@ namespace NuclearReplay.Playback
         private bool seekProfile;
         private sealed class SeekProfStart { }
         private sealed class SeekProfEnd { }
-        // Jump points (docs/JUMP-POINTS.md): off unless the test command "seekmode snap" asks for them.
-        private bool jumpPointsOn;
-        private double jumpRunIn = 30, jumpTarget = -1, jumpSceneAt = -1, jumpSentAt = -1;
+        // Jump points (docs/JUMP-POINTS.md). Off unless [Viewer] JumpPoints or the test command "seekmode auto|snap" asks.
+        private enum JumpMode { FastForward, Auto, Always }
+        private ConfigEntry<bool> jumpPointsCfg;
+        private JumpMode jumpMode;
+        private bool jumpModeSet;
+        private double jumpRunIn = SeekMath.JumpRunIn, jumpTarget = -1, jumpSceneAt = -1, jumpSentAt = -1;
+        private double seekRate, seekReloadSeconds, jumpPointSeconds;
+        private string jumpFailReason, jumpForceFail;
+        private int jumpFailures;
         private JumpPlan jumpPlan;
-        private int jumpPlaceFrames;
+        private bool seekByJumpPoint;
+        private int jumpPlaceFrames, jumpPlaced;
+        private JumpIndex jumpIndex;
+        private List<DemoRecord> jumpIndexRecords;
+        private volatile bool jumpIndexCancel;
+        private const int MaxJumpFailures = 2, JumpBurstFrames = 6;
 
-        private bool JumpWanted(double target, bool keepClip) => jumpPointsOn && !keepClip && recorder == null && target > jumpRunIn + 5;
+        private JumpMode CurrentJumpMode => jumpModeSet ? jumpMode : jumpPointsCfg.Value ? JumpMode.Auto : JumpMode.FastForward;
+
+        private bool JumpWanted(double now, double target, bool keepClip)
+        {
+            var mode = CurrentJumpMode;
+            if (mode == JumpMode.FastForward || keepClip || recorder != null || target <= jumpRunIn + 5) return false;
+            if (jumpIndex == null || jumpFailures >= MaxJumpFailures) return false;
+            return mode == JumpMode.Always || SeekMath.UseJumpPoint(now, target, seekRate > 0 ? seekRate : SeekMath.DefaultFastForwardRate,
+                seekReloadSeconds > 0 ? seekReloadSeconds : SeekMath.DefaultReloadSeconds, jumpPointSeconds > 0 ? jumpPointSeconds : SeekMath.DefaultJumpPointSeconds);
+        }
+
+        // A recording opened. Runs off the main thread; until it is done, jumps fast-forward.
+        private void JumpIndexStart(List<DemoRecord> records)
+        {
+            if (records == null || CurrentJumpMode == JumpMode.FastForward || ReferenceEquals(records, jumpIndexRecords)) return;
+            JumpIndexForget();
+            string mismatch = JumpPlan.WireMismatch();
+            if (mismatch != null) { Logger.LogWarning("Jump points off: the game's message ids changed (" + mismatch + ")"); return; }
+            jumpIndexRecords = records;
+            jumpIndexCancel = false;
+            var thread = new Thread(() =>
+            {
+                try
+                {
+                    var watch = Stopwatch.StartNew();
+                    var index = JumpIndex.Build(records, () => jumpIndexCancel);
+                    if (index == null || !ReferenceEquals(records, jumpIndexRecords)) return;
+                    jumpIndex = index;
+                    Logger.LogInfo($"Jump index: {records.Count} records in {watch.ElapsedMilliseconds} ms, {index.SegmentCount} missions, {index.ObjectCount} objects, {index.MessageCount} messages, "
+                        + $"{index.TransformBatches} transform batches, {index.CheckpointCount} checkpoints, {index.BadRecords} unreadable");
+                }
+                catch (Exception e) { Logger.LogWarning("Jump index failed, jumps will fast-forward: " + e); }
+            }) { IsBackground = true, Priority = System.Threading.ThreadPriority.BelowNormal, Name = "NuclearReplay jump index" };
+            thread.Start();
+        }
+
+        private void JumpIndexForget()
+        {
+            jumpIndexCancel = true;
+            jumpIndex = null;
+            jumpIndexRecords = null;
+            jumpFailures = 0;
+        }
 
         // TryStart: a jump point restart replaces the fast-forward from zero with a burst up to the cut.
         private void JumpAttach(DemoReader demo)
         {
             jumpPlan = null;
+            JumpPlan.BurstActive = false;
+            JumpIndexStart(demo.Records);
             if (jumpTarget < 0) return;
             double target = jumpTarget;
             jumpTarget = -1;
             try
             {
-                jumpPlan = JumpPlan.Create(Logger, demo.Records, server.StartTime + target - jumpRunIn);
+                jumpPlan = jumpIndex != null ? JumpPlan.Create(Logger, jumpIndex, demo.Records, server.StartTime + target - jumpRunIn) : null;
                 if (jumpPlan == null) { Logger.LogWarning("Jump point: no plan, fast-forwarding"); return; }
+                jumpPlan.FailBuild = jumpForceFail == "build";
+                jumpPlan.FailSend = jumpForceFail == "send";
+                seekByJumpPoint = true;
                 jumpSceneAt = jumpSentAt = -1;
                 jumpPlaceFrames = 0;
                 server.JumpSceneReady += () => { if (seekWatch != null) jumpSceneAt = seekWatch.Elapsed.TotalSeconds; };
+                server.JumpFailed += reason => jumpFailReason = reason;
                 server.JumpBurstSent += () =>
                 {
                     if (seekWatch != null) jumpSentAt = seekWatch.Elapsed.TotalSeconds;
@@ -95,14 +156,42 @@ namespace NuclearReplay.Playback
             catch (Exception e) { Logger.LogError("Jump point failed: " + e); jumpPlan = null; }
         }
 
-        // Runs for some frames after the burst, because the client takes a moment to handle all of it.
+        // Every frame of a jump. After the burst it runs for some frames, because the client takes a moment to handle
+        // all of it.
         private void JumpTick()
         {
+            if (jumpFailReason != null) { JumpFallback(jumpFailReason); return; }
             if (jumpPlan == null || server == null || server.Jumping || jumpSentAt < 0) return;
-            int placed = jumpPlan.PlaceStoppedVehicles(NetworkManagerNuclearOption.i.Client.World);
-            if (++jumpPlaceFrames < 30) return;
-            Logger.LogInfo($"Jump point: {placed} stopped vehicles placed");
+            try
+            {
+                var world = NetworkManagerNuclearOption.i.Client.World;
+                jumpPlaced = jumpPlan.PlaceStoppedVehicles(world);
+                // The client has handled the burst by now.
+                if (++jumpPlaceFrames == JumpBurstFrames) JumpPlan.BurstActive = false;
+                if (jumpPlaceFrames < 30) return;
+                int spawned = world.SpawnedIdentities.Count;
+                Logger.LogInfo($"Jump point: {jumpPlaced} stopped vehicles placed, {spawned} of {jumpPlan.ExpectedObjects} objects");
+                if (!SeekMath.EnoughObjects(jumpForceFail == "count" ? 0 : spawned, jumpPlan.ExpectedObjects))
+                {
+                    JumpFallback($"{spawned} objects after the burst, expected {jumpPlan.ExpectedObjects}");
+                    return;
+                }
+                jumpPlan = null;
+            }
+            catch (Exception e) { JumpFallback(e.ToString()); }
+        }
+
+        // The jump point cannot finish: reload and fast-forward from the start, the 0.6 way.
+        private void JumpFallback(string reason)
+        {
+            Logger.LogWarning("Jump point failed, fast-forwarding instead: " + reason);
+            JumpPlan.BurstActive = false;
+            jumpFailReason = null;
             jumpPlan = null;
+            jumpFailures++;
+            jumpForceFail = null;
+            double target = viewerSeekTarget >= 0 ? viewerSeekTarget : seekTo;
+            ViewerReload(target, server != null ? server.Clock - server.StartTime : 0);
         }
 
         // A jump starts (ViewerSeek, opening a replay at a time).
@@ -111,7 +200,7 @@ namespace NuclearReplay.Playback
             seekWatch = Stopwatch.StartNew();
             seekFrom = from; seekTo = to; seekRestart = restart;
             seekFastFrom = -1; seekMenuAt = -1; seekLiveAt = -1; seekDemoMs = -1; seekDemoCached = false;
-            seekFrames = 0; seekDrawn = 0; seekStepUsed = -1;
+            seekFrames = 0; seekDrawn = 0; seekStepUsed = -1; seekByJumpPoint = false;
             seekGc0 = GC.CollectionCount(0); seekGc2 = GC.CollectionCount(2);
             Array.Clear(profTicks, 0, profTicks.Length); profFixedRuns = 0; profFixedChild.Clear();
         }
@@ -237,7 +326,10 @@ namespace NuclearReplay.Playback
             string reload = seekRestart
                 ? $"reload {(seekLiveAt >= 0 ? seekLiveAt : wall).ToString("F1", c)} s (menu {(seekMenuAt >= 0 ? seekMenuAt.ToString("F1", c) : "?")} s, recording {(seekDemoCached ? "cached" : seekDemoMs + " ms")}), "
                 : "";
-            Logger.LogInfo($"Jump {seekFrom.ToString("F1", c)} -> {seekTo.ToString("F1", c)} s took {wall.ToString("F1", c)} s: {reload}"
+            if (seekRestart && !seekByJumpPoint && seekLiveAt > 0) seekReloadSeconds = SeekMath.Smooth(seekReloadSeconds, seekLiveAt);
+            if (covered >= 5 && fast > 0) seekRate = SeekMath.Smooth(seekRate, SeekMath.Rate(covered, fast));
+            if (seekByJumpPoint) jumpPointSeconds = SeekMath.Smooth(jumpPointSeconds, wall);
+            Logger.LogInfo($"Jump {seekFrom.ToString("F1", c)} -> {seekTo.ToString("F1", c)} s took {wall.ToString("F1", c)} s, by {(seekByJumpPoint ? "jump point" : "fast-forward")}: {reload}"
                 + $"fast-forward {covered.ToString("F1", c)} replay s in {fast.ToString("F1", c)} s ({SeekMath.Rate(covered, fast).ToString("F1", c)}x), "
                 + $"{seekFrames} frames ({(fast > 0 ? seekFrames / fast : 0).ToString("F0", c)}/s), {seekDrawn} drawn, "
                 + $"GC {GC.CollectionCount(0) - seekGc0} gen0 / {GC.CollectionCount(2) - seekGc2} gen2, turbo {(seekTurboAllowed ? "on" : "off")}, "
@@ -298,7 +390,7 @@ namespace NuclearReplay.Playback
             return demo;
         }
 
-        private void ForgetCachedDemo() { cachedDemo = null; cachedDemoKey = null; }
+        private void ForgetCachedDemo() { cachedDemo = null; cachedDemoKey = null; JumpIndexForget(); }
 
         // TryStart after a restart: the old wait was a fixed 5 s. A viewer jump goes on as soon as the game is back in
         // its main menu scene and done loading (it unloads the mission and collects garbage first); 5 s stays the cap.
@@ -325,7 +417,12 @@ namespace NuclearReplay.Playback
                     if (!seekTurboAllowed) SeekTurbo(false);
                     return "seek turbo " + (seekTurboAllowed ? "on" : "off");
                 case "stopjump": ViewerStopJump(); return "stop jump";
-                case "seekmode": jumpPointsOn = arg == "snap"; return "seek mode " + (jumpPointsOn ? "snap" : "ff");
+                case "seekmode":
+                    jumpMode = arg == "snap" ? JumpMode.Always : arg == "auto" ? JumpMode.Auto : JumpMode.FastForward;
+                    jumpModeSet = true;
+                    JumpIndexStart(server != null ? cachedDemo?.Records : null);
+                    return "seek mode " + jumpMode;
+                case "seekfail": jumpForceFail = arg; return "seek fail " + arg;
                 case "seekrunin": jumpRunIn = Math.Max(1, Num(arg, 30)); return "seek run-in " + jumpRunIn;
                 case "seekprofile":
                     seekProfile = arg != "off";

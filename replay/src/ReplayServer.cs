@@ -46,12 +46,15 @@ namespace NuclearReplay.Playback
         public long PromotedToReliable { get; private set; }
         public event Action<string> Annotation;
         // A jump point (JumpPlan) in progress: the prelude, then the burst, then normal playback from the cut.
+        private const double JumpBurstTimeout = 60;
         private JumpPlan jump;
         private List<DemoRecord> jumpRecords;
         private int jumpPosition;
-        private bool jumpBurstBuilt;
+        private bool jumpBuilding, jumpBurstSending;
+        private System.Diagnostics.Stopwatch jumpBurstStarted;
         public bool Jumping => jump != null;
         public event Action JumpSceneReady, JumpBurstSent;
+        public event Action<string> JumpFailed;
 
         // Recorded server NetworkTime at the current replay clock.
         public double ServerNetworkTime => lastNetTime + (Clock - lastRecordTime);
@@ -80,24 +83,44 @@ namespace NuclearReplay.Playback
             jump = plan;
             jumpRecords = plan.Prelude;
             jumpPosition = 0;
-            jumpBurstBuilt = false;
+            jumpBuilding = jumpBurstSending = false;
             lastRecordTime = Clock;
             lastNetTime = plan.CutNetTime;
         }
 
+        private void JumpFail(string reason)
+        {
+            jump = null;
+            jumpRecords = null;
+            JumpPlan.BurstActive = false;
+            JumpFailed?.Invoke(reason);
+        }
+
         private void AdvanceJump()
         {
+            if (jumpBuilding)
+            {
+                if (!jump.BuildDone) return;
+                jumpBuilding = false;
+                if (jump.Failure != null) { JumpFail(jump.Failure); return; }
+                jump.LogBurst();
+                jumpRecords = jump.Burst.Records;
+                jumpPosition = 0;
+                jumpBurstSending = true;
+                JumpPlan.BurstActive = true;
+                jumpBurstStarted = System.Diagnostics.Stopwatch.StartNew();
+            }
+            if (jumpBurstSending && (jump.FailSend || jumpBurstStarted.Elapsed.TotalSeconds > JumpBurstTimeout)) { JumpFail($"burst not sent after {jumpBurstStarted.Elapsed.TotalSeconds:F0} s"); return; }
             while (!waitingForScene)
             {
                 if (jumpPosition >= jumpRecords.Count)
                 {
-                    if (!jumpBurstBuilt)
+                    if (!jumpBurstSending)
                     {
                         JumpSceneReady?.Invoke();
-                        jumpRecords = jump.BuildBurst();
-                        jumpPosition = 0;
-                        jumpBurstBuilt = true;
-                        continue;
+                        jump.BeginBurst();
+                        jumpBuilding = true;
+                        return;
                     }
                     index = jump.ResumeIndex;
                     Clock = jump.CutTime;
@@ -126,6 +149,7 @@ namespace NuclearReplay.Playback
             {
                 log.LogWarning($"Replay gave up waiting for the client scene load after {SceneWaitTimeout:F0}s; resuming");
                 waitingForScene = false;
+                if (jump != null) { JumpFail("the scene did not load"); return; }
             }
             if (jump != null) { AdvanceJump(); return; }
             if (!Paused && !waitingForScene)

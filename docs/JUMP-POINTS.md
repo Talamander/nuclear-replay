@@ -185,3 +185,43 @@ Prototype A behind a viewer setting:
 3. Compare screenshots at the same t with a fast-forwarded replay: aircraft damage, missiles in
    flight, the kill feed, and the scoreboard.
 4. If damage differs, list the RPCs involved and add them to the burst.
+
+## How it works now (branch `jump-points`)
+
+Off by default: `[Viewer] JumpPoints` turns it on, and the viewer commands `seekmode auto|ff|snap` override the setting
+for a session.
+
+1. When a replay opens, `JumpIndex` reads the recording once on a background thread. It keeps the mission boundaries,
+   each object's lifetime, a compact list of messages, and every 60 s a copy of each object's last transform. The 116
+   minute test file takes about 1 s and 85 MB. Mirage's pooled readers need the main thread, so `JumpWire` reads the
+   few message types itself. At attach the plugin compares those message ids with the game's and turns jump points
+   off if any differ.
+2. `SeekMath.UseJumpPoint` compares a fast-forward estimate with the last measured jump point, using the rates this
+   session measured, and takes a jump point only if it saves at least 2 s.
+3. A jump reloads the mission and sends the prelude: the connection's start and the target mission's map load.
+4. Once the scene is up, `JumpPlan` names the RPCs of the live objects on the main thread. The burst is then built on a
+   background thread (about 100 ms on the same file) and sent. Normal playback resumes 30 s before the target and
+   fast-forwards the rest with the recorded traffic.
+
+### RPC rules
+
+`JumpRpcRules` sorts client RPCs into three classes. All: state that adds up, such as damage, so every call is sent in
+order. Latest: state where the last call wins, per object, group and key bytes. Skip: everything else, including any
+RPC nobody has classified.
+
+### Ammo
+
+Launchers count down on the client, and rearms wait out a reload time, so a burst that fires both in one frame gets the
+count wrong. While a burst runs, `JumpAmmoPatches` makes the recorded server counts decide: `MissileLauncher.Fire` does
+nothing, each count goes straight to the launchers and guns, and a rearm after the last count adds at once. The result
+can differ from a straight replay, because that client drifts: launchers there were seen holding 108 rounds in an
+8-round rack.
+
+### When a jump point fails
+
+A failed build, a burst not sent within 60 s, a scene that never loads, or fewer than 90% of the expected objects
+reloads the replay and fast-forwards as in 0.6. After two failures the session stays on fast-forward. `seekfail
+build|send|count` forces one failure for testing.
+
+A recording can hold prefabs that this copy of the game cannot spawn, as Cheeze's did. Those objects are absent in
+straight play too, so the burst leaves out their RPCs and logs a count.

@@ -26,6 +26,8 @@
     <Compile Include="../../../replay/src/CameraFraming.cs" Link="Viewer/CameraFraming.cs" />
     <Compile Include="../../../replay/src/HudModel.cs" Link="Viewer/HudModel.cs" />
     <Compile Include="../../../replay/src/SeekMath.cs" Link="Viewer/SeekMath.cs" />
+    <Compile Include="../../../replay/src/JumpIndex.cs" Link="Viewer/JumpIndex.cs" />
+    <Compile Include="../../../shared/Demo/DemoFile.cs" Link="Viewer/DemoFile.cs" />
     <Compile Include="../../../replay/src/ListSelection.cs" Link="Viewer/ListSelection.cs" />
     <Compile Include="../../../replay/src/ReplayIndex.cs" Link="Viewer/ReplayIndex.cs" />
     <Compile Include="../../../replay/src/DemoQuickScan.cs" Link="Viewer/DemoQuickScan.cs" />

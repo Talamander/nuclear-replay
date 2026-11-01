@@ -74,6 +74,7 @@ namespace NuclearReplay.Playback
             clipsDirectory = Config.Bind("Viewer", "ClipsDirectory", "", "Where \"Clip this\" saves videos. Empty: <game>/NuclearReplay/clips. nr passes its own with -ncClipsDir.");
             ffmpegPath = Config.Bind("Viewer", "FfmpegPath", "", "ffmpeg used for viewer clips. Empty: the copy downloaded into <game>/NuclearReplay/tools/ffmpeg. nr passes its own with -ncFfmpeg; the last one given is kept here.");
             clipQuality = Config.Bind("Viewer", "Quality", 19, "Clip quality (lower is better; CRF/CQ scale, 14-30).");
+            jumpPointsCfg = Config.Bind("Viewer", "JumpPoints", false, "Faster long timeline jumps: rebuild the match at the jump instead of playing up to it (experimental).");
             encoderSetting = Config.Bind("Viewer", "Encoder", "auto", "auto, nvenc, vulkan or x264.");
             var args = Environment.GetCommandLineArgs();
             for (int i = 0; i < args.Length; i++)
@@ -455,12 +456,14 @@ namespace NuclearReplay.Playback
             {
                 // Still loading: start there instead.
                 if (target > 0.5) { startAt = target; startSeeking = true; SeekBegin(0, target, restart: true); } else { startAt = -1; startSeeking = false; }
+                jumpTarget = JumpWanted(0, target, keepClip) ? target : -1;
                 return;
             }
             double now = server.Clock - server.StartTime;
             Logger.LogInfo($"Viewer: jump from {now:F1} s to {target:F1} s");
-            bool jumpPoint = JumpWanted(target, keepClip);
-            if (target >= now - 0.05 && !jumpPoint)
+            bool jumpPoint = JumpWanted(now, target, keepClip);
+            // A jump point still on its way to its cut cannot take a new target, so that one restarts too.
+            if (target >= now - 0.05 && !jumpPoint && !server.Jumping)
             {
                 if (target - now < 0.3) { viewerSeekTarget = -1; return; }
                 if (!startSeeking) SeekBegin(now, target, restart: false);
@@ -469,13 +472,18 @@ namespace NuclearReplay.Playback
                 startSeeking = true;
                 return;
             }
-            // Backward: the replay only runs forward, so load the match again and fast-forward. A free camera
-            // comes back where it was once the jump is done.
+            jumpTarget = jumpPoint ? target : -1;
+            ViewerReload(target, now);
+        }
+
+        // Backward: the replay only runs forward, so load the match again and fast-forward. A free camera comes back
+        // where it was once the jump is done.
+        private void ViewerReload(double target, double now)
+        {
             if (freeCamOn) { resumeFreeCam = true; SetFreeCam(false); }
             startAt = target > 0.5 ? target : -1;
             startSeeking = target > 0.5;
             SeekBegin(now, target, restart: true);
-            jumpTarget = jumpPoint ? target : -1;
             viewerRestarting = true;
             SoftRestart();
         }

@@ -69,4 +69,38 @@ public class SeekMathTests
         Assert.Equal(30, SeekMath.Rate(540, 18), 6);
         Assert.Equal(0, SeekMath.Rate(540, 0));
     }
+
+    [Theory]
+    [InlineData(0, 2400, true)]       // the far end of a long match
+    [InlineData(2320, 2400, false)]   // 80 s forward: 10 s of fast-forward is not worth a jump point
+    [InlineData(2000, 2400, true)]    // 400 s forward
+    [InlineData(2400, 40, false)]     // back to the start of a match: reloading and playing is as fast
+    [InlineData(2400, 1000, true)]    // far back
+    public void JumpPointOnlyWhenItSavesTime(double now, double target, bool expected) =>
+        Assert.Equal(expected, SeekMath.UseJumpPoint(now, target, 8, 3, 10));
+
+    [Fact]
+    public void AShortMatchNeverGainsFromAJumpPoint()
+    {
+        for (double target = 0; target <= 90; target++)
+            Assert.False(SeekMath.UseJumpPoint(0, target, 8, 3, 10));
+    }
+
+    [Fact]
+    public void AMeasuredSlowMachineJumpsSooner() =>
+        Assert.True(SeekMath.UseJumpPoint(0, 90, 3, 3, 10));
+
+    [Fact]
+    public void FastForwardEstimateCountsTheReloadOnlyGoingBack()
+    {
+        Assert.Equal(10, SeekMath.FastForwardSeconds(100, 180, 8, 3), 6);
+        Assert.Equal(13, SeekMath.FastForwardSeconds(100, 80, 8, 3), 6);
+    }
+
+    [Theory]
+    [InlineData(95, 100, true)]
+    [InlineData(89, 100, false)]
+    [InlineData(0, 0, true)]
+    public void BurstNeedsMostOfTheObjects(int spawned, int expected, bool ok) =>
+        Assert.Equal(ok, SeekMath.EnoughObjects(spawned, expected));
 }

@@ -63,6 +63,32 @@ namespace NuclearReplay.Playback
             return "Jumping to " + targetClock + "...  " + pct.ToString(CultureInfo.InvariantCulture) + "%" + (canStop ? "   Space stops here" : "");
         }
 
+        // A jump point is used only when it saves at least this many seconds, so a short hop stays a plain fast-forward
+        // and a short match behaves as it did in 0.6 (docs/JUMP-POINTS.md).
+        public const double JumpPointMinSaving = 2;
+        // Until this session has measured its own.
+        public const double DefaultFastForwardRate = 8, DefaultJumpPointSeconds = 10, DefaultReloadSeconds = 3;
+        // The replay plays this long before the target after a jump point.
+        public const double JumpRunIn = 30;
+
+        // How long a plain fast-forward would take: from here going forward, from the start after a reload going back.
+        public static double FastForwardSeconds(double now, double target, double rate, double reloadSeconds)
+        {
+            if (rate <= 0) rate = DefaultFastForwardRate;
+            return target >= now ? (target - now) / rate : reloadSeconds + target / rate;
+        }
+
+        public static bool UseJumpPoint(double now, double target, double rate, double reloadSeconds, double jumpPointSeconds)
+            => FastForwardSeconds(now, target, rate, reloadSeconds) - jumpPointSeconds >= JumpPointMinSaving;
+
+        // Keeps a measured figure steady: one odd jump moves it only part of the way.
+        public static double Smooth(double old, double measured) => old <= 0 ? measured : old * 0.5 + measured * 0.5;
+
+        // A burst that left the client with far fewer objects than the recording had at that moment has failed.
+        public const double MinObjectFraction = 0.9;
+
+        public static bool EnoughObjects(int spawned, int expected) => spawned >= expected * MinObjectFraction;
+
         // Replay seconds per wall second, for the log line at the end of a jump.
         public static double Rate(double replaySeconds, double wallSeconds) => wallSeconds > 0 ? replaySeconds / wallSeconds : 0;
     }
