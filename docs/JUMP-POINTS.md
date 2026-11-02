@@ -205,9 +205,10 @@ for a session.
 
 ### RPC rules
 
-`JumpRpcRules` sorts client RPCs into three classes. All: state that adds up, such as damage, so every call is sent in
-order. Latest: state where the last call wins, per object, group and key bytes. Skip: everything else, including any
-RPC nobody has classified.
+`JumpRpcRules` sorts known client RPCs into three classes. All: state that adds up, such as damage and initial
+tracking batches, so every call is sent in order. Latest: state where the last call wins, per object, group and key
+bytes. Skip: explicitly classified transient effects and UI messages. An unclassified RPC or an invalid RPC index
+fails the burst and falls back to fast-forward.
 
 ### Ammo
 
@@ -221,7 +222,8 @@ can differ from a straight replay, because that client drifts: launchers there w
 
 A failed build, a burst not sent within 60 s, a scene that never loads, or fewer than 90% of the expected objects
 reloads the replay and fast-forwards as in 0.6. After two failures the session stays on fast-forward. `seekfail
-build|send|count` forces one failure for testing.
+build|send|count|timeout|corrupt` forces one failure for testing. `timeout` stalls the sender until the real
+60-second limit expires; `corrupt` sends an empty burst to exercise the object-count check.
 
 A recording can hold prefabs that this copy of the game cannot spawn, as Cheeze's did. Those objects are absent in
 straight play too, so the burst leaves out their RPCs and logs a count.
