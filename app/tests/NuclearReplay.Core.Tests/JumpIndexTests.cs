@@ -296,6 +296,45 @@ public class JumpIndexTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void ACutInAQuietGapDoesNotJumpToTheNextMessage()
+    {
+        var records = Recording(Load(0), Spawn(3700, 10, 5), Rpc(3701, 10, Ammo, 4), Rpc(3824.33, 10, Ammo, 9));
+        var index = JumpIndex.Build(records);
+        var cut = index.Cut(3778.6);
+        Assert.Equal(3778.6, cut.Time);
+        Assert.Equal(3878.6, cut.NetTime);
+        Assert.Equal(3, cut.ResumeIndex);
+        var burst = index.BuildBurst(cut, Tables);
+        Assert.Contains(records[2], burst.Records);
+        Assert.DoesNotContain(records[3], burst.Records);
+    }
+
+    [Fact]
+    public void ACutKeepsFutureAnnotationsInTheRunIn()
+    {
+        var note = new DemoRecord { Kind = DemoFormat.KindAnnotation, Time = 7, NetTime = 0, Payload = [] };
+        var records = Recording(Load(0), Spawn(1, 10, 5), note, Other(100));
+        var cut = JumpIndex.Build(records).Cut(5);
+        Assert.Equal(2, cut.ResumeIndex);
+        Assert.Equal(5, cut.Time);
+        Assert.Equal(105, cut.NetTime);
+    }
+
+    [Fact]
+    public void CutClockUsesTheLastMessageRatherThanAnAnnotationOrFutureClock()
+    {
+        var last = Other(10);
+        last.NetTime = 210;
+        var note = new DemoRecord { Kind = DemoFormat.KindAnnotation, Time = 11, NetTime = 0, Payload = [] };
+        var future = Other(100);
+        future.NetTime = 900;
+        var cut = JumpIndex.Build(Recording(Load(0), last, note, future)).Cut(20);
+        Assert.Equal(220, cut.NetTime);
+        Assert.Equal(20, cut.Time);
+        Assert.Equal(3, cut.ResumeIndex);
+    }
+
+    [Fact]
     public void RebuiltTransformsDecodeToTheSameEntries()
     {
         var burst = Burst(Recording(Load(0), Spawn(1, 10, 5), Spawn(1, 300, 5), Spawn(1, 70000, 5),

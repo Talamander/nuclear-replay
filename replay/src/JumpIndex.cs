@@ -403,11 +403,16 @@ namespace NuclearReplay.Playback
             for (int i = 0; i < records.Count; i++)
                 if (records[i].Time > cutTime) { resume = i; break; }
             if (resume < 0) return null;
-            while (records[resume].Kind != DemoFormat.KindMessage) { if (++resume >= records.Count) return null; }
             int segment = -1;
             while (segment + 1 < loads.Count && loads[segment + 1] < resume) segment++;
             if (segment < 0) return null;
-            return new JumpCut { Segment = segment, ResumeIndex = resume, Time = records[resume].Time, NetTime = records[resume].NetTime };
+            // The next message can be minutes away during a quiet gap. Start at the requested cut,
+            // using the same last-message clock mapping as straight playback, without skipping annotations.
+            int previous = resume - 1;
+            while (records[previous].Kind != DemoFormat.KindMessage) previous--;
+            var last = records[previous];
+            return new JumpCut { Segment = segment, ResumeIndex = resume, Time = cutTime,
+                NetTime = last.NetTime + (cutTime - last.Time) };
         }
 
         // What the client gets before it loads: the connection's start and this mission's map load.

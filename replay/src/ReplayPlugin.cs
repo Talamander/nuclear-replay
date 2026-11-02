@@ -298,7 +298,8 @@ namespace NuclearReplay.Playback
             if (viewer) JumpTick();
             if (server == null) return;   // the jump point failed and the replay reloads
             if (seekStopRequested) ViewerStopJump();
-            bool reached = replayNow >= startAt - preroll || server.Finished;
+            bool reached = (replayNow >= startAt - preroll || server.Finished)
+                && !(viewer && (server.Jumping || JumpPlan.BurstActive));
             if (!reached)
             {
                 if (viewer) SeekTick(replayNow);
