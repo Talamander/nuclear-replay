@@ -89,6 +89,10 @@ namespace NuclearReplay.Playback
 
         public static bool EnoughObjects(int spawned, int expected) => spawned >= expected * MinObjectFraction;
 
+        // Cancellation waits for the complete client world, including the post-burst validation frames.
+        public static bool CanStopJump(bool sceneReady, bool sendingBurst, bool settlingBurst)
+            => sceneReady && !sendingBurst && !settlingBurst;
+
         // Replay seconds per wall second, for the log line at the end of a jump.
         public static double Rate(double replaySeconds, double wallSeconds) => wallSeconds > 0 ? replaySeconds / wallSeconds : 0;
     }

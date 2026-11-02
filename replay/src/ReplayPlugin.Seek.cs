@@ -37,6 +37,7 @@ namespace NuclearReplay.Playback
     {
         private bool seekTurboAllowed = true;      // test command "seekturbo off" measures the old way
         private bool seekTurboOn;
+        private bool seekCovered, seekStopRequested;
         private int seekSavedInterval = 1;
         private float seekFixedDt = SeekMath.JumpPhysicsStep, seekSavedFixedDt = -1;   // test command "seekfixed <dt>|0"
         private float seekSavedVolume = 1f;
@@ -140,6 +141,8 @@ namespace NuclearReplay.Playback
                 if (jumpPlan == null) { Logger.LogWarning("Jump point: no plan, fast-forwarding"); return; }
                 jumpPlan.FailBuild = jumpForceFail == "build";
                 jumpPlan.FailSend = jumpForceFail == "send";
+                jumpPlan.StallSend = jumpForceFail == "timeout";
+                jumpPlan.CorruptBurst = jumpForceFail == "corrupt";
                 seekByJumpPoint = true;
                 jumpSceneAt = jumpSentAt = -1;
                 jumpPlaceFrames = 0;
@@ -197,6 +200,8 @@ namespace NuclearReplay.Playback
         // A jump starts (ViewerSeek, opening a replay at a time).
         private void SeekBegin(double from, double to, bool restart)
         {
+            seekStopRequested = false;
+            if (viewer && recorder == null) SeekCover(true);
             seekWatch = Stopwatch.StartNew();
             seekFrom = from; seekTo = to; seekRestart = restart;
             seekFastFrom = -1; seekMenuAt = -1; seekLiveAt = -1; seekDemoMs = -1; seekDemoCached = false;
@@ -283,6 +288,7 @@ namespace NuclearReplay.Playback
             // A clip recording's own jump to its start keeps drawing every frame, as before 0.6, so recorded clips
             // come out exactly as they did (ReplayPlugin.cs notes why frame export never skips drawing).
             if (!live || !seekTurboAllowed || recorder != null) { SeekTurbo(false); return; }
+            SeekCover(true);
             SeekTurbo(true);
             // fpsNow counts every game frame (drawn or not), measured over the last second.
             int interval = SeekMath.RenderInterval(fpsNow);
@@ -297,27 +303,44 @@ namespace NuclearReplay.Playback
             {
                 if (on)
                 {
-                    seekSavedInterval = Math.Max(1, OnDemandRendering.renderFrameInterval);
-                    seekSavedVolume = AudioListener.volume;
-                    AudioListener.volume = 0f;
                     float step = SeekMath.PhysicsStep(Time.fixedDeltaTime, seekFixedDt);
                     if (step != Time.fixedDeltaTime) { seekSavedFixedDt = Time.fixedDeltaTime; Time.fixedDeltaTime = step; }
                     seekStepUsed = step;
                 }
                 else
                 {
-                    OnDemandRendering.renderFrameInterval = seekSavedInterval;
-                    AudioListener.volume = seekSavedVolume;
                     if (seekSavedFixedDt > 0) { Time.fixedDeltaTime = seekSavedFixedDt; seekSavedFixedDt = -1; }
                 }
             }
             catch (Exception e) { Logger.LogWarning("Jump: " + e.Message); }
         }
 
+        // Keep sound and drawing covered through scene reloads as well as the burst and run-in.
+        // Physics still restores before unloading a scene. Render jobs and clip seeks never enter this scope.
+        private void SeekCover(bool on)
+        {
+            if (on == seekCovered) return;
+            seekCovered = on;
+            if (on)
+            {
+                seekSavedInterval = Math.Max(1, OnDemandRendering.renderFrameInterval);
+                seekSavedVolume = AudioListener.volume;
+                AudioListener.volume = 0f;
+                OnDemandRendering.renderFrameInterval = SeekMath.RenderInterval(Math.Max(60, fpsNow));
+            }
+            else
+            {
+                OnDemandRendering.renderFrameInterval = seekSavedInterval;
+                AudioListener.volume = seekSavedVolume;
+            }
+        }
+
         // The jump reached its target (ViewerSeekReached) or was stopped there.
         private void SeekEnd(double replayNow)
         {
             SeekTurbo(false);
+            SeekCover(false);
+            seekStopRequested = false;
             if (seekWatch == null) return;
             double wall = seekWatch.Elapsed.TotalSeconds;
             double fast = seekLiveAt >= 0 ? wall - seekLiveAt : 0;
@@ -343,7 +366,17 @@ namespace NuclearReplay.Playback
         {
             SeekTurbo(false);
             profOn = false;
-            if (!keepStats) seekWatch = null;
+            jumpPlan = null;
+            jumpFailReason = null;
+            JumpPlan.BurstActive = false;
+            if (!keepStats)
+            {
+                SeekCover(false);
+                seekWatch = null;
+                seekStopRequested = false;
+                jumpTarget = -1;
+                jumpForceFail = null;
+            }
         }
 
         // The jump's progress label (BuildState).
@@ -361,7 +394,10 @@ namespace NuclearReplay.Playback
         // Space while a jump fast-forwards: stop here.
         private void ViewerStopJump()
         {
-            if (!startSeeking || server == null) return;
+            if (!startSeeking) return;
+            // Never expose a half-built world. Stop at the first complete state after the burst drains.
+            seekStopRequested = true;
+            if (server == null || !SeekMath.CanStopJump(viewerLive, server.Jumping, jumpPlan != null)) return;
             double now = server.Clock - server.StartTime;
             Logger.LogInfo($"Viewer: jump stopped at {now:F1} s");
             startAt = now;
@@ -483,8 +519,18 @@ namespace NuclearReplay.Playback
                         ["v"] = new JArray(Math.Round(v.x, 1), Math.Round(v.y, 1), Math.Round(v.z, 1)),
                     };
                     o["parts_off"] = u.damageables?.Count(d => d.Removed) ?? 0;
+                    o["parts"] = u.damageables == null ? new JArray() : new JArray(u.damageables.Select((d, i) => new JObject
+                    {
+                        ["index"] = i, ["removed"] = d.Removed,
+                        ["health"] = d.Damageable is UnitPart part ? (JToken)Math.Round(part.hitPoints, 4) : null,
+                    }));
                     if (u.weaponStations != null) o["ammo"] = new JArray(u.weaponStations.Select(w => w.Ammo).ToArray());
-                    if (u is Aircraft air) { o["fuel"] = Math.Round(air.fuelLevel, 3); o["radar"] = air.radar != null && air.radar.activated; }
+                    o["radar"] = u.radar != null && u.radar.activated;
+                    if (u is Aircraft air)
+                    {
+                        o["fuel"] = Math.Round(air.fuelLevel, 3);
+                        o["active_station"] = air.weaponStations?.IndexOf(air.weaponManager.currentWeaponStation) ?? -1;
+                    }
                     o["hq"] = u.NetworkHQ != null ? u.NetworkHQ.faction?.factionName : null;
                     if (u is Missile m) { o["target"] = m.targetID.ToString(); o["owner"] = m.ownerID.ToString(); o["seeker"] = m.seekerMode.ToString(); }
                     units.Add(o);
@@ -495,6 +541,15 @@ namespace NuclearReplay.Playback
                     ["time"] = replayTime, ["frame"] = Time.frameCount, ["units"] = units,
                     ["following"] = director?.CurrentUnit != null ? director.CurrentUnit.persistentID.ToString() : null,
                     ["hud_marks"] = frame?.Marks.Count, ["hud_lines"] = frame?.Lines.Count,
+                    ["factions"] = new JArray(FactionRegistry.GetAllHQs().OrderBy(h => h.faction.factionName).Select(h => new JObject
+                    {
+                        ["name"] = h.faction.factionName, ["score"] = h.factionScore,
+                        ["tracked"] = new JArray(h.trackingDatabase.Keys.Select(id => id.ToString()).OrderBy(id => id)),
+                    })),
+                    ["airbases"] = new JArray(FindObjectsOfType<Airbase>().OrderBy(b => b.name).Select(b => new JObject
+                    {
+                        ["name"] = b.name, ["owner"] = b.CurrentHQ?.faction?.factionName,
+                    })),
                 };
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
                 File.WriteAllText(path, doc.ToString());

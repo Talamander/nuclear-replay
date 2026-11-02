@@ -270,7 +270,7 @@ namespace NuclearReplay.Playback
             if (Input.GetKeyDown(KeyCode.Escape) && viewerUiHidden) ViewerToggleHide();
             if (Input.GetKeyDown(KeyCode.G)) ViewerToggleGameHud();
             // Space during a jump stops it where it is; otherwise it pauses.
-            if (Input.GetKeyDown(KeyCode.Space)) { if (startSeeking && server != null && viewerLive) ViewerStopJump(); else ViewerTogglePause(); }
+            if (Input.GetKeyDown(KeyCode.Space)) { if (startSeeking) ViewerStopJump(); else ViewerTogglePause(); }
             if (Input.GetKeyDown(KeyCode.LeftArrow)) ViewerSkip(-10);
             if (Input.GetKeyDown(KeyCode.RightArrow)) ViewerSkip(10);
             if (Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.KeypadPlus) || Input.GetKeyDown(KeyCode.Equals)) ViewerSpeed(1);
@@ -311,6 +311,8 @@ namespace NuclearReplay.Playback
         private void ViewerLateUpdate(double replayTime, bool live)
         {
             viewerLive = live;
+            // A restart to zero has no fast-forward phase to call ViewerSeekReached.
+            if (live && !startSeeking && seekWatch != null) ViewerSeekReached(replayTime);
             if (live && !startSeeking) viewerSeekTarget = -1;
             ProbeStep(replayTime, live);
             if (recorder == null || clipFinishing) return;
@@ -449,6 +451,7 @@ namespace NuclearReplay.Playback
         private void ViewerSeek(double target, bool keepClip)
         {
             if (!viewer || recorder != null && !keepClip) return;
+            seekStopRequested = false;
             double duration = server != null ? server.EndTime - server.StartTime : viewerDemo?.Duration ?? 0;
             target = Math.Max(0, Math.Min(Math.Max(0, duration - 0.5), target));
             viewerSeekTarget = target;
@@ -621,6 +624,7 @@ namespace NuclearReplay.Playback
             server = null; director = null; finishedAt = -1; capturing = false;
             cockpitView.Leave();
             startSeeking = false; startAt = -1; viewerRestarting = false; viewerSeekTarget = -1;
+            pendingPath = null;
             SeekAbort(keepStats: false); ForgetCachedDemo(); restartIssuedAt = -1;
             if (fastForwarding && savedVSync >= 0) { QualitySettings.vSyncCount = savedVSync; Application.targetFrameRate = savedTargetFrameRate; }
             fastForwarding = false;
@@ -973,6 +977,12 @@ namespace NuclearReplay.Playback
                     ["main_menu"] = MainMenu.State.ToString(), ["server"] = server != null, ["live"] = viewerLive,
                     ["time"] = Math.Round(s.Time, 2), ["duration"] = Math.Round(s.Duration, 2), ["seeking"] = startSeeking, ["restarting"] = viewerRestarting,
                     ["paused"] = server?.Paused, ["speed"] = server?.Speed, ["viewer_speed"] = viewerSpeed, ["preset"] = viewerPreset,
+                    ["jump_points"] = jumpPointsCfg.Value, ["jump_mode"] = CurrentJumpMode.ToString(),
+                    ["jump_index_ready"] = jumpIndex != null, ["jump_burst"] = server?.Jumping ?? false,
+                    ["jump_settling"] = jumpPlan != null, ["jump_stop_requested"] = seekStopRequested,
+                    ["seek_covered"] = seekCovered, ["audio_volume"] = AudioListener.volume,
+                    ["render_interval"] = UnityEngine.Rendering.OnDemandRendering.renderFrameInterval,
+                    ["physics_step"] = Time.fixedDeltaTime, ["burst_active"] = JumpPlan.BurstActive,
                     ["free_cam"] = freeCamOn, ["camera_state"] = CameraStateManager.i?.currentState?.GetType().Name,
                     ["following"] = s.Following, ["ui_hidden"] = viewerUiHidden, ["help"] = viewerHelp,
                     ["clip_in"] = clipIn, ["clip_out"] = clipOut, ["fps"] = Math.Round(fpsNow, 1), ["screen"] = Screen.width + "x" + Screen.height,

@@ -104,13 +104,16 @@ namespace NuclearReplay.Playback
                 jumpBuilding = false;
                 if (jump.Failure != null) { JumpFail(jump.Failure); return; }
                 jump.LogBurst();
-                jumpRecords = jump.Burst.Records;
+                // Test hook: omit the built world to exercise the real object-count fallback.
+                jumpRecords = jump.CorruptBurst ? new List<DemoRecord>() : jump.Burst.Records;
                 jumpPosition = 0;
                 jumpBurstSending = true;
                 JumpPlan.BurstActive = true;
                 jumpBurstStarted = System.Diagnostics.Stopwatch.StartNew();
             }
             if (jumpBurstSending && (jump.FailSend || jumpBurstStarted.Elapsed.TotalSeconds > JumpBurstTimeout)) { JumpFail($"burst not sent after {jumpBurstStarted.Elapsed.TotalSeconds:F0} s"); return; }
+            // Test hook: let the real 60-second timeout expire without sending anything.
+            if (jumpBurstSending && jump.StallSend) return;
             while (!waitingForScene)
             {
                 if (jumpPosition >= jumpRecords.Count)
@@ -239,6 +242,9 @@ namespace NuclearReplay.Playback
 
         public void Close()
         {
+            jump = null;
+            jumpRecords = null;
+            JumpPlan.BurstActive = false;
             try { peer.Close(); } catch (Exception e) { log.LogWarning("Replay peer close: " + e.Message); }
         }
     }

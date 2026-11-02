@@ -40,7 +40,7 @@ namespace NuclearReplay.Playback
         public bool BuildDone => buildDone;
         // Objects the client can spawn: the unit count check after the burst.
         public int ExpectedObjects { get; private set; }
-        public bool FailBuild, FailSend;
+        public bool FailBuild, FailSend, StallSend, CorruptBurst;
 
         private JumpPlan(ManualLogSource log, JumpIndex index, List<DemoRecord> records, JumpCut cut)
         {

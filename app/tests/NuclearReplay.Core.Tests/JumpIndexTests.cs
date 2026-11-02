@@ -13,7 +13,7 @@ public class JumpIndexTests(ITestOutputHelper output)
 
     private static readonly Dictionary<long, JumpRpcRule[]> Tables = new()
     {
-        [Plane] = new[] { "Aircraft.RpcToggleRadar", "Aircraft.RpcDamage", "Unit.RpcSyncAmmoCount", "Aircraft.RpcSomethingElse" }.Select(JumpRpcRules.Rule).ToArray(),
+        [Plane] = new[] { "Aircraft.RpcToggleRadar", "Aircraft.RpcDamage", "Unit.RpcSyncAmmoCount", "Missile.RpcDetonate" }.Select(JumpRpcRules.Rule).ToArray(),
         [Base] = new[] { "x", "x", "x", "x", "Hangar.RpcOpenHangar", "Hangar.RpcCloseHangar" }.Select(JumpRpcRules.Rule).ToArray(),
     };
 
@@ -214,10 +214,33 @@ public class JumpIndexTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void AnRpcOutsideItsTableIsSkipped()
+    public void AnRpcOutsideItsTableFailsTheBurst()
     {
-        var burst = Burst(Recording(Load(0), Spawn(1, 10, 5), Rpc(2, 10, 200), Rpc(2, 10, -1), Other(3), Other(4)), 3.5);
-        Assert.Empty(Calls(burst, 10));
+        Assert.Throws<InvalidDataException>(() => Burst(Recording(Load(0), Spawn(1, 10, 5), Rpc(2, 10, 200), Other(3), Other(4)), 3.5));
+        Assert.Throws<InvalidDataException>(() => Burst(Recording(Load(0), Spawn(1, 10, 5), Rpc(2, 10, -1), Other(3), Other(4)), 3.5));
+    }
+
+    [Fact]
+    public void AnUnclassifiedRpcFailsInsteadOfDiscardingUnknownState()
+    {
+        var records = Recording(Load(0), Spawn(1, 10, 5), Rpc(2, 10, 0), Other(3), Other(4));
+        var index = JumpIndex.Build(records);
+        var table = new Dictionary<long, JumpRpcRule[]> { [Plane] = [JumpRpcRules.Rule("Aircraft.RpcNewState")] };
+        Assert.Throws<InvalidDataException>(() => index.BuildBurst(index.Cut(3.5), table));
+    }
+
+    [Fact]
+    public void InitialTrackingBatchesPreserveEveryBatchBeforeLaterUpdates()
+    {
+        var records = Recording(Load(0), Spawn(1, 10, 5), Rpc(2, 10, 0, 1), Rpc(3, 10, 0, 2),
+            Rpc(4, 10, 1, 3), Other(5), Other(6));
+        var index = JumpIndex.Build(records);
+        var table = new Dictionary<long, JumpRpcRule[]>
+        {
+            [Plane] = [JumpRpcRules.Rule("FactionHQ.RpcGetTrackingStateBatched"), JumpRpcRules.Rule("FactionHQ.RpcUpdateTrackingInfo")],
+        };
+        var burst = index.BuildBurst(index.Cut(5.5), table);
+        Assert.Equal(new double[] { 2, 3, 4 }, burst.Records.Where(r => r.MessageId == JumpWire.RpcId).Select(r => r.Time));
     }
 
     [Fact]

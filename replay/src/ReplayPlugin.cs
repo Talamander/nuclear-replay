@@ -295,6 +295,7 @@ namespace NuclearReplay.Playback
             if (!startSeeking) return;
             if (viewer) JumpTick();
             if (server == null) return;   // the jump point failed and the replay reloads
+            if (seekStopRequested) ViewerStopJump();
             bool reached = replayNow >= startAt - preroll || server.Finished;
             if (!reached)
             {
@@ -527,7 +528,16 @@ namespace NuclearReplay.Playback
                 job.Tick();
                 if (Time.realtimeSinceStartup > 900) { job.Fail("the game did not reach the replay within 900 s"); quitRequested = true; return; }
             }
-            if (pendingPath != null && server == null) { TryStart(); return; }
+            if (pendingPath != null && server == null)
+            {
+                if (viewer && !TypingInGameField())
+                {
+                    if (Input.GetKeyDown(KeyCode.Space)) ViewerStopJump();
+                    if (Input.GetKeyDown(KeyCode.Backspace)) ViewerExit();
+                }
+                if (pendingPath != null) TryStart();
+                return;
+            }
             if (server == null) return;
             if (preview != null) return;   // no keyboard control while nr drives the preview
             if (ViewerKeys()) return;

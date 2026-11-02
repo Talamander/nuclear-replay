@@ -8,7 +8,7 @@ using NuclearReplay.Demo;
 namespace NuclearReplay.Playback
 {
     // How the jump point burst treats one client RPC (docs/JUMP-POINTS.md, "RPC rules").
-    internal enum JumpRpcClass { Skip, All, Latest }
+    internal enum JumpRpcClass { Unknown, Skip, All, Latest }
 
     internal readonly struct JumpRpcRule
     {
@@ -32,7 +32,7 @@ namespace NuclearReplay.Playback
             {
                 "Unit.RpcDamage", "Aircraft.RpcDamage", "Unit.RpcBreakPart", "PilotDismounted.RpcTakeDamage",
                 "Aircraft.RpcLaunchMissile", "Unit.RpcRearm", "Airbase.RpcRegisterUsage", "FactionHQ.RpcExclusionZone",
-                "Building.RpcSetAirbase",
+                "Building.RpcSetAirbase", "FactionHQ.RpcGetTrackingStateBatched",
             }) rules[name] = new JumpRpcRule(JumpRpcClass.All, 0, 0);
             // Lasting state where the last call wins. keyBytes is how many leading payload bytes belong to the key
             // (a station or part index).
@@ -60,11 +60,26 @@ namespace NuclearReplay.Playback
             Latest("Missile.RpcUnfoldFins", Group.Fins, 0);
             // The whole payload is the key, so each tracked unit keeps one call per faction.
             Latest("FactionHQ.RpcUpdateTrackingInfo", Group.Tracking, int.MaxValue);
+            // Explicitly classified transient/UI calls. A newly introduced RPC must fall back instead of silently
+            // discarding state that a newer game might require.
+            foreach (var name in new[]
+            {
+                "Aircraft.RpcGetRadarWarning", "FactionHQ.RpcDeclareEndGame", "Missile.RpcDetonate", "Unit.RpcJam",
+                "MessageManager.RpcAllHQMessage", "MessageManager.RpcBombFailMessage", "MessageManager.RpcHQMessage",
+                "MessageManager.RpcKillMessage", "MessageManager.RpcPilotCaptureMessage", "MessageManager.RpcPlayerJoinFactionMessage",
+                "MessageManager.RpcRepairMessage", "MessageManager.RpcWarheadDestroyedMessage", "MessageManager.TargetCreditMessage",
+                "MissionMessages.RpcShowMessage", "NuclearOption.Chat.ChatManager.RpcServerMessage",
+                "NuclearOption.Chat.ChatManager.RpcTargetServerMessage", "NuclearOption.Chat.ChatManager.TargetReceiveMessage",
+                "NuclearOption.Networking.Player.KickReason", "NuclearOption.Networking.Player.RpcClearSpawnPending",
+                "NuclearOption.Networking.Player.RpcConvoyDonationMessage", "NuclearOption.Networking.Player.RpcFundsDonationMessage",
+                "NuclearOption.Networking.Player.RpcReserveNotice", "NuclearOption.Networking.Player.RpcShowSortieBonus",
+                "NuclearOption.Networking.Player.RpcUnitDonationMessage", "Spawner.RpcOnGivenAircraftControl",
+            }) rules[name] = new JumpRpcRule(JumpRpcClass.Skip, 0, 0);
             return rules;
         }
 
         public static JumpRpcRule Rule(string name)
-            => name != null && Rules.TryGetValue(name, out var rule) ? rule : new JumpRpcRule(JumpRpcClass.Skip, 0, 0);
+            => name != null && Rules.TryGetValue(name, out var rule) ? rule : default;
     }
 
     // Reads Mirage's bit stream: bits fill each byte from the lowest bit up.
@@ -449,6 +464,8 @@ namespace NuclearReplay.Playback
                     continue;
                 }
                 var rule = message.Function >= 0 && message.Function < table.Length ? table[message.Function] : default;
+                if (rule.Class == JumpRpcClass.Unknown)
+                    throw new InvalidDataException($"Unclassified RPC {message.Function} on prefab {objects[message.Object].TableKey}; use fast-forward");
                 if (rule.Class == JumpRpcClass.All) kept.Add(message.Record);
                 else if (rule.Class == JumpRpcClass.Latest) latest[(message.Object, rule.Group, KeyHash(records[message.Record].Payload, rule.KeyBytes))] = message.Record;
             }

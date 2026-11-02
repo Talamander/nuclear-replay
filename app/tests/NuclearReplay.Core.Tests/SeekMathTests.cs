@@ -103,4 +103,12 @@ public class SeekMathTests
     [InlineData(0, 0, true)]
     public void BurstNeedsMostOfTheObjects(int spawned, int expected, bool ok) =>
         Assert.Equal(ok, SeekMath.EnoughObjects(spawned, expected));
+
+    [Theory]
+    [InlineData(false, false, false, false)] // the scene is still loading
+    [InlineData(true, true, true, false)]   // the burst has not all been sent
+    [InlineData(true, false, true, false)]  // the client still has messages to handle
+    [InlineData(true, false, false, true)] // a complete world is safe to show
+    public void StopWaitsForACompleteWorld(bool sceneReady, bool sending, bool settling, bool expected) =>
+        Assert.Equal(expected, SeekMath.CanStopJump(sceneReady, sending, settling));
 }
