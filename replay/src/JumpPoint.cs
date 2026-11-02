@@ -232,12 +232,16 @@ namespace NuclearReplay.Playback
         private static bool SkipLaunch() => !JumpPlan.BurstActive;
 
         [HarmonyPatch(typeof(MissileLauncher), nameof(MissileLauncher.Rearm))]
-        [HarmonyPostfix]
-        private static void RearmAtOnce(MissileLauncher __instance)
+        [HarmonyPrefix]
+        private static bool RearmAtOnce(MissileLauncher __instance, int ammoToRearm, WeaponStation weaponStation)
         {
-            if (!JumpPlan.BurstActive) return;
-            __instance.ammo += ReloadingAmmo(__instance);
+            if (!JumpPlan.BurstActive) return true;
+            // Do not start Reload's coroutine, even for a zero-round initialization. Its delayed AccountAmmo would
+            // overwrite a newer recorded count during the run-in after the pending ammo was already applied here.
+            __instance.SetWeaponStation(weaponStation);
+            __instance.ammo += ReloadingAmmo(__instance) + ammoToRearm;
             ReloadingAmmo(__instance) = 0;
+            return false;
         }
 
         [HarmonyPatch]

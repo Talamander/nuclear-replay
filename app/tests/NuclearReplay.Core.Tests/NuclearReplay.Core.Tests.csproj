@@ -28,6 +28,7 @@
     <Compile Include="../../../replay/src/SeekMath.cs" Link="Viewer/SeekMath.cs" />
     <Compile Include="../../../replay/src/JumpIndex.cs" Link="Viewer/JumpIndex.cs" />
     <Compile Include="../../../replay/src/JumpRadarState.cs" Link="Viewer/JumpRadarState.cs" />
+    <Compile Include="../../../replay/src/PendingViewerSeek.cs" Link="Viewer/PendingViewerSeek.cs" />
     <Compile Include="../../../shared/Demo/DemoFile.cs" Link="Viewer/DemoFile.cs" />
     <Compile Include="../../../replay/src/ListSelection.cs" Link="Viewer/ListSelection.cs" />
     <Compile Include="../../../replay/src/ReplayIndex.cs" Link="Viewer/ReplayIndex.cs" />

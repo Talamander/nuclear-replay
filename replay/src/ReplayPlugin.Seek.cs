@@ -38,6 +38,8 @@ namespace NuclearReplay.Playback
         private bool seekTurboAllowed = true;      // test command "seekturbo off" measures the old way
         private bool seekTurboOn;
         private bool seekCovered, seekStopRequested;
+        private readonly PendingViewerSeek pendingViewerSeek = new PendingViewerSeek();
+        private double seekDeferredSeconds;
         private int seekSavedInterval = 1;
         private float seekFixedDt = SeekMath.JumpPhysicsStep, seekSavedFixedDt = -1;   // test command "seekfixed <dt>|0"
         private float seekSavedVolume = 1f;
@@ -204,6 +206,7 @@ namespace NuclearReplay.Playback
         // A jump starts (ViewerSeek, opening a replay at a time).
         private void SeekBegin(double from, double to, bool restart)
         {
+            seekDeferredSeconds = 0;
             seekStopRequested = false;
             if (viewer && recorder == null) SeekCover(true);
             seekWatch = Stopwatch.StartNew();
@@ -346,13 +349,15 @@ namespace NuclearReplay.Playback
             SeekCover(false);
             seekStopRequested = false;
             if (seekWatch == null) return;
-            double wall = seekWatch.Elapsed.TotalSeconds;
-            double fast = seekLiveAt >= 0 ? wall - seekLiveAt : 0;
+            double elapsed = seekWatch.Elapsed.TotalSeconds;
+            double wall = elapsed + seekDeferredSeconds;
+            double fast = seekLiveAt >= 0 ? elapsed - seekLiveAt : 0;
             double covered = seekFastFrom >= 0 ? replayNow - seekFastFrom : 0;
             var c = CultureInfo.InvariantCulture;
             string reload = seekRestart
                 ? $"reload {(seekLiveAt >= 0 ? seekLiveAt : wall).ToString("F1", c)} s (menu {(seekMenuAt >= 0 ? seekMenuAt.ToString("F1", c) : "?")} s, recording {(seekDemoCached ? "cached" : seekDemoMs + " ms")}), "
                 : "";
+            if (seekDeferredSeconds > 0) reload = $"queued {seekDeferredSeconds.ToString("F1", c)} s for the previous load, " + reload;
             if (seekRestart && !seekByJumpPoint && seekLiveAt > 0) seekReloadSeconds = SeekMath.Smooth(seekReloadSeconds, seekLiveAt);
             if (covered >= 5 && fast > 0) seekRate = SeekMath.Smooth(seekRate, SeekMath.Rate(covered, fast));
             if (seekByJumpPoint) jumpPointSeconds = SeekMath.Smooth(jumpPointSeconds, wall);
@@ -368,6 +373,7 @@ namespace NuclearReplay.Playback
         // Leaving the replay, or a restart: drawing and sound come back.
         private void SeekAbort(bool keepStats)
         {
+            pendingViewerSeek.Clear();
             SeekTurbo(false);
             profOn = false;
             jumpPlan = null;
@@ -398,6 +404,7 @@ namespace NuclearReplay.Playback
         // Space while a jump fast-forwards: stop here.
         private void ViewerStopJump()
         {
+            pendingViewerSeek.Clear();
             if (!startSeeking) return;
             // Never expose a half-built world. Stop at the first complete state after the burst drains.
             seekStopRequested = true;

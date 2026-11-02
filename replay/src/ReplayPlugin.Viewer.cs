@@ -144,6 +144,13 @@ namespace NuclearReplay.Playback
             UnityMainThread.Drain();
             MeasureFps();
             PollCommands();
+            if (viewer && server != null && pendingViewerSeek.TryTake(viewerLive, server.Jumping, jumpPlan != null,
+                    out double pendingTarget, out bool pendingKeepClip, out double requestedAt))
+            {
+                double waited = Math.Max(0, Time.realtimeSinceStartupAsDouble - requestedAt);
+                ViewerSeek(pendingTarget, pendingKeepClip);
+                seekDeferredSeconds = waited;
+            }
             bool atMenu = server == null && MainMenu.State == MainMenu.LoadingState.Loaded && !NetworkManagerNuclearOption.IsLoadingScene
                 && (NetworkManagerNuclearOption.i == null || !NetworkManagerNuclearOption.i.Client.Active);
             if (atMenu && pendingPath == null && !viewerRestarting)
@@ -463,12 +470,23 @@ namespace NuclearReplay.Playback
                 return;
             }
             double now = server.Clock - server.StartTime;
+            if (!SeekMath.CanStopJump(viewerLive, server.Jumping, jumpPlan != null))
+            {
+                pendingViewerSeek.Request(target, keepClip, Time.realtimeSinceStartupAsDouble);
+                Logger.LogInfo($"Viewer: jump to {target:F1} s waits for the current scene and burst to finish loading");
+                return;
+            }
             Logger.LogInfo($"Viewer: jump from {now:F1} s to {target:F1} s");
             bool jumpPoint = JumpWanted(now, target, keepClip);
             // A jump point still on its way to its cut cannot take a new target, so that one restarts too.
             if (target >= now - 0.05 && !jumpPoint && !server.Jumping)
             {
-                if (target - now < 0.3) { viewerSeekTarget = -1; return; }
+                if (target - now < 0.3)
+                {
+                    if (startSeeking) { startAt = now; viewerSeekTarget = now; seekTo = target; }
+                    else viewerSeekTarget = -1;
+                    return;
+                }
                 if (!startSeeking) SeekBegin(now, target, restart: false);
                 else seekTo = target;
                 startAt = target;
