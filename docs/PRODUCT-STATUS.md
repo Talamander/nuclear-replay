@@ -10,7 +10,7 @@ and incomplete validation; those checks are not recorded as passed.
 
 - Final pre-release production-code measurements: five HAW jumps at 4.6–6.2 seconds and five jumps on a
   two-hour replay at 7.5–9.5 seconds. Maximum system load was 2.83. Minute-one/last-minute ratios were
-  1.088x and 1.145x. All 540 unit tests passed before the version/default change.
+  1.088x and 1.145x. All 540 unit tests pass for 0.7.0.
 - Fixed repeated jumps during scene loading, burst radar/reload state, unit-picker cursor cleanup for
   night vision, and target overshoot inside quiet recording gaps.
 - The position gate is still open. Two private experiments did not pass and are not shipped. At one
@@ -18,8 +18,10 @@ and incomplete validation; those checks are not recorded as passed.
 - Full correctness across all recordings, 50 jumps per recording, sustained memory, valid two-core
   timing, remaining short-file/fast-forward timing, final export regressions and all six screenshot pairs
   remain incomplete. Native Windows remains untested.
-- Release packaging, local tests, a fresh configuration check and a final dev-copy smoke run accompany
-  this release. The main-game install must still wait until the game is closed and GAMING.lock is absent.
+- Release packaging and all local checks pass. The 40 BepInEx configuration checks confirm a fresh
+  config enables jump points and an explicit false remains false. The packaged DLL passes a dev-copy
+  smoke run covering forward/backward jumps, retargeting, Space, clip marks and exit with no errors.
+  The main-game install must still wait until the game is closed and GAMING.lock is absent.
 
 ## Decisions (owner)
 
