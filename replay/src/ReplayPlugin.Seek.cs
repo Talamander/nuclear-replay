@@ -501,6 +501,18 @@ namespace NuclearReplay.Playback
         }
 
         // Every unit the client knows, for comparing a jump with a straight play to the same time.
+        private static JObject ProbeCamera()
+        {
+            var camera = HudCamera();
+            if (camera == null) return null;
+            var p = camera.transform.position.ToGlobalPosition().AsVector3();
+            var q = camera.transform.rotation;
+            return new JObject
+            {
+                ["p"] = new JArray(p.x, p.y, p.z), ["q"] = new JArray(q.x, q.y, q.z, q.w), ["fov"] = camera.fieldOfView,
+            };
+        }
+
         private void DumpUnits(string path, double replayTime)
         {
             try
@@ -541,6 +553,16 @@ namespace NuclearReplay.Playback
                     ["time"] = replayTime, ["frame"] = Time.frameCount, ["units"] = units,
                     ["following"] = director?.CurrentUnit != null ? director.CurrentUnit.persistentID.ToString() : null,
                     ["hud_marks"] = frame?.Marks.Count, ["hud_lines"] = frame?.Lines.Count,
+                    ["hud_mark_state"] = frame == null ? new JArray() : new JArray(frame.Marks.OrderBy(m => m.Unit.Id).Select(m => new JObject
+                    {
+                        ["id"] = m.Unit.Id, ["role"] = m.Role.ToString(), ["side"] = m.Side.ToString(),
+                        ["look"] = m.Look.ToString(), ["box"] = m.Box, ["arrow"] = m.Arrow,
+                    })),
+                    ["hud_line_state"] = frame == null ? new JArray() : new JArray(frame.Lines.OrderBy(l => l.From.Id).ThenBy(l => l.To.Id).Select(l => new JObject
+                    {
+                        ["from"] = l.From.Id, ["to"] = l.To.Id, ["kind"] = l.Kind.ToString(), ["solid"] = l.Solid,
+                    })),
+                    ["camera"] = ProbeCamera(),
                     ["factions"] = new JArray(FactionRegistry.GetAllHQs().OrderBy(h => h.faction.factionName).Select(h => new JObject
                     {
                         ["name"] = h.faction.factionName, ["score"] = h.factionScore,

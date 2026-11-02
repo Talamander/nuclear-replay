@@ -983,6 +983,7 @@ namespace NuclearReplay.Playback
                     ["seek_covered"] = seekCovered, ["audio_volume"] = AudioListener.volume,
                     ["render_interval"] = UnityEngine.Rendering.OnDemandRendering.renderFrameInterval,
                     ["physics_step"] = Time.fixedDeltaTime, ["burst_active"] = JumpPlan.BurstActive,
+                    ["camera"] = ProbeCamera(),
                     ["free_cam"] = freeCamOn, ["camera_state"] = CameraStateManager.i?.currentState?.GetType().Name,
                     ["following"] = s.Following, ["ui_hidden"] = viewerUiHidden, ["help"] = viewerHelp,
                     ["clip_in"] = clipIn, ["clip_out"] = clipOut, ["fps"] = Math.Round(fpsNow, 1), ["screen"] = Screen.width + "x" + Screen.height,
