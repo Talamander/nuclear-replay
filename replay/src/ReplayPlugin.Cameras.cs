@@ -155,6 +155,9 @@ namespace NuclearReplay.Playback
         {
             unitListPanel.Open = false;
             ViewerUi.KeyboardTaken = false;
+            // The list temporarily needs a cursor even when the viewer is hidden.
+            // Leaving that flag set also blocks the game's night-vision update after a reload.
+            ViewerCursor(viewer && !viewerUiHidden);
         }
 
         private void UnitListRefresh(bool keepSelection)
