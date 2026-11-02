@@ -22,8 +22,13 @@ namespace NuclearReplay.Playback
     // RPCs. So the prelude goes first; BeginBurst names the RPCs on the main thread and builds the burst off it.
     internal sealed class JumpPlan
     {
-        // True while the client handles a burst: see JumpAmmoPatches.
-        public static bool BurstActive;
+        // True while the client handles a burst. Do not retain radar references across bursts or an aborted replay.
+        private static bool burstActive;
+        public static bool BurstActive
+        {
+            get => burstActive;
+            set { burstActive = value; JumpRadarPatches.Clear(); }
+        }
 
         private readonly ManualLogSource log;
         private readonly JumpIndex index;
@@ -173,6 +178,42 @@ namespace NuclearReplay.Playback
                 if (identity == null) return null;
                 try { return identity.RemoteCallCollection.RemoteCalls.Select(c => JumpRpcRules.Rule(c?.Name)).ToArray(); }
                 catch (Exception e) { log.LogWarning($"Jump plan: rpc table of {identity.name}: {e.Message}"); return null; }
+            }
+        }
+    }
+
+    // Rearming replaces a radar immediately, but the old Radar.OnDestroy clears it at the end of the frame.
+    // In a burst that cleanup can overwrite a later recorded toggle. Let the game's cleanup run, then restore
+    // only toggles recorded after the last replacement; a radar with no later toggle keeps the game's state.
+    [HarmonyPatch(typeof(Radar), nameof(Radar.AttachToUnit))]
+    internal static class JumpRadarPatches
+    {
+        private static readonly JumpRadarState<Aircraft> Recorded = new JumpRadarState<Aircraft>();
+
+        internal static void Clear() => Recorded.Clear();
+
+        [HarmonyPostfix]
+        private static void Replaced(Unit unit)
+        {
+            if (JumpPlan.BurstActive && unit is Aircraft aircraft) Recorded.Replaced(aircraft);
+        }
+
+        internal static void RestoreRecordedState()
+        {
+            foreach (var aircraft in UnitRegistry.allAircraft)
+                if (aircraft != null && aircraft.radar != null)
+                    aircraft.radar.activated = Recorded.Restore(aircraft, aircraft.radar.activated);
+        }
+
+        [HarmonyPatch]
+        internal static class Toggles
+        {
+            private static IEnumerable<MethodBase> TargetMethods()
+                => AccessTools.GetDeclaredMethods(typeof(Aircraft)).Where(m => m.Name.StartsWith("UserCode_RpcToggleRadar"));
+
+            private static void Postfix(Aircraft __instance, bool activated)
+            {
+                if (JumpPlan.BurstActive) Recorded.RecordToggle(__instance, activated);
             }
         }
     }

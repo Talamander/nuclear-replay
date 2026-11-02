@@ -170,7 +170,11 @@ namespace NuclearReplay.Playback
                 var world = NetworkManagerNuclearOption.i.Client.World;
                 jumpPlaced = jumpPlan.PlaceStoppedVehicles(world);
                 // The client has handled the burst by now.
-                if (++jumpPlaceFrames == JumpBurstFrames) JumpPlan.BurstActive = false;
+                if (++jumpPlaceFrames == JumpBurstFrames)
+                {
+                    JumpRadarPatches.RestoreRecordedState();
+                    JumpPlan.BurstActive = false;
+                }
                 if (jumpPlaceFrames < 30) return;
                 int spawned = world.SpawnedIdentities.Count;
                 Logger.LogInfo($"Jump point: {jumpPlaced} stopped vehicles placed, {spawned} of {jumpPlan.ExpectedObjects} objects");

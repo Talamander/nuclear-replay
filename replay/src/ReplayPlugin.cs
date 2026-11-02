@@ -173,6 +173,8 @@ namespace NuclearReplay.Playback
             harmony.PatchAll(typeof(ReplayPatches));
             try { harmony.PatchAll(typeof(JumpAmmoPatches)); harmony.PatchAll(typeof(JumpAmmoPatches.Counts)); }
             catch (Exception e) { Logger.LogWarning("Jump points: ammo patches failed: " + e.Message); }
+            try { harmony.PatchAll(typeof(JumpRadarPatches)); harmony.PatchAll(typeof(JumpRadarPatches.Toggles)); }
+            catch (Exception e) { Logger.LogWarning("Jump points: radar patch failed: " + e.Message); }
             HudPatch(harmony);
             LightingOverride.Init(Logger);
             ViewerAwake();
