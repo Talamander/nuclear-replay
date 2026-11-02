@@ -1,14 +1,20 @@
-# Jump points: research
+# Jump points
 
-Status: research (2026-10-10, ingame-viewer branch). Jump points are not built. The recorder format
-is unchanged. 0.6 made the existing jumps about twice as fast (option C, below). Jump points (option A) are
-still the next step.
+Status: available in 0.7.0 (2026-11-02), enabled by default. The recorder format is unchanged;
+existing recordings work. The implementation below uses synthetic jump points (option A). The earlier
+research and measurements are retained as background.
+
+Five measured jumps on a 2,410-second replay took 4.6–6.2 seconds; five on a 6,984-second replay took
+7.5–9.5 seconds, under Linux/Proton with system load below 3. These samples are not a guarantee for every PC.
+Paused missile positions can be worse than the 0.6 fast-forward result, and the full correctness and
+stress matrix is incomplete. Native Windows remains untested. Set `[Viewer] JumpPoints = false` in the
+player configuration and restart the game to use fast-forward for every jump.
 
 ## The problem
 
 The in-game viewer plays a recording by standing in for the original host (`ReplayServer`). It sends
 the recorded Mirage messages to the real game client in recorded order and at recorded pace. The
-client only knows the state that the messages so far have built, so a jump has two paths today:
+client only knows the state that the messages so far have built. Before 0.7, jumps used two paths:
 
 - **Forward:** fast-forward from where the replay is. The game runs fixed-step at 8x replay speed
   (60 steps per second of game time) until it reaches the target.
@@ -161,20 +167,18 @@ behaviour.
 - **Game updates.** Message ids are hashes of type names. A game update that renames or reshapes a
   message breaks old recordings for jump points and for normal playback alike.
 
-## How old recordings fall back
+## Fast-forward fallback
 
-Recordings without jump points (all recordings today, and new ones if A is not built) keep the
-current behaviour:
+Existing recordings get synthetic jump points without conversion. When jump points are disabled,
+unavailable, slower than fast-forward, or fail to rebuild the world, the viewer uses the existing behavior:
 
 - A forward jump fast-forwards from the current position (9x to 12.5x since 0.6).
 - A backward jump restarts the mission and fast-forwards from the start.
 - The viewer shows "Jumping to m:ss (reloading the mission)..." while it works.
 
-Approach A also gives old recordings jump points, because it only reads the existing stream. Under
-approach B, recordings made before the format change use the fallback above, and recordings made
-after it play only in mods that know the new version.
+The alternative recorder-side approach B above is not implemented.
 
-## Suggested next step
+## Original prototype plan (completed)
 
 Prototype A behind a viewer setting:
 
@@ -186,10 +190,10 @@ Prototype A behind a viewer setting:
    flight, the kill feed, and the scoreboard.
 4. If damage differs, list the RPCs involved and add them to the burst.
 
-## How it works now (branch `jump-points`)
+## How it works in 0.7.0
 
-Off by default: `[Viewer] JumpPoints` turns it on, and the viewer commands `seekmode auto|ff|snap` override the setting
-for a session.
+Enabled by default: `[Viewer] JumpPoints` controls it, and the viewer commands `seekmode auto|ff|snap`
+override the setting for a session. An existing explicit false setting stays false.
 
 1. When a replay opens, `JumpIndex` reads the recording once on a background thread. It keeps the mission boundaries,
    each object's lifetime, a compact list of messages, and every 60 s a copy of each object's last transform. The 116
@@ -202,6 +206,8 @@ for a session.
 4. Once the scene is up, `JumpPlan` names the RPCs of the live objects on the main thread. The burst is then built on a
    background thread (about 100 ms on the same file) and sent. Normal playback resumes 30 s before the target and
    fast-forwards the rest with the recorded traffic.
+   A quiet gap keeps the requested cut time; it does not move the clock to the next message. The loading cover
+   and mute remain until burst cleanup completes. A second jump waits for the current scene and burst to finish.
 
 ### RPC rules
 
@@ -225,5 +231,5 @@ reloads the replay and fast-forwards as in 0.6. After two failures the session s
 build|send|count|timeout|corrupt` forces one failure for testing. `timeout` stalls the sender until the real
 60-second limit expires; `corrupt` sends an empty burst to exercise the object-count check.
 
-A recording can hold prefabs that this copy of the game cannot spawn, as Cheeze's did. Those objects are absent in
+A recording can hold prefabs that this copy of the game cannot spawn. Those objects are absent in
 straight play too, so the burst leaves out their RPCs and logs a count.

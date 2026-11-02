@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.7.0 (2026-11-02)
+
+- **Faster jumps through long replays.** Jump points rebuild the match near the requested time, then
+  play the last 30 seconds of recorded traffic. They work with existing recordings and are enabled by
+  default. Short jumps still fast-forward when that is faster. If reconstruction fails, the viewer
+  falls back to fast-forward. Set `[Viewer] JumpPoints = false` to use the previous behavior.
+- A new jump requested during loading waits until the scene is ready, then goes to the latest target.
+  Space stops a jump, and leaving the replay clears its loading and sound state.
+- Fix radar state and delayed launcher reload counts when reconstructing the match. Keep the requested
+  target inside quiet gaps instead of skipping to the next recorded message.
+- Closing the unit picker restores the cursor state, fixing night vision after repeated jumps with
+  the viewer interface hidden.
+- **Known limitation:** paused missile positions can differ from straight playback and be less accurate
+  than 0.6. The full correctness and stress matrix remains incomplete. Native Windows is still untested.
+
 ## 0.6.0 (2026-10-30)
 
 - **Bulk delete in the Replays list.** Every row has a checkbox. Shift+click ticks a range, Ctrl+click ticks

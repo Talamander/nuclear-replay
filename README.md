@@ -46,6 +46,8 @@ fan-made and not affiliated with Shockfront Studios. It is a beta.
   **Target HUD** button at the end of the camera row shows the mode: click for the next one, right-click for
   the one before.
 - **Full control of time.** Pause, skip 10 seconds, and play from 0.25x to 4x speed.
+- **Faster long jumps.** Jump points rebuild the match near your chosen moment. Five jumps on a
+  two-hour replay took 7.5–9.5 seconds in Linux/Proton testing. Short jumps use fast-forward when it is faster.
 - **Clips with one key.** Mark the start and the end, press **C**, and the game records that part as an
   MP4 video at 60 fps and your screen's resolution.
 - **Delete recordings** you do not want from the Replays screen, which shows how much space they take.
@@ -117,6 +119,11 @@ server sent your game, and your own aircraft replays like every other unit. Thes
 ### Watch it
 
 Click **Replays** in the main menu and pick a match.
+
+Jump points are enabled by default in 0.7.0, including for existing recordings. A saved setting is kept.
+Paused missile positions can differ from straight playback and can be less accurate than in 0.6.
+To use the previous jump behavior, set `JumpPoints = false` under `[Viewer]` in
+`BepInEx/config/talamander.nuclearreplay.player.cfg`, then restart the game.
 
 These are the keys that matter most. Press **F1** in a replay for the full list.
 

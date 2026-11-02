@@ -1,6 +1,25 @@
 # Product status (handoff)
 
-Last updated 2026-10-12. Read this first when resuming the product work.
+Last updated 2026-11-02. Read this first when resuming the product work.
+
+## 0.7.0: jump points
+
+Jump points are enabled by default and work with existing recordings. Existing explicit false settings
+are preserved. The owner approved shipping the current fixes after reviewing the failed position gate
+and incomplete validation; those checks are not recorded as passed.
+
+- Final pre-release production-code measurements: five HAW jumps at 4.6–6.2 seconds and five jumps on a
+  two-hour replay at 7.5–9.5 seconds. Maximum system load was 2.83. Minute-one/last-minute ratios were
+  1.088x and 1.145x. All 540 unit tests passed before the version/default change.
+- Fixed repeated jumps during scene loading, burst radar/reload state, unit-picker cursor cleanup for
+  night vision, and target overshoot inside quiet recording gaps.
+- The position gate is still open. Two private experiments did not pass and are not shipped. At one
+  paused view, missile maximum error was 35.217 m versus 25.828 m for 0.6 against straight playback.
+- Full correctness across all recordings, 50 jumps per recording, sustained memory, valid two-core
+  timing, remaining short-file/fast-forward timing, final export regressions and all six screenshot pairs
+  remain incomplete. Native Windows remains untested.
+- Release packaging, local tests, a fresh configuration check and a final dev-copy smoke run accompany
+  this release. The main-game install must still wait until the game is closed and GAMING.lock is absent.
 
 ## Decisions (owner)
 
@@ -82,7 +101,7 @@ Last updated 2026-10-12. Read this first when resuming the product work.
   - App: **Open in game** and **Watch this in game**, and `nr open <demo> [--at] [--focus]`. Viewer
     clips are imported into Renders. Clips open in the system player. The live preview and clip
     player are removed. Moment pictures and headless renders stay.
-  - `docs/JUMP-POINTS.md` is research on faster jumps; nothing is built yet.
+  - `docs/JUMP-POINTS.md` contains the original research and the 0.7.0 jump-point implementation.
   - Review: `review/gui-2026-10-10/REVIEW.md`.
 
 - Release review, branch `cleanup-release` (2026-10-11), built without starting the game:

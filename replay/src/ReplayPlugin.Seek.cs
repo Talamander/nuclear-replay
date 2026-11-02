@@ -67,7 +67,7 @@ namespace NuclearReplay.Playback
         private bool seekProfile;
         private sealed class SeekProfStart { }
         private sealed class SeekProfEnd { }
-        // Jump points (docs/JUMP-POINTS.md). Off unless [Viewer] JumpPoints or the test command "seekmode auto|snap" asks.
+        // Jump points (docs/JUMP-POINTS.md). Enabled by default; [Viewer] JumpPoints and seekmode can disable them.
         private enum JumpMode { FastForward, Auto, Always }
         private ConfigEntry<bool> jumpPointsCfg;
         private JumpMode jumpMode;

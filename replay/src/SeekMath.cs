@@ -13,6 +13,8 @@ namespace NuclearReplay.Playback
     // step (JumpPhysicsStep), so the game spends less time on frames nobody watches.
     internal static class SeekMath
     {
+        public const bool JumpPointsDefault = true;
+
         // Replay seconds per game frame while jumping: 8/60 s. Unchanged from 0.5 so the game's per-frame state
         // (physics steps per frame, Update delta) during a jump is the same as before; only drawing is skipped.
         public const float FastForwardSpeed = 8f;

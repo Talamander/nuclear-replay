@@ -74,7 +74,7 @@ namespace NuclearReplay.Playback
             clipsDirectory = Config.Bind("Viewer", "ClipsDirectory", "", "Where \"Clip this\" saves videos. Empty: <game>/NuclearReplay/clips. nr passes its own with -ncClipsDir.");
             ffmpegPath = Config.Bind("Viewer", "FfmpegPath", "", "ffmpeg used for viewer clips. Empty: the copy downloaded into <game>/NuclearReplay/tools/ffmpeg. nr passes its own with -ncFfmpeg; the last one given is kept here.");
             clipQuality = Config.Bind("Viewer", "Quality", 19, "Clip quality (lower is better; CRF/CQ scale, 14-30).");
-            jumpPointsCfg = Config.Bind("Viewer", "JumpPoints", false, "Faster long timeline jumps: rebuild the match at the jump instead of playing up to it (experimental).");
+            jumpPointsCfg = Config.Bind("Viewer", "JumpPoints", SeekMath.JumpPointsDefault, "Faster long timeline jumps: rebuild the match near the target. Set false to use fast-forward for every jump.");
             encoderSetting = Config.Bind("Viewer", "Encoder", "auto", "auto, nvenc, vulkan or x264.");
             var args = Environment.GetCommandLineArgs();
             for (int i = 0; i < args.Length; i++)

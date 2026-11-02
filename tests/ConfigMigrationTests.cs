@@ -4,6 +4,7 @@
 using System;
 using System.IO;
 using BepInEx.Configuration;
+using NuclearReplay.Playback;
 using NuclearReplay.Shared;
 
 int checks = 0;
@@ -13,6 +14,20 @@ var root = Path.Combine(Path.GetTempPath(), "nc-config-migration-" + Guid.NewGui
 Directory.CreateDirectory(root);
 try
 {
+    var freshPath = Path.Combine(root, "fresh-player.cfg");
+    var freshConfig = new ConfigFile(freshPath, false);
+    var jumpPoints = freshConfig.Bind("Viewer", "JumpPoints", SeekMath.JumpPointsDefault, "test");
+    Check(jumpPoints.Value, "fresh config enables jump points");
+    Check(File.ReadAllText(freshPath).Contains("JumpPoints = true"), "fresh default is saved");
+    jumpPoints.Value = false;
+    var reopen = new ConfigFile(freshPath, false).Bind("Viewer", "JumpPoints", SeekMath.JumpPointsDefault, "test");
+    Check(!reopen.Value, "explicit false survives the new default");
+    var olderPath = Path.Combine(root, "older-player.cfg");
+    File.WriteAllText(olderPath, "[Viewer]\nQuality = 23\n");
+    var older = new ConfigFile(olderPath, false);
+    Check(older.Bind("Viewer", "JumpPoints", SeekMath.JumpPointsDefault, "test").Value,
+        "an existing config without the key gets the new default");
+
     var cases = new System.Collections.Generic.List<(string[] Legacies, string Legacy, string Current)>();
     foreach (var legacy in PluginIds.LegacyRecorders) cases.Add((PluginIds.LegacyRecorders, legacy, PluginIds.Recorder));
     foreach (var legacy in PluginIds.LegacyPlayers) cases.Add((PluginIds.LegacyPlayers, legacy, PluginIds.Player));
