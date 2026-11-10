@@ -151,6 +151,13 @@ namespace NuclearReplay.Playback
                 ViewerSeek(pendingTarget, pendingKeepClip);
                 seekDeferredSeconds = waited;
             }
+            // Escape > Quit Mission stops the game's network itself. Close the replay the way Exit and Backspace do,
+            // so its toolbar does not stay on the main menu and the REPLAYS button comes back.
+            if (viewer && preview == null && server != null && server.ClientLeft)
+            {
+                Logger.LogInfo("Viewer: the game left the replay (Quit Mission)");
+                StopViewerReplay(reopenMenu: true, networkStopped: true);
+            }
             bool atMenu = server == null && MainMenu.State == MainMenu.LoadingState.Loaded && !NetworkManagerNuclearOption.IsLoadingScene
                 && (NetworkManagerNuclearOption.i == null || !NetworkManagerNuclearOption.i.Client.Active);
             if (atMenu && pendingPath == null && !viewerRestarting)
@@ -624,7 +631,8 @@ namespace NuclearReplay.Playback
         }
 
         // Leaves the replay for the main menu (and its Replays list when reopenMenu).
-        private void StopViewerReplay(bool reopenMenu)
+        // networkStopped: the game already stopped its network (Quit Mission), so it is not stopped a second time.
+        private void StopViewerReplay(bool reopenMenu, bool networkStopped = false)
         {
             Logger.LogInfo("Viewer: leaving the replay");
             // A clip that is still recording is dropped. One that is already encoding no longer needs the
@@ -649,7 +657,10 @@ namespace NuclearReplay.Playback
             hiddenCanvases.Clear();
             hudHidden = hideHud.Value;
             Time.timeScale = 1f; Time.captureFramerate = 0;
-            try { NetworkManagerNuclearOption.i?.Stop(true); } catch (Exception e) { Logger.LogWarning("Viewer exit: stop: " + e.Message); }
+            if (!networkStopped)
+            {
+                try { NetworkManagerNuclearOption.i?.Stop(true); } catch (Exception e) { Logger.LogWarning("Viewer exit: stop: " + e.Message); }
+            }
             factory = null;   // the next match the player starts uses the game's own network again
             viewer = false; viewerUiHidden = false; viewerHelp = false;
             ViewerCursor(false);

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Leaving a replay with Escape > Quit Mission now closes it like Exit and Backspace do: the replay toolbar
+  no longer stays on the main menu, the REPLAYS button comes back and the Replays list opens.
 ## 0.7.0 (2026-11-02)
 
 - **Faster jumps through long replays.** Jump points rebuild the match near the requested time, then

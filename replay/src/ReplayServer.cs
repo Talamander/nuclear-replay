@@ -41,6 +41,8 @@ namespace NuclearReplay.Playback
         public int Index => index;
         public int Count => records.Count;
         public int ScenesLoaded { get; private set; }
+        // The client connected and then went away: the game left the match itself (Escape, Quit Mission).
+        public bool ClientLeft { get; private set; }
         public long MessagesSent { get; private set; }
         public long BytesSent { get; private set; }
         public long PromotedToReliable { get; private set; }
@@ -66,7 +68,7 @@ namespace NuclearReplay.Playback
             peer = new Peer(socket, LoopbackSocketFactory.PacketSize, this, config);
             maxUnreliable = peer.GetMaxUnreliableMessageSize();
             peer.OnConnected += connection => { client = connection; log.LogInfo("Replay client connected"); };
-            peer.OnDisconnected += (connection, reason) => { log.LogWarning("Replay client disconnected: " + reason); client = null; };
+            peer.OnDisconnected += (connection, reason) => { log.LogWarning("Replay client disconnected: " + reason); client = null; ClientLeft = true; };
             peer.Bind(new LoopbackEndPoint());
             StartTime = records.Count > 0 ? records[0].Time : 0;
             EndTime = records.Count > 0 ? records[records.Count - 1].Time : 0;
