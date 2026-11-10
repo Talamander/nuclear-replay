@@ -175,6 +175,8 @@ namespace NuclearReplay.Playback
             catch (Exception e) { Logger.LogWarning("Jump points: ammo patches failed: " + e.Message); }
             try { harmony.PatchAll(typeof(JumpRadarPatches)); harmony.PatchAll(typeof(JumpRadarPatches.Toggles)); }
             catch (Exception e) { Logger.LogWarning("Jump points: radar patch failed: " + e.Message); }
+            try { harmony.PatchAll(typeof(JumpGearPatches)); }
+            catch (Exception e) { Logger.LogWarning("Jump points: landing gear patch failed: " + e.Message); }
             HudPatch(harmony);
             LightingOverride.Init(Logger);
             ViewerAwake();

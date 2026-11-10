@@ -122,8 +122,9 @@ Click **Replays** in the main menu and pick a match.
 
 Jump points are enabled by default in 0.7.0, including for existing recordings. A saved setting is kept.
 Paused missile positions can differ from straight playback and can be less accurate than in 0.6.
-To use the previous jump behavior, set `JumpPoints = false` under `[Viewer]` in
-`BepInEx/config/talamander.nuclearreplay.player.cfg`, then restart the game.
+To use the previous jump behavior, untick **Jump points** under the list on the Replays screen. Every jump
+then fast-forwards: slower on long recordings, but every unit ends up exactly as in straight playback. The
+choice is saved as `JumpPoints` under `[Viewer]` in `BepInEx/config/talamander.nuclearreplay.player.cfg`.
 
 These are the keys that matter most. Press **F1** in a replay for the full list.
 

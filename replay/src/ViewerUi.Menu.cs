@@ -40,7 +40,7 @@ namespace NuclearReplay.Playback
 
         private RectTransform menuList, menuView;
         private TextMeshProUGUI menuEmpty, menuHint, deleteLabel, deleteNote, allLabel;
-        private Image headerFill;
+        private Image headerFill, jumpPointsFill;
         private GameObject mapHeader;
         private LayoutElement missionHeader;
         private ViewerCatalog menuCatalog;
@@ -93,7 +93,7 @@ namespace NuclearReplay.Playback
                 if (label == "Mission") missionHeader = cell.GetComponent<LayoutElement>();
             }
 
-            menuView = Rect("List", menu, Vector2.zero, Vector2.one, new Vector2(28, 84), new Vector2(-28, -108));
+            menuView = Rect("List", menu, Vector2.zero, Vector2.one, new Vector2(28, 120), new Vector2(-28, -108));
             Fill(menuView, new Color(1, 1, 1, 0.03f), true);
             menuView.gameObject.AddComponent<RectMask2D>();
             menuList = Rect("Content", menuView, new Vector2(0, 1), new Vector2(1, 1), Vector2.zero, Vector2.zero);
@@ -102,6 +102,17 @@ namespace NuclearReplay.Playback
             scroll.content = menuList; scroll.horizontal = false; scroll.vertical = true; scroll.viewport = menuView;
             scroll.movementType = ScrollRect.MovementType.Clamped; scroll.scrollSensitivity = 40;
             menuEmpty = Text(menuView, "Looking for recordings...", 20, TextAlignmentOptions.Center);
+
+            // Settings for every replay, between the list and the buttons.
+            var options = Row(menu, "Options", 0);
+            options.anchorMin = new Vector2(0, 0); options.anchorMax = new Vector2(1, 0);
+            options.offsetMin = new Vector2(28, 78); options.offsetMax = new Vector2(-28, 114);
+            jumpPointsFill = CheckBox(options, () => host.ViewerSetJumpPoints(!host.ViewerJumpPoints));
+            var jumpText = Rect("JumpPoints", options, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero);
+            var jumpLayout = jumpText.gameObject.AddComponent<LayoutElement>();
+            jumpLayout.flexibleWidth = 1; jumpLayout.preferredHeight = 30;
+            Text(jumpText, "<b>Jump points</b>   faster long jumps. Untick to fast-forward every jump (slower, exact).",
+                16, TextAlignmentOptions.Left, new Color(textColor.r, textColor.g, textColor.b, 0.8f));
 
             var buttons = Row(menu, "Buttons", 10);
             buttons.anchorMin = new Vector2(0, 0); buttons.anchorMax = new Vector2(1, 0);
@@ -317,6 +328,11 @@ namespace NuclearReplay.Playback
                 if (menuHint != null && (!catalog.Scanning || shown.Count > 0))
                     menuHint.text = ViewerText.LibrarySummary(shown.Count, shown.Sum(x => x.Size), catalog.Pending);
                 menuDirty = true;
+            }
+            if (jumpPointsFill != null)
+            {
+                var jumpColor = host.ViewerJumpPoints ? accent : new Color(0, 0, 0, 0);
+                if (jumpPointsFill.color != jumpColor) jumpPointsFill.color = jumpColor;
             }
             if (deleteArmed != null && (Time.unscaledTime > deleteArmedUntil || deleteArmed.Any(d => !shownByPath.ContainsKey(d.Path)))) Disarm();
             if (selection.Version != boundSelection)

@@ -8,6 +8,12 @@
   pop up over a clean view; a toast already on screen goes when you press H.
 - The ride-along camera (0) and the free camera no longer cut a large see-through hole into an aircraft close
   to the lens. Their near clip plane is now 0.2 m, the same as the game's cockpit and chase cameras (it was 1 m).
+- **Jump points checkbox** under the list on the Replays screen. Untick it and every jump fast-forwards again
+  (slower on long recordings, but every unit ends up exactly as in straight playback). The choice is saved; it
+  is the `[Viewer] JumpPoints` setting, so there is no need to edit the config file and restart.
+- Fix aircraft flying on with their landing gear down after a jump point. The game ignores a gear change while
+  the gear is still moving, and a jump delivers every change since the spawn at once, so only the first one
+  stuck. During a jump the gear now goes straight to its recorded position.
 ## 0.7.0 (2026-11-02)
 
 - **Faster jumps through long replays.** Jump points rebuild the match near the requested time, then

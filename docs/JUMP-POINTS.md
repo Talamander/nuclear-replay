@@ -7,8 +7,8 @@ research and measurements are retained as background.
 Five measured jumps on a 2,410-second replay took 4.6–6.2 seconds; five on a 6,984-second replay took
 7.5–9.5 seconds, under Linux/Proton with system load below 3. These samples are not a guarantee for every PC.
 Paused missile positions can be worse than the 0.6 fast-forward result, and the full correctness and
-stress matrix is incomplete. Native Windows remains untested. Set `[Viewer] JumpPoints = false` in the
-player configuration and restart the game to use fast-forward for every jump.
+stress matrix is incomplete. Native Windows remains untested. Untick **Jump points** on the Replays
+screen (the `[Viewer] JumpPoints` setting) to use fast-forward for every jump.
 
 ## The problem
 
@@ -192,8 +192,8 @@ Prototype A behind a viewer setting:
 
 ## How it works in 0.7.0
 
-Enabled by default: `[Viewer] JumpPoints` controls it, and the viewer commands `seekmode auto|ff|snap`
-override the setting for a session. An existing explicit false setting stays false.
+Enabled by default: `[Viewer] JumpPoints` controls it (the **Jump points** checkbox on the Replays screen, or the
+viewer command `jumppoints on|off`), and the viewer commands `seekmode auto|ff|snap` override the setting for a session. An existing explicit false setting stays false.
 
 1. When a replay opens, `JumpIndex` reads the recording once on a background thread. It keeps the mission boundaries,
    each object's lifetime, a compact list of messages, and every 60 s a copy of each object's last transform. The 116
@@ -215,6 +215,13 @@ override the setting for a session. An existing explicit false setting stays fal
 tracking batches, so every call is sent in order. Latest: state where the last call wins, per object, group and key
 bytes. Skip: explicitly classified transient effects and UI messages. An unclassified RPC or an invalid RPC index
 fails the burst and falls back to fast-forward.
+
+### Landing gear
+
+`Aircraft.gearDeployed` is a SyncVar, but the game ignores a change while the gear is still moving. A burst delivers
+every change since the spawn in one frame, so only the first one took effect, and an aircraft that spawned on the
+runway and took off could fly on with its gear down. While a burst runs, `JumpGearPatches` puts the gear straight
+into the recorded position, locked, with no fold animation.
 
 ### Ammo
 

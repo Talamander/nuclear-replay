@@ -84,6 +84,19 @@ namespace NuclearReplay.Playback
         private volatile bool jumpIndexCancel;
         private const int MaxJumpFailures = 2, JumpBurstFrames = 6;
 
+        // The Replays screen's "Jump points" checkbox: the [Viewer] JumpPoints setting (saved at once). Off, every jump
+        // fast-forwards, which is slower on long recordings but leaves every unit exactly as straight playback does.
+        internal bool ViewerJumpPoints => jumpPointsCfg != null && jumpPointsCfg.Value;
+
+        internal void ViewerSetJumpPoints(bool on)
+        {
+            if (jumpPointsCfg == null) return;
+            jumpPointsCfg.Value = on;
+            jumpModeSet = false;
+            Logger.LogInfo("Viewer: jump points " + (on ? "on" : "off"));
+            if (on && server != null) JumpIndexStart(cachedDemo?.Records);
+        }
+
         private JumpMode CurrentJumpMode => jumpModeSet ? jumpMode : jumpPointsCfg.Value ? JumpMode.Auto : JumpMode.FastForward;
 
         private bool JumpWanted(double now, double target, bool keepClip)
@@ -464,6 +477,9 @@ namespace NuclearReplay.Playback
                     if (!seekTurboAllowed) SeekTurbo(false);
                     return "seek turbo " + (seekTurboAllowed ? "on" : "off");
                 case "stopjump": ViewerStopJump(); return "stop jump";
+                case "jumppoints":
+                    if (arg == "on" || arg == "off") ViewerSetJumpPoints(arg == "on");
+                    return "jump points " + (ViewerJumpPoints ? "on" : "off");
                 case "seekmode":
                     jumpMode = arg == "snap" ? JumpMode.Always : arg == "auto" ? JumpMode.Auto : JumpMode.FastForward;
                     jumpModeSet = true;

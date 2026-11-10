@@ -218,6 +218,23 @@ namespace NuclearReplay.Playback
         }
     }
 
+    // Landing gear is a SyncVar (Aircraft.gearDeployed), and the game ignores a change while the gear is still moving
+    // (GearStateChanged returns early on Extending or Retracting). Normal playback spaces the changes seconds apart, but a
+    // burst delivers every change since the spawn in one frame, so only the first took effect: an aircraft that spawned
+    // on the runway and took off could fly on with its gear down. While a burst runs the gear goes straight to the
+    // recorded value, locked, without the fold animation (or its sound).
+    [HarmonyPatch(typeof(Aircraft), "GearStateChanged")]
+    internal static class JumpGearPatches
+    {
+        [HarmonyPrefix]
+        private static bool SnapGear(Aircraft __instance, bool gearDeployed)
+        {
+            if (!JumpPlan.BurstActive) return true;
+            __instance.SetGear(gearDeployed ? LandingGear.GearState.LockedExtended : LandingGear.GearState.LockedRetracted);
+            return false;
+        }
+    }
+
     // A burst replays launches and rearms in one frame, so a launcher would skip those inside its fire interval, and a
     // rearm that waits for its reload time would land long after the shots it came before. While a burst runs, the
     // recorded server counts decide instead: launchers do not count their own launches, each count goes straight to
