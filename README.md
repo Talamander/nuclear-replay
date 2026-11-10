@@ -134,6 +134,7 @@ These are the keys that matter most. Press **F1** in a replay for the full list.
 | Left / Right | Back or forward 10 seconds |
 | Up / Down | Faster or slower (0.25x to 4x) |
 | 1 to 9 | Cameras: cinematic chase, victim cut, missile follow, chase, orbit, flyby, cockpit, action cam, two-shot. Away from a timeline moment they watch the unit on screen and follow only its missiles |
+| Shift+9 | Two-shot target swap: the camera goes to the watched unit's target and looks back at the unit. Press again for the next target (nearest first); 9 goes back to the unit |
 | Shift+3 | Missile follow on or off for keys 1, 4, 5 and 8 (keys 2 and 3 always follow the watched unit's missiles) |
 | 0 and R | Ride-along: 0 pauses and puts the free camera next to the unit, fly it where you want it, R locks it. Shift+R: level horizon or roll with the unit |
 | B | Unit list: search, then Enter or click to watch that unit. Shift+B picks the second unit for the two-shot |

@@ -19,6 +19,10 @@
   not to any launch on the map. Switching units keeps missile follow and moves it to the new unit's missiles.
   **Shift+3** turns missile follow off and on for keys 1, 4, 5 and 8; keys 2 and 3 always follow. Shot lists
   get the same as a `follow_missiles` shot field.
+- **Two-shot target swap (Shift+9).** In the two-shot, Shift+9 puts the camera on the selected unit's target
+  and keeps the selected unit in frame. Press it again for the next target, nearest to the selected unit
+  first. 9 goes back to the selected unit. During a swap, a unit that fires at the selected unit no longer
+  takes the shot over. Targets come from the unit's target list, its weapon stations and its live missiles.
 
 ## 0.7.0 (2026-11-02)
 

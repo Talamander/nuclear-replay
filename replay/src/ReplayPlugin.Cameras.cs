@@ -14,7 +14,11 @@ namespace NuclearReplay.Playback
     //              unit, Tab changes the filter (aircraft, ground, sea, all), Escape closes; destroyed units only
     //              with the list's "Destroyed" button
     //   Shift+B    the same list, but the pick becomes the two-shot's second unit
-    //   9          two-shot (a camera style): the unit on screen and its opponent, or the Shift+B pick
+    //   9          two-shot (a camera style): the unit on screen and its opponent, or the Shift+B pick; during a
+    //              target swap, back to the selected unit
+    //   Shift+9    two-shot target swap: the camera goes to the selected unit's target, with the selected unit as the
+    //              second unit, so the shot looks back at it. Again: the next target, nearest to the selected unit
+    //              first at the time of the press. Units firing at the selected unit do not take over the shot.
     //   Shift+3    missile follow on or off for keys 1, 4, 5 and 8 at a hand-picked time: cut to each missile the
     //              watched unit launches (only that unit's), back to the unit once the missile is gone
     //   0          ride-along: the first time, pauses and puts the free camera next to the unit on screen; fly it
@@ -32,6 +36,9 @@ namespace NuclearReplay.Playback
         private double unitListPanelRefresh;
         // Unit ids, not units: a backward jump reloads the mission and makes new unit objects.
         private string twoShotTarget, twoShotSecond;
+        // Two-shot target swap (Shift+9): the target on camera, and the targets already shown in this round.
+        private string twoShotSwap;
+        private readonly HashSet<string> twoShotSwapSeen = new HashSet<string>();
         // The unit a hand-picked time's camera styles watch (the unit on screen when a style key or [ ] picked it).
         private string watchedTarget;
         // Missile follow for keys 1, 4, 5 and 8 at a hand-picked time (Shift+3). Keys 2 and 3 always follow.
@@ -51,6 +58,7 @@ namespace NuclearReplay.Playback
             if (Input.GetKeyDown(KeyCode.B)) ViewerUnitList(shift);
             if (studio.Open) return false;   // the studio's free camera is for its own keys
             if (Input.GetKeyDown(KeyCode.Alpha0) || Input.GetKeyDown(KeyCode.Keypad0)) ViewerRide();
+            if (shift && Input.GetKeyDown(KeyCode.Alpha9)) ViewerTwoShotSwap();
             if (Input.GetKeyDown(KeyCode.R))
             {
                 if (shift) ViewerRideRoll();
@@ -65,6 +73,7 @@ namespace NuclearReplay.Playback
             UnitListClose();
             unitFilter = "aircraft";
             twoShotTarget = twoShotSecond = null;
+            SwapClear();
             watchedTarget = null;
             rideUnit = null; ridePlacing = false; ridePausedByUs = false; rideShot = null; rideRoll = "unit";
             if (viewerPreset == RideId) viewerPreset = "cinematic_chase";
@@ -93,6 +102,15 @@ namespace NuclearReplay.Playback
                 // A hand-picked time: the unit that was on screen when 9 was pressed (a moment keeps its shooter).
                 if (moment == null && twoShotTarget != null) shot["target"] = "unit:" + twoShotTarget;
                 if (twoShotSecond != null && "unit:" + twoShotSecond != shot["target"]?.ToString()) shot["second"] = "unit:" + twoShotSecond;
+                if (twoShotSwap != null && twoShotTarget != null)
+                {
+                    // Target swap: the selected unit's target on camera, the selected unit as the fixed second, so a
+                    // unit that fires at the selected unit does not take the shot over. Once that target is gone,
+                    // back to the selected unit.
+                    shot["target"] = "unit:" + twoShotSwap;
+                    shot["second"] = "unit:" + twoShotTarget;
+                    shot["then"] = new JObject { ["camera"] = "two_shot", ["target"] = "unit:" + twoShotTarget, ["hold"] = 3 };
+                }
             }
             return shots;
         }
@@ -138,16 +156,70 @@ namespace NuclearReplay.Playback
         private void PresetChosen(string id)
         {
             var unit = director?.CurrentUnit;
+            // 9 during a target swap: back to the selected unit (the unit on screen is its target).
+            if (id == "two_shot" && twoShotSwap != null && twoShotTarget != null) { SwapClear(); return; }
+            SwapClear();
             Watch(unit);
             if (id == "two_shot" && unit != null) twoShotTarget = unit.persistentID.ToString();
+        }
+
+        private void SwapClear()
+        {
+            twoShotSwap = null;
+            twoShotSwapSeen.Clear();
+        }
+
+        // Shift+9: the two-shot on the selected unit's next target (nearest to it first, at the time of the press).
+        internal void ViewerTwoShotSwap()
+        {
+            if (!viewer || director == null || server == null) return;
+            if (recorder != null && !freeCamOn) return;
+            if (viewerPreset != "two_shot")
+            {
+                PresetChosen("two_shot");
+                viewerPreset = "two_shot";
+            }
+            Unit selected = twoShotTarget != null ? director.Resolve("unit:" + twoShotTarget) : null;
+            if (selected == null || selected.disabled)
+            {
+                selected = director.CurrentUnit;
+                if (selected is Missile missile && missile.owner != null) selected = missile.owner;
+                if (selected == null) { ui.Toast("Two-shot target swap: no unit selected", 2f); return; }
+                twoShotTarget = selected.persistentID.ToString();
+                SwapClear();
+            }
+            var targets = director.TargetsOf(selected);
+            if (targets.Count == 0)
+            {
+                ui.Toast($"{UnitLabel(selected)} has no target to swap to", 2.5f);
+                return;
+            }
+            // Nearest not yet shown in this round; once all were shown, start again (skipping the one on screen).
+            var next = targets.FirstOrDefault(u => !twoShotSwapSeen.Contains(u.persistentID.ToString()));
+            if (next == null)
+            {
+                twoShotSwapSeen.Clear();
+                next = targets.FirstOrDefault(u => u.persistentID.ToString() != twoShotSwap) ?? targets[0];
+            }
+            twoShotSwap = next.persistentID.ToString();
+            twoShotSwapSeen.Add(twoShotSwap);
+            StudioLeave();
+            if (freeCamOn) SetFreeCam(false);
+            ApplyPreset("two_shot", server.Clock - server.StartTime);
+            int position = targets.IndexOf(next) + 1;
+            ui.Toast($"Two-shot on {UnitLabel(selected)}'s target {UnitLabel(next)}  ({position} of {targets.Count}, nearest first). 9 goes back to {UnitLabel(selected)}", 3f);
         }
 
         // A unit followed with [ ] or the list keeps the two-shot and the ride-along on it.
         private void TargetChosen(Unit unit)
         {
             if (unit == null) return;
+            bool swapped = twoShotSwap != null;
+            SwapClear();
             Watch(unit);
             if (viewerPreset == "two_shot") twoShotTarget = unit.persistentID.ToString();
+            // A unit picked during a target swap is the new selected unit: drop the old one as the second unit.
+            if (swapped && viewerPreset == "two_shot" && server != null && director != null) ApplyPreset("two_shot", server.Clock - server.StartTime);
             if (viewerPreset == RideId && rideShot != null) rideShot["target"] = "unit:" + unit.persistentID;
         }
 
@@ -448,6 +520,7 @@ namespace NuclearReplay.Playback
                 case "ride": ViewerRide(); return ridePlacing ? "placing a ride-along for " + (rideUnit != null ? UnitLabel(rideUnit) : "?") : "ride-along " + rideShot?.ToString(Newtonsoft.Json.Formatting.None);
                 case "ride-lock": ViewerRideLock(); return rideShot != null && !ridePlacing ? "locked " + rideShot.ToString(Newtonsoft.Json.Formatting.None) : ridePlacing ? "placing" : "not locked";
                 case "ride-roll": ViewerRideRoll(); return "roll " + rideRoll;
+                case "twoshot-swap": ViewerTwoShotSwap(); return twoShotSwap != null ? "two-shot on unit:" + twoShotSwap + " with unit:" + twoShotTarget : "no swap";
                 case "missilefollow":
                     if (arg == "on" && !viewerMissileFollow || arg == "off" && viewerMissileFollow || arg != "on" && arg != "off") ViewerToggleMissileFollow();
                     return "missile follow " + (viewerMissileFollow ? "on" : "off");
@@ -467,6 +540,7 @@ namespace NuclearReplay.Playback
             ["missile_follow"] = viewerMissileFollow,
             ["two_shot_target"] = twoShotTarget,
             ["two_shot_second"] = twoShotSecond,
+            ["two_shot_swap"] = twoShotSwap,
             ["ride_placing"] = ridePlacing,
             ["ride"] = rideShot != null ? (JObject)rideShot.DeepClone() : null
         };

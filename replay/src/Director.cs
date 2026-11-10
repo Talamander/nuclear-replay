@@ -548,6 +548,36 @@ namespace NuclearReplay.Playback
             return enemy ?? any;
         }
 
+        // The units `subject` has targeted, for the two-shot's target swap (Shift+9): its target list (an aircraft's
+        // designated targets), the targets of its weapon stations and turrets, and the targets of its live missiles.
+        // Live units only, nearest to `subject` first.
+        internal List<Unit> TargetsOf(Unit subject)
+        {
+            var found = new List<Unit>();
+            if (subject == null) return found;
+            void Add(Unit u) { if (u != null && !u.disabled && u != subject && !(u is Missile) && !found.Contains(u)) found.Add(u); }
+            try
+            {
+                if (subject is Aircraft aircraft && aircraft.weaponManager != null)
+                    foreach (var t in aircraft.weaponManager.GetTargetList()) Add(t);
+            }
+            catch (Exception) { }
+            try
+            {
+                if (subject.weaponStations != null)
+                    foreach (var station in subject.weaponStations) Add(station?.GetStationTarget());
+            }
+            catch (Exception) { }
+            for (int i = missiles.Count - 1; i >= 0; i--)
+            {
+                var m = missiles[i];
+                if (m == null || m.disabled || m.owner != subject) continue;
+                if (UnitRegistry.TryGetUnit(m.targetID, out Unit target)) Add(target);
+            }
+            Vector3 at = subject.transform.position;
+            return found.OrderBy(u => (u.transform.position - at).sqrMagnitude).ToList();
+        }
+
         internal static Aircraft HostAircraft()
         {
             foreach (var player in UnityEngine.Object.FindObjectsOfType<Player>())
