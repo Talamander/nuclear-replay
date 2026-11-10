@@ -37,6 +37,33 @@ namespace NuclearReplay.Playback
 
         private bool IsRide => mode == "ride";
 
+        // Near clip plane of the ride camera. The cine cameras use 1 m, which cuts a hole into an aircraft a few
+        // metres from the lens (the "x-ray bubble"). The game's own cockpit and chase cameras use 0.2 m with the same
+        // far plane, so distant terrain keeps its depth precision. Set on the main camera and, with NOVR, on the
+        // camera that renders; put back when the ride shot ends.
+        internal const float RideNearClip = 0.2f;
+        private float rideSavedMainNear = -1, rideSavedRenderNear = -1;
+        private Camera rideNearCam;
+
+        private void RideNear(CameraStateManager cam)
+        {
+            var main = cam != null ? cam.mainCamera : null;
+            if (main == null) return;
+            var rc = RenderCamera(main);
+            if (rideSavedMainNear < 0) rideSavedMainNear = main.nearClipPlane;
+            if (rc != main && (rideNearCam != rc || rideSavedRenderNear < 0)) { rideNearCam = rc; rideSavedRenderNear = rc.nearClipPlane; }
+            if (main.nearClipPlane != RideNearClip) main.nearClipPlane = RideNearClip;
+            if (rc != main && rc.nearClipPlane != RideNearClip) rc.nearClipPlane = RideNearClip;
+        }
+
+        private void EndRideNear(CameraStateManager cam)
+        {
+            var main = cam != null ? cam.mainCamera : null;
+            if (main != null && rideSavedMainNear > 0) main.nearClipPlane = rideSavedMainNear;
+            if (rideNearCam != null && rideSavedRenderNear > 0) rideNearCam.nearClipPlane = rideSavedRenderNear;
+            rideSavedMainNear = -1; rideSavedRenderNear = -1; rideNearCam = null;
+        }
+
         private void SetupRide()
         {
             float size = Units.Size(unit);
@@ -102,6 +129,7 @@ namespace NuclearReplay.Playback
             if (rLook != 3) lookPos = camPos + fwd;
 
             curFov = fov > 0 ? fov : 50f;
+            RideNear(cam);
             cam.transform.SetPositionAndRotation(new GlobalPosition(camPos).ToLocalPosition(), rot);
             ApplyFov(cam, curFov);
             cam.cameraVelocity = rest || dt <= 0 ? Vector3.zero : targetVel;

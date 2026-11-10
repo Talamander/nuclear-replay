@@ -6,6 +6,8 @@
   no longer stays on the main menu, the REPLAYS button comes back and the Replays list opens.
 - Hide UI (H) now hides toasts too. Lens steps, the free camera hint, camera and lighting messages no longer
   pop up over a clean view; a toast already on screen goes when you press H.
+- The ride-along camera (0) and the free camera no longer cut a large see-through hole into an aircraft close
+  to the lens. Their near clip plane is now 0.2 m, the same as the game's cockpit and chase cameras (it was 1 m).
 ## 0.7.0 (2026-11-02)
 
 - **Faster jumps through long replays.** Jump points rebuild the match near the requested time, then

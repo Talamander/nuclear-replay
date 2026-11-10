@@ -105,6 +105,7 @@ namespace NuclearReplay.Playback
             mode = shot.Camera.ToLowerInvariant();
             CloseTrace();
             EndMount(CameraStateManager.i);
+            EndRideNear(CameraStateManager.i);
             shotStart = replayTime;
             unit = target;
             sizeScale = unit == null || unit is Aircraft || unit is Missile ? 1f : Mathf.Max(1f, Units.Size(unit) / 18f);
@@ -158,7 +159,7 @@ namespace NuclearReplay.Playback
                 + (mode == "flyby" || mode == "track_from" ? $", camera {Fmt(anchor)}" : ""));
         }
 
-        public void End() { EndMount(CameraStateManager.i); Active = false; unit = null; CloseTrace(); }
+        public void End() { EndMount(CameraStateManager.i); EndRideNear(CameraStateManager.i); Active = false; unit = null; CloseTrace(); }
 
         // A still camera on a point. The director uses it when a missile it follows with one of the game's own
         // cameras detonates: the game's chase camera would swing to the sky, so the view stays where it was and
@@ -170,6 +171,7 @@ namespace NuclearReplay.Playback
             NoShake();
             CloseTrace();
             EndMount(CameraStateManager.i);
+            EndRideNear(CameraStateManager.i);
             shotStart = replayTime;
             unit = null;
             Active = true;
@@ -742,6 +744,7 @@ namespace NuclearReplay.Playback
         {
             CloseTrace();
             EndMount(cam);
+            EndRideNear(cam);
             if (usingMatrix) ResetLens(cam.mainCamera);
             if (savedFov > 0) { cam.mainCamera.fieldOfView = savedFov; cam.desiredFOV = savedFov; }
             savedFov = -1;

@@ -42,7 +42,9 @@ namespace NuclearReplay.Playback
             cam.transform.SetParent(null, worldPositionStays: true);
             CameraStateManager.cameraMode = CameraMode.tv;
             cam.cockpitCamRender.enabled = false;
-            cam.mainCamera.nearClipPlane = 1f;
+            // The game's cockpit and chase cameras use 0.2 m: the free camera goes right up to an aircraft (to place a
+            // ride-along shot, for one) without cutting a hole into it.
+            cam.mainCamera.nearClipPlane = CineCamera.RideNearClip;
             FlightHud.EnableCanvas(enable: false);
             if (savedFov < 0) savedFov = cam.desiredFOV;
             if (Lens.FocalMm > 0) ApplyFov(cam, (float)LensMath.FovFromFocal(Lens.FocalMm, Lens.SensorInfo, cam.mainCamera.aspect));
