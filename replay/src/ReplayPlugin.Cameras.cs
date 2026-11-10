@@ -15,6 +15,8 @@ namespace NuclearReplay.Playback
     //              with the list's "Destroyed" button
     //   Shift+B    the same list, but the pick becomes the two-shot's second unit
     //   9          two-shot (a camera style): the unit on screen and its opponent, or the Shift+B pick
+    //   Shift+3    missile follow on or off for keys 1, 4, 5 and 8 at a hand-picked time: cut to each missile the
+    //              watched unit launches (only that unit's), back to the unit once the missile is gone
     //   0          ride-along: the first time, pauses and puts the free camera next to the unit on screen; fly it
     //              to the spot and press R. Once locked, 0 plays the ride-along again.
     //   R          free camera: lock a ride-along on the unit being placed for (or the nearest unit); during a
@@ -30,6 +32,10 @@ namespace NuclearReplay.Playback
         private double unitListPanelRefresh;
         // Unit ids, not units: a backward jump reloads the mission and makes new unit objects.
         private string twoShotTarget, twoShotSecond;
+        // The unit a hand-picked time's camera styles watch (the unit on screen when a style key or [ ] picked it).
+        private string watchedTarget;
+        // Missile follow for keys 1, 4, 5 and 8 at a hand-picked time (Shift+3). Keys 2 and 3 always follow.
+        private bool viewerMissileFollow = true;
         private Unit rideUnit;              // the unit a ride-along is being placed for (free camera on)
         private bool ridePlacing, ridePausedByUs;
         private JObject rideShot;           // the locked ride-along: target, offset, look_dir, roll, fov
@@ -59,6 +65,7 @@ namespace NuclearReplay.Playback
             UnitListClose();
             unitFilter = "aircraft";
             twoShotTarget = twoShotSecond = null;
+            watchedTarget = null;
             rideUnit = null; ridePlacing = false; ridePausedByUs = false; rideShot = null; rideRoll = "unit";
             if (viewerPreset == RideId) viewerPreset = "cinematic_chase";
         }
@@ -80,6 +87,7 @@ namespace NuclearReplay.Playback
                 id = "chase";
             }
             var shots = ViewerPresets.Build(id, moment, from, to, viewerDemo?.Events ?? new List<ViewerEvent>());
+            if (moment == null && shots.Count > 0 && shots[0] is JObject picked) WatchShot(id, picked);
             if (id == "two_shot" && shots.Count > 0 && shots[0] is JObject shot)
             {
                 // A hand-picked time: the unit that was on screen when 9 was pressed (a moment keeps its shooter).
@@ -89,12 +97,48 @@ namespace NuclearReplay.Playback
             return shots;
         }
 
+        // A hand-picked time: the style watches the unit that was on screen (not the host, and not any missile on
+        // the map), and follows only that unit's missiles.
+        private void WatchShot(string id, JObject shot)
+        {
+            bool missileStyle = id == "missile_follow" || id == "victim_cut";
+            bool watches = missileStyle || id == "cinematic_chase" || id == "chase" || id == "orbit" || id == "action";
+            if (!watches) return;
+            if (watchedTarget != null) shot["target"] = "unit:" + watchedTarget;
+            else if (missileStyle) shot["target"] = "auto";
+            if (missileStyle) { shot["camera"] = "chase"; shot["fov"] = 60; shot["hold"] = 3; }
+            // false, not absent: an "auto" target without the field still cuts to every launch (nr shot lists).
+            shot["follow_missiles"] = missileStyle || viewerMissileFollow;
+        }
+
+        // The unit to watch: the one on screen, or the launcher of the missile on screen.
+        private void Watch(Unit unit)
+        {
+            if (unit is Missile missile && missile.owner != null) unit = missile.owner;
+            if (unit != null && !(unit is Missile)) watchedTarget = unit.persistentID.ToString();
+        }
+
+        internal void ViewerToggleMissileFollow()
+        {
+            if (!viewer) return;
+            viewerMissileFollow = !viewerMissileFollow;
+            ui.Toast(viewerMissileFollow ? "Missile follow on: the camera follows the watched unit's missiles" : "Missile follow off: the camera stays on the watched unit", 2.5f);
+            // Re-apply a style that uses it, so the change shows at once.
+            if (server != null && director != null && !freeCamOn && !studio.Playing
+                && (viewerPreset == "cinematic_chase" || viewerPreset == "chase" || viewerPreset == "orbit" || viewerPreset == "action"))
+            {
+                Watch(director.CurrentUnit);
+                ApplyPreset(viewerPreset, server.Clock - server.StartTime);
+            }
+        }
+
         private static bool Live(Unit unit) => unit != null && !unit.disabled;
 
         // Called before a camera style is applied from the viewer (keys 1 - 9, 0).
         private void PresetChosen(string id)
         {
             var unit = director?.CurrentUnit;
+            Watch(unit);
             if (id == "two_shot" && unit != null) twoShotTarget = unit.persistentID.ToString();
         }
 
@@ -102,6 +146,7 @@ namespace NuclearReplay.Playback
         private void TargetChosen(Unit unit)
         {
             if (unit == null) return;
+            Watch(unit);
             if (viewerPreset == "two_shot") twoShotTarget = unit.persistentID.ToString();
             if (viewerPreset == RideId && rideShot != null) rideShot["target"] = "unit:" + unit.persistentID;
         }
@@ -403,6 +448,9 @@ namespace NuclearReplay.Playback
                 case "ride": ViewerRide(); return ridePlacing ? "placing a ride-along for " + (rideUnit != null ? UnitLabel(rideUnit) : "?") : "ride-along " + rideShot?.ToString(Newtonsoft.Json.Formatting.None);
                 case "ride-lock": ViewerRideLock(); return rideShot != null && !ridePlacing ? "locked " + rideShot.ToString(Newtonsoft.Json.Formatting.None) : ridePlacing ? "placing" : "not locked";
                 case "ride-roll": ViewerRideRoll(); return "roll " + rideRoll;
+                case "missilefollow":
+                    if (arg == "on" && !viewerMissileFollow || arg == "off" && viewerMissileFollow || arg != "on" && arg != "off") ViewerToggleMissileFollow();
+                    return "missile follow " + (viewerMissileFollow ? "on" : "off");
                 default: return null;
             }
         }
@@ -415,6 +463,8 @@ namespace NuclearReplay.Playback
                 ["second"] = unitListPanel.PickSecond, ["filter"] = unitListPanel.Filter, ["query"] = unitListPanel.Query, ["destroyed"] = unitListPanel.ShowDestroyed,
                 ["selected"] = unitListPanel.Selected, ["rows"] = new JArray(unitListPanel.Rows.Take(20).Select(r => r.Id + " " + r.Label + " | " + r.Type + " | " + r.Side + (r.Alive ? "" : " | destroyed")))
             } : null,
+            ["watched"] = watchedTarget,
+            ["missile_follow"] = viewerMissileFollow,
             ["two_shot_target"] = twoShotTarget,
             ["two_shot_second"] = twoShotSecond,
             ["ride_placing"] = ridePlacing,

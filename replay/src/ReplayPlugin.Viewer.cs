@@ -292,8 +292,11 @@ namespace NuclearReplay.Playback
             if (Input.GetKeyDown(KeyCode.RightArrow)) ViewerSkip(10);
             if (Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.KeypadPlus) || Input.GetKeyDown(KeyCode.Equals)) ViewerSpeed(1);
             if (Input.GetKeyDown(KeyCode.DownArrow) || Input.GetKeyDown(KeyCode.KeypadMinus) || Input.GetKeyDown(KeyCode.Minus)) ViewerSpeed(-1);
+            bool shiftDown = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+            // Shift+3: missile follow on or off (Shift+9 is the two-shot's target swap, CamerasKeys).
+            if (shiftDown && Input.GetKeyDown(KeyCode.Alpha3)) ViewerToggleMissileFollow();
             for (int i = 0; i < ViewerPresets.Ids.Length; i++)
-                if (Input.GetKeyDown(KeyCode.Alpha1 + i)) ViewerPreset(ViewerPresets.Ids[i]);
+                if (Input.GetKeyDown(KeyCode.Alpha1 + i) && !(shiftDown && (i == 2 || i == 8))) ViewerPreset(ViewerPresets.Ids[i]);
             if (Input.GetKeyDown(KeyCode.P)) ViewerToggleStudio();
             // Camera Studio takes [ ], C and its own keys while it is open.
             if (studio.Open) StudioKeys();

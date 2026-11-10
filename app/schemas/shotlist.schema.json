@@ -56,6 +56,10 @@
           "minimum": 0,
           "description": "Seconds to stay on a destroyed target before cutting to the nearest live aircraft. Default 3. A detonated missile holds a still view of its explosion."
         },
+        "follow_missiles": {
+          "type": "boolean",
+          "description": "Cut to each missile the target launches (only the target's own, unlike auto, which takes every launch on the map), with this shot's camera, and back to the target once the missile is gone and the hold is over. false on an auto target stops its missile cuts."
+        },
         "offset": { "$ref": "#/$defs/vector", "description": "ride: metres from the target in its own frame [x right, y up, z forward]. Default off the right side, a little behind and above, scaled to the unit's size." },
         "look_dir": { "$ref": "#/$defs/vector", "description": "ride: direction to look in, in the target's frame. Default: look at the target." },
         "look": { "$ref": "#/$defs/vector", "description": "ride: a point in the target's frame to look at." },
@@ -145,6 +149,7 @@
         "target": { "$ref": "#/$defs/shot/properties/target" },
         "fov": { "$ref": "#/$defs/shot/properties/fov" },
         "hold": { "$ref": "#/$defs/shot/properties/hold" },
+        "follow_missiles": { "$ref": "#/$defs/shot/properties/follow_missiles" },
         "target_hud": { "$ref": "#/$defs/target_hud" },
         "offset": { "$ref": "#/$defs/shot/properties/offset" },
         "look_dir": { "$ref": "#/$defs/shot/properties/look_dir" },

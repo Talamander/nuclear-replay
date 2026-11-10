@@ -14,6 +14,12 @@
 - Fix aircraft flying on with their landing gear down after a jump point. The game ignores a gear change while
   the gear is still moving, and a jump delivers every change since the spawn at once, so only the first one
   stuck. During a jump the gear now goes straight to its recorded position.
+- Missile follow stays on the unit you watch. Away from a timeline moment, camera keys 1 to 5 and 8 now
+  watch the unit on screen (or the one picked with [ ] or the unit list) and cut only to that unit's missiles,
+  not to any launch on the map. Switching units keeps missile follow and moves it to the new unit's missiles.
+  **Shift+3** turns missile follow off and on for keys 1, 4, 5 and 8; keys 2 and 3 always follow. Shot lists
+  get the same as a `follow_missiles` shot field.
+
 ## 0.7.0 (2026-11-02)
 
 - **Faster jumps through long replays.** Jump points rebuild the match near the requested time, then

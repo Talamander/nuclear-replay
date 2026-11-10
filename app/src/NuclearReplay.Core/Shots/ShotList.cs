@@ -66,7 +66,7 @@ public static class ShotValidator
     public static readonly string[] Cameras = { "orbit", "chase", "chase_cine", "action", "cockpit", "tv", "free", "relative", "ride", "two_shot" };
     public static readonly string[] FixedTargets = { "host", "auto", "latest_missile", "latest_host_missile" };
     private static readonly Regex UnitTarget = new(@"^unit:[0-9]+$", RegexOptions.CultureInvariant);
-    private static readonly string[] KnownShotFields = new[] { "t", "camera", "target", "fov", "hold", "then", ShotTargetHud.Field }.Concat(ShotLens.Fields).ToArray();
+    private static readonly string[] KnownShotFields = new[] { "t", "camera", "target", "fov", "hold", "then", "follow_missiles", ShotTargetHud.Field }.Concat(ShotLens.Fields).ToArray();
 
     // Options of the ride and two_shot cameras (replay/src/CineRide.cs, CineTwoShot.cs; light shake from CinePath.cs).
     private static readonly string[] ShakeFields = { "handheld", "rumble", "buffet", "shake_speed" };

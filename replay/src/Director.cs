@@ -31,6 +31,9 @@ namespace NuclearReplay.Playback
     //   hold    optional seconds to stay on a destroyed target before cutting away (default 3)
     //   then    optional shot object (camera, target, fov, hold) to cut to when the target is gone and the hold
     //           is over, instead of the nearest aircraft (victim_cut: the victim at the moment the missile hits)
+    //   follow_missiles  optional bool: cut to each missile the target launches, with the shot's own camera, and back
+    //           to the target once the missile is gone and the hold is over. Only that unit's missiles, unlike auto,
+    //           which cuts to every launch on the map.
     //
     // When a target is destroyed the camera holds on the wreck for `hold` seconds, then follows the
     // live aircraft nearest to where the target died, so the replay never stares at empty ground. A missile
@@ -67,6 +70,10 @@ namespace NuclearReplay.Playback
         private Vector3 lastPosition;
         private bool haveLastPosition;
         private Missile newestMissile;
+        // Missiles first seen this Update, for follow_missiles (several can appear in one frame).
+        private readonly List<Missile> newMissiles = new List<Missile>();
+        // The unit a follow_missiles shot watches: the last unit it cut to that is not a missile.
+        private Unit watchedUnit;
         private readonly CineCamera cine;
         private JObject rootLighting;       // the shot list's root "lighting" object: defaults for every shot
         internal JToken RootHud { get; private set; }   // the shot list's root "target_hud": default for every shot
@@ -120,7 +127,7 @@ namespace NuclearReplay.Playback
             if (parsed.Count == 0) parsed.Add(new Shot { T = 0, Camera = "orbit", Target = "auto" });
             shots.Clear();
             shots.AddRange(parsed);
-            next = 0; current = null; currentUnit = null; hadTarget = false; holding = false; lostAt = -1;
+            next = 0; current = null; currentUnit = null; hadTarget = false; holding = false; lostAt = -1; watchedUnit = null;
             if (cine.Active) cine.End();
             while (next < shots.Count && shots[next].T <= replayTime) current = shots[next++];
             SetLightingDefaults(lighting);
@@ -147,6 +154,7 @@ namespace NuclearReplay.Playback
         public void Update(double replayTime, bool sceneLive)
         {
             lastReplayTime = replayTime;
+            newMissiles.Clear();
             TrackMissiles();
             if (!sceneLive) return;
             var cameras = CameraStateManager.i;
@@ -161,7 +169,7 @@ namespace NuclearReplay.Playback
                 if (previous != null && currentUnit != null && !currentUnit.disabled && !holding && !CineCamera.IsCine(current.Camera)
                     && string.Equals(previous.Camera, current.Camera, StringComparison.OrdinalIgnoreCase) && previous.Target == current.Target)
                     continue;
-                currentUnit = null; hadTarget = false; holding = false;
+                currentUnit = null; hadTarget = false; holding = false; watchedUnit = null;
             }
             if (current == null) return;
             // Lighting goes on before the camera starts, so backlight placement sees this shot's sun. A "then" cut
@@ -183,6 +191,8 @@ namespace NuclearReplay.Playback
                 newestMissile = null;
                 return;
             }
+            // Missiles of the watched unit only, taken as they appear (a launch while the hold runs is not dropped).
+            Missile ownLaunch = FollowsMissiles(current) ? OwnLaunch() : null;
             bool alive = currentUnit != null && !currentUnit.disabled;
             if (alive)
             {
@@ -203,10 +213,16 @@ namespace NuclearReplay.Playback
             }
             if (alive)
             {
-                // Auto mode cuts to a fresh launch unless it is already riding a live missile.
-                if (current.Target == "auto" && newestMissile != null && newestMissile != currentUnit && !newestMissile.disabled
+                // Auto mode cuts to a fresh launch unless it is already riding a live missile (any missile on the map, unless
+                // the shot says follow_missiles, which only takes the watched unit's).
+                if (current.Target == "auto" && current.Raw?["follow_missiles"] == null && newestMissile != null && newestMissile != currentUnit && !newestMissile.disabled
                     && !(currentUnit is Missile) && replayTime - lastCut > 2)
                     Cut(cameras, newestMissile, replayTime);
+                else if (ownLaunch != null && ownLaunch != currentUnit && !(currentUnit is Missile))
+                {
+                    log.LogInfo($"Director: {watchedUnit?.unitName} launched {ownLaunch.unitName} at {replayTime:F2}s, following it");
+                    Cut(cameras, ownLaunch, replayTime);
+                }
                 newestMissile = null;
                 return;
             }
@@ -243,8 +259,25 @@ namespace NuclearReplay.Playback
                 }
             }
             var unit = Resolve(current.Target);
+            // follow_missiles: back to the unit that fired once its missile is gone.
+            if (FollowsMissiles(current) && currentUnit is Missile && watchedUnit != null && !watchedUnit.disabled) unit = watchedUnit;
             if (unit == null || unit == currentUnit || unit.disabled) unit = hadTarget ? NearestAircraft(lastPosition) : null;
             if (unit != null) Cut(cameras, unit, replayTime);
+        }
+
+        private static bool FollowsMissiles(Shot shot) => shot?.Raw != null && shot.Raw["follow_missiles"] is JToken f && f.Type == JTokenType.Boolean && (bool)f;
+
+        // The newest missile first seen since the last Update that the watched unit launched, or null.
+        private Missile OwnLaunch()
+        {
+            var watched = watchedUnit;
+            if (watched == null || watched.disabled) return null;
+            for (int i = newMissiles.Count - 1; i >= 0; i--)
+            {
+                var m = newMissiles[i];
+                if (m != null && !m.disabled && (m.owner == watched || m.ownerID.Equals(watched.persistentID))) return m;
+            }
+            return null;
         }
 
         // Makes a shot's "then" the current shot. hadTarget stays set: if the "then" target is gone too, the
@@ -282,6 +315,7 @@ namespace NuclearReplay.Playback
                 if (!CineCamera.IsCine(current.Camera)) cine.End();
             }
             Apply(cameras, current, unit);
+            if (!(unit is Missile)) watchedUnit = unit;
             hadTarget = true;
             lastCut = replayTime;
             lostAt = -1;
@@ -344,6 +378,8 @@ namespace NuclearReplay.Playback
             var shot = keep && current.Raw != null ? (JObject)current.Raw.DeepClone() : new JObject();
             shot.Remove("then");
             shot["t"] = replayTime; shot["camera"] = camera; shot["target"] = "unit:" + unit.persistentID; shot["hold"] = 3;
+            // Missile follow stays on for the new unit, and follows its missiles (not the last unit's).
+            if (FollowsMissiles(current)) shot["follow_missiles"] = true;
             // A second unit (or look_at) that is the new target itself would frame the unit with itself.
             if (shot["second"]?.ToString() == "unit:" + unit.persistentID) shot.Remove("second");
             ReplaceShots(new JArray(shot), replayTime);
@@ -424,7 +460,7 @@ namespace NuclearReplay.Playback
             var units = UnitRegistry.allUnits;
             for (int i = 0; i < units.Count; i++)
             {
-                if (units[i] is Missile missile && missile != null && seenMissiles.Add(missile)) { missiles.Add(missile); newestMissile = missile; }
+                if (units[i] is Missile missile && missile != null && seenMissiles.Add(missile)) { missiles.Add(missile); newestMissile = missile; newMissiles.Add(missile); }
                 if (units[i] != null && seenSet.Add(units[i])) seenUnits.Add(units[i]);
             }
             missiles.RemoveAll(m => m == null);

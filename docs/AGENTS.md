@@ -155,6 +155,7 @@ use the pair: on a paired kill they start on the shooter, ride the missile and e
   the last view. Unit ids, names and types are in `nr events --json` and in the viewer's unit list (B).
 - `fov` in degrees and `hold` in seconds are optional. `hold` is how long the camera stays on a destroyed target before it cuts to the nearest live aircraft (default 3); a detonated missile holds a still view of the explosion.
 - `then`: optional shot object (`camera`, `target`, `fov`, `hold`) to cut to once the target is gone and the hold is over, instead of the nearest aircraft. `victim_cut` uses `"hold": 0` with `"then"` on the victim, so the cut follows the missile even when the recording has only the kill feed time, which can be seconds after the hit.
+- `follow_missiles`: optional `true` to cut to each missile the target launches, with the shot's own camera, and back to the target once the missile is gone and the hold is over. It takes only that unit's missiles; `auto` cuts to every launch on the map. `false` on an `auto` target stops its missile cuts. The in-game viewer's camera keys 1, 4, 5 and 8 use it at a hand-picked time (Shift+3 turns it off), keys 2 and 3 always do.
 
 Lighting (optional; docs/LIGHTING.md has the details). Lists without these keys render as before:
 
