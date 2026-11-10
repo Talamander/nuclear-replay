@@ -62,6 +62,9 @@ namespace NuclearReplay.Playback
         private double fpsNow;
 
         // FlightHud.EnableCanvas is forced off while this is true (ReplayPatches).
+        // Hide UI (H) hides toasts too: lens steps, free camera hints, camera and lighting messages.
+        internal bool ViewerUiHidden => viewer && viewerUiHidden;
+
         internal bool ViewerHidesFlightHud => viewer && server != null && (!viewerGameHud || viewerUiHidden || recorder != null);
 
         private string GameData(params string[] parts) => Path.Combine(new[] { ModFolders.DataDir(BepInEx.Paths.GameRootPath) }.Concat(parts).ToArray());

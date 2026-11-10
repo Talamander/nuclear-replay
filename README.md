@@ -143,7 +143,7 @@ These are the keys that matter most. Press **F1** in a replay for the full list.
 | F4 | Target HUD panel: markers, target boxes and missile lines over the replay (Tab picks a row, Page Up and Page Down change it). Shift+F4: next mode (off, story, missiles, all); the Target HUD button in the camera row does the same with a click (right-click goes back) |
 | I and O | Clip start and clip end at the current time |
 | C | Clip this |
-| H | Hide all controls |
+| H | Hide all controls and messages |
 | Backspace | Leave the replay |
 
 You can also click anywhere on the timeline to jump there. A replay only runs forward, so a jump plays the

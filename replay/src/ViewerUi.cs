@@ -516,7 +516,7 @@ namespace NuclearReplay.Playback
             bool showHelp = s.InReplay && s.HelpOpen && !uiHidden && !s.Recording;
             if (help.gameObject.activeSelf != showHelp) help.gameObject.SetActive(showHelp);
             if (toastBox.gameObject.activeSelf && Time.unscaledTime > toastUntil) toastBox.gameObject.SetActive(false);
-            if (s.Recording && toastBox.gameObject.activeSelf) toastBox.gameObject.SetActive(false);
+            if ((s.Recording || s.InReplay && uiHidden) && toastBox.gameObject.activeSelf) toastBox.gameObject.SetActive(false);
             if (!showOverlay) return;
 
             string speed = s.Speed.ToString(s.Speed < 1f ? "0.##" : "0.#", CultureInfo.InvariantCulture) + "x";
@@ -644,8 +644,10 @@ namespace NuclearReplay.Playback
 
         // Shows a message under the top of the screen. The box fits the text: as wide as one line up to
         // ToastMaxWidth (or the screen), then the text wraps and the box grows down.
+        // While the viewer's UI is hidden (H) toasts are dropped, not queued: hidden means nothing on screen.
         public void Toast(string text, float seconds = 4f)
         {
+            if (host != null && host.ViewerUiHidden) return;
             EnsureRoot();
             toast.text = text;
             float screen = ((RectTransform)root.transform).rect.width;

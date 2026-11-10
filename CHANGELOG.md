@@ -4,6 +4,8 @@
 
 - Leaving a replay with Escape > Quit Mission now closes it like Exit and Backspace do: the replay toolbar
   no longer stays on the main menu, the REPLAYS button comes back and the Replays list opens.
+- Hide UI (H) now hides toasts too. Lens steps, the free camera hint, camera and lighting messages no longer
+  pop up over a clean view; a toast already on screen goes when you press H.
 ## 0.7.0 (2026-11-02)
 
 - **Faster jumps through long replays.** Jump points rebuild the match near the requested time, then
