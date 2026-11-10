@@ -23,6 +23,10 @@
   and keeps the selected unit in frame. Press it again for the next target, nearest to the selected unit
   first. 9 goes back to the selected unit. During a swap, a unit that fires at the selected unit no longer
   takes the shot over. Targets come from the unit's target list, its weapon stations and its live missiles.
+- Fix bombs and missiles shaking next to the aircraft that released them, and the aircraft shaking once the
+  camera follows the weapon. Each replayed unit wobbles on its own between network updates, and only the
+  cine camera's target was smoothed. Every aircraft and missile near the camera is now drawn at a smoothed
+  position, under the game's cameras too. `SmoothUnits` under `[Viewer]` turns it off.
 
 ## 0.7.0 (2026-11-02)
 

@@ -442,6 +442,9 @@ namespace NuclearReplay.Playback
         {
             if (!smoothRender || targetSmooth <= 0 || unit == null || unit.disabled || unit.transform == null) return;
             unit.transform.position = new GlobalPosition(targetPos).ToLocalPosition();
+            // UnitSmoothing leaves this unit to the cine camera's own filter.
+            UnitSmoothing.CineSmoothed = unit;
+            UnitSmoothing.CineSmoothedFrame = Time.frameCount;
         }
 
         internal void Step(CameraStateManager cam, bool preview = false)

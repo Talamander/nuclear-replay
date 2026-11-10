@@ -90,7 +90,7 @@ A smaller issue: the first exported frame of each range was a 1/60 s step (the f
 ## Known limits
 
 - Tested only on headless renders of the 2026-10-01 Confrontation demo.
-- Only the cine target is smoothed. Other aircraft in frame (wingmen in a flyby, for example) still show the network wobble. Contrails and missiles leave from the game's raw positions, about 1 m off the drawn jet.
+- Only the cine target was smoothed at first. Since the fix for issue #3, `UnitSmoothing.cs` draws every replayed aircraft and missile near the camera at the same kind of filtered position (`[Viewer] SmoothUnits`, default true), so wingmen and a bomb next to its launcher no longer wobble, under the game's own cameras too. The cine target keeps its own filter. Contrails and missiles still leave from the game's raw positions, about 1 m off the drawn jet.
 - The jet's attitude still comes from the slerped snapshots. No attitude jitter was visible in the crops.
 - When the target dies, the cine camera holds its last pose, and then the director's normal `hold` logic cuts to the nearest live aircraft with the same shot settings.
 - `flyby` visibility is checked against static geometry only (terrain and buildings), not against other aircraft, smoke or clouds. The track CSV must use global coordinates.

@@ -78,6 +78,7 @@ namespace NuclearReplay.Playback
             ffmpegPath = Config.Bind("Viewer", "FfmpegPath", "", "ffmpeg used for viewer clips. Empty: the copy downloaded into <game>/NuclearReplay/tools/ffmpeg. nr passes its own with -ncFfmpeg; the last one given is kept here.");
             clipQuality = Config.Bind("Viewer", "Quality", 19, "Clip quality (lower is better; CRF/CQ scale, 14-30).");
             jumpPointsCfg = Config.Bind("Viewer", "JumpPoints", SeekMath.JumpPointsDefault, "Faster long timeline jumps: rebuild the match near the target. Set false to use fast-forward for every jump.");
+            UnitSmoothing.Enabled = Config.Bind("Viewer", "SmoothUnits", true, "Draw replayed aircraft and missiles at a filtered position, so a unit next to the one the camera follows (a bomb just released, its launcher) does not shake. Set false to draw them exactly where the game's network interpolation puts them.").Value;
             encoderSetting = Config.Bind("Viewer", "Encoder", "auto", "auto, nvenc, vulkan or x264.");
             var args = Environment.GetCommandLineArgs();
             for (int i = 0; i < args.Length; i++)
