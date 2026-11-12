@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.7.1 (2026-11-11)
 
 - Leaving a replay with Escape > Quit Mission now closes it like Exit and Backspace do: the replay toolbar
   no longer stays on the main menu, the REPLAYS button comes back and the Replays list opens.
