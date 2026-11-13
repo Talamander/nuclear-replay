@@ -34,6 +34,24 @@ public class ClipTests : IDisposable
     }
 
     [Fact]
+    public void AMissileThatWasShotDownTakesNoCreditForALaterKill()
+    {
+        var first = E(100, """{"event":"launch","shooter":{"id":169},"target":{"id":400,"name":"Anvil"},"weapon":"AGM-48","missile":5001}""");
+        var second = E(130, """{"event":"launch","shooter":{"id":169},"target":{"id":400,"name":"Anvil"},"weapon":"AGM-48","missile":5002}""");
+        var kill = E(140, """{"event":"kill","victim":{"id":400,"name":"Anvil"},"killer":{"id":169},"weapon":"AGM-48"}""");
+        var events = new List<DemoEvent> { first, second, kill };
+        Assert.Null(ShotPresets.Pair(first, events).Kill);
+        Assert.Same(kill, ShotPresets.Pair(second, events).Kill);
+        Assert.Same(second, ShotPresets.Pair(kill, events).Launch);
+
+        // Shot down, then finished off with the gun: no missile gets the kill.
+        var gunKill = E(140, """{"event":"kill","victim":{"id":400,"name":"Anvil"},"killer":{"id":169},"weapon":"Gun"}""");
+        var gunEvents = new List<DemoEvent> { first, gunKill };
+        Assert.Null(ShotPresets.Pair(first, gunEvents).Kill);
+        Assert.Null(ShotPresets.Pair(gunKill, gunEvents).Launch);
+    }
+
+    [Fact]
     public void VictimCutRidesTheMissileThenCutsToTheVictim()
     {
         var shots = ShotPresets.Build("victim_cut", Events[1], 35, 51, Events).Shots;

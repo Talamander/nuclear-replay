@@ -137,28 +137,33 @@ public static class ShotPresets
     public sealed record MissilePair(DemoEvent? Launch, DemoEvent? Kill);
 
     /// <summary>
-    /// Pairs a moment with the other half of its missile shot: for a launch, the kill of its target by the same
-    /// shooter within 90 s; for a kill, the latest launch at the victim by the killer before it.
+    /// Pairs a moment with the other half of its missile shot. For a kill: the latest missile launch at the victim
+    /// by the killer, with the same weapon when both name one, up to 90 s before the kill (the hit, when the
+    /// recording has it). For a launch: the kill that pairs back to this launch, so a missile that was shot down
+    /// or missed does not take the credit for a later kill by another missile or the gun.
     /// </summary>
     public static MissilePair Pair(DemoEvent moment, IReadOnlyList<DemoEvent>? events)
     {
         if (moment.Event == "launch")
         {
             var targetId = moment.Target?.Id;
-            var shooterId = moment.Shooter?.Id;
             var kill = targetId == null || events == null ? null : events.FirstOrDefault(e => e.Event == "kill" && e.T >= moment.T && e.T <= moment.T + 90
-                && e.Victim?.Id == targetId && (e.Killer?.Id == null || shooterId == null || e.Killer.Id == shooterId));
+                && e.Victim?.Id == targetId && ReferenceEquals(LaunchOf(e, events), moment));
             return new MissilePair(moment, kill);
         }
         if (moment.Event == "kill")
-        {
-            var victimId = moment.Victim?.Id;
-            var killerId = moment.Killer?.Id;
-            var launch = victimId == null || events == null ? null : events.LastOrDefault(e => e.Event == "launch" && e.T <= moment.T && e.T >= moment.T - 90
-                && e.Target?.Id == victimId && (killerId == null || e.Shooter?.Id == killerId) && e.Missile != null);
-            return new MissilePair(launch, moment);
-        }
+            return new MissilePair(events == null ? null : LaunchOf(moment, events), moment);
         return new MissilePair(null, null);
+    }
+
+    private static DemoEvent? LaunchOf(DemoEvent kill, IReadOnlyList<DemoEvent> events)
+    {
+        var victimId = kill.Victim?.Id;
+        var killerId = kill.Killer?.Id;
+        if (victimId == null) return null;
+        return events.LastOrDefault(e => e.Event == "launch" && e.T <= kill.T && e.T >= kill.T - 90
+            && e.Target?.Id == victimId && (killerId == null || e.Shooter?.Id == killerId) && e.Missile != null
+            && (string.IsNullOrEmpty(kill.Weapon) || string.IsNullOrEmpty(e.Weapon) || string.Equals(kill.Weapon, e.Weapon, StringComparison.OrdinalIgnoreCase)));
     }
 
     private static void MissileShots(List<Shot> shots, bool cutToVictim, DemoEvent? moment, double from, double to, IReadOnlyList<DemoEvent>? events)

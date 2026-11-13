@@ -96,7 +96,9 @@ namespace NuclearReplay.Playback
         // when the kill has its hit time, about the hit-to-kill-feed delay when it only has the kill feed.
         public static double KillCutLead(ViewerEvent kill) => kill.HitAgo != null ? 0.1 : 2.5;
 
-        // Launch and kill of the same missile, as far as the annotations tell (ShotPresets.Pair).
+        // Launch and kill of the same missile, as far as the annotations tell (ShotPresets.Pair): a kill pairs with
+        // the latest launch at its victim by its killer (same weapon when both name one) before the hit; a launch
+        // with the kill that pairs back to it, so a missile shot down or missed takes no credit for a later kill.
         public static void Pair(ViewerEvent moment, IList<ViewerEvent> events, out ViewerEvent launch, out ViewerEvent kill)
         {
             launch = null; kill = null;
@@ -104,19 +106,41 @@ namespace NuclearReplay.Playback
             if (moment.Event == "launch")
             {
                 launch = moment;
-                long? targetId = ViewerEvent.Id(moment.Target), shooterId = ViewerEvent.Id(moment.Shooter);
+                long? targetId = ViewerEvent.Id(moment.Target);
                 if (targetId == null) return;
                 kill = events.FirstOrDefault(e => e.Event == "kill" && e.T >= moment.T && e.T <= moment.T + 90 && ViewerEvent.Id(e.Victim) == targetId
-                    && (ViewerEvent.Id(e.Killer) == null || shooterId == null || ViewerEvent.Id(e.Killer) == shooterId));
+                    && ReferenceEquals(LaunchOf(e, events), moment));
             }
             else if (moment.Event == "kill")
             {
                 kill = moment;
-                long? victimId = ViewerEvent.Id(moment.Victim), killerId = ViewerEvent.Id(moment.Killer);
-                if (victimId == null) return;
-                launch = events.LastOrDefault(e => e.Event == "launch" && e.T <= moment.T && e.T >= moment.T - 90 && ViewerEvent.Id(e.Target) == victimId
-                    && (killerId == null || ViewerEvent.Id(e.Shooter) == killerId) && e.Missile != null);
+                launch = LaunchOf(moment, events);
             }
+        }
+
+        public static ViewerEvent LaunchOf(ViewerEvent kill, IList<ViewerEvent> events)
+        {
+            long? victimId = ViewerEvent.Id(kill.Victim), killerId = ViewerEvent.Id(kill.Killer);
+            if (victimId == null) return null;
+            string weapon = (string)kill.Data["weapon"];
+            return events.LastOrDefault(e => e.Event == "launch" && e.T <= kill.T && e.T >= kill.T - 90 && ViewerEvent.Id(e.Target) == victimId
+                && (killerId == null || ViewerEvent.Id(e.Shooter) == killerId) && e.Missile != null
+                && (string.IsNullOrEmpty(weapon) || string.IsNullOrEmpty((string)e.Data["weapon"]) || string.Equals(weapon, (string)e.Data["weapon"], StringComparison.OrdinalIgnoreCase)));
+        }
+
+        // Missiles that scored a kill, by missile id, with the victim as a shot target ("unit:<id>"): the launches
+        // victim_cut follows at a hand-picked time.
+        public static Dictionary<long, string> KillMissiles(IList<ViewerEvent> events)
+        {
+            var map = new Dictionary<long, string>();
+            if (events == null) return map;
+            foreach (var kill in events.Where(e => e.Event == "kill"))
+            {
+                var launch = LaunchOf(kill, events);
+                string victim = ViewerEvent.ShotTarget(kill.Victim);
+                if (launch?.Missile is long id && victim != null && !map.ContainsKey(id)) map[id] = victim;
+            }
+            return map;
         }
 
         private static void MissileShots(List<JObject> shots, bool cutToVictim, ViewerEvent moment, double from, double to, IList<ViewerEvent> events)

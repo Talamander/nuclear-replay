@@ -554,11 +554,28 @@ namespace NuclearReplay.Playback
         private void ApplyPreset(string id, double now)
         {
             if (director == null) return;
+            director.KillVictim = null;
             // Camera Studio playback (or its clip) shows the studio's path instead.
             if (studio.Playing && studio.Count > 0) { director.ReplaceShots(new JArray(StudioShot()), now); return; }
             var moment = viewerFocus != null && now <= viewerFocus.T + 8 && now >= viewerFocus.T - 30 ? viewerFocus : null;
+            // Victim cut at a hand-picked time: only missiles that scored a kill in the recording, then their victim.
+            if (id == "victim_cut" && moment == null) director.KillVictim = KillVictimOf;
             double to = moment != null ? Math.Max(now + 3, moment.T + 6) : now + 36000;
             director.ReplaceShots(PresetShots(id, moment, now, to), now);
+        }
+
+        private Dictionary<long, string> killMissiles;
+        private ViewerDemo killMissilesDemo;
+
+        private string KillVictimOf(Missile missile)
+        {
+            if (missile == null) return null;
+            if (killMissiles == null || killMissilesDemo != viewerDemo)
+            {
+                killMissiles = ViewerPresets.KillMissiles(viewerDemo?.Events);
+                killMissilesDemo = viewerDemo;
+            }
+            return killMissiles.TryGetValue((long)missile.persistentID.Id, out var victim) ? victim : null;
         }
 
         internal void ViewerUnit(int step)

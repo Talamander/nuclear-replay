@@ -5,6 +5,10 @@
 - The replay toolbar no longer shows while a replay is still loading. Clicking Exit (or pressing Backspace)
   just as the game switched to the mission could leave it at the team screen with the Replays list open, and
   Close there locked the game. Exit during loading now waits until the replay has loaded and then leaves.
+- Victim cut (key 2) now follows only missiles that scored a kill. Away from a timeline moment it skips
+  launches that were shot down or missed, rides each killing missile and cuts to its victim just before the
+  hit. Kills and launches also pair more strictly: a missile that was intercepted no longer takes the credit
+  for a later kill by another missile or the gun, which also fixes the cut in clips and `nr` renders.
 
 ## 0.7.1 (2026-11-11)
 

@@ -74,6 +74,13 @@ namespace NuclearReplay.Playback
         private readonly List<Missile> newMissiles = new List<Missile>();
         // The unit a follow_missiles shot watches: the last unit it cut to that is not a missile.
         private Unit watchedUnit;
+        // Victim cut at a hand-picked time (set by the viewer, null otherwise): the victim ("unit:<id>") of a missile
+        // that scored a kill in the recording, or null for one that was shot down or missed. Only those missiles are
+        // followed, and the camera cuts to the victim just before the hit.
+        public Func<Missile, string> KillVictim;
+        private string missileVictim;       // the victim of the missile on screen (KillVictim)
+        private Unit victimShown;           // the victim the camera cut to at the hit
+        private double victimUntil = -1;
         private readonly CineCamera cine;
         private JObject rootLighting;       // the shot list's root "lighting" object: defaults for every shot
         internal JToken RootHud { get; private set; }   // the shot list's root "target_hud": default for every shot
@@ -128,6 +135,7 @@ namespace NuclearReplay.Playback
             shots.Clear();
             shots.AddRange(parsed);
             next = 0; current = null; currentUnit = null; hadTarget = false; holding = false; lostAt = -1; watchedUnit = null;
+            missileVictim = null; victimShown = null; victimUntil = -1;
             if (cine.Active) cine.End();
             while (next < shots.Count && shots[next].T <= replayTime) current = shots[next++];
             SetLightingDefaults(lighting);
@@ -211,6 +219,32 @@ namespace NuclearReplay.Playback
                     alive = false;
                 }
             }
+            if (alive && KillVictim != null && FollowsMissiles(current))
+            {
+                // Victim cut: just before the missile hits, the victim (the watched unit stays the one to come back to).
+                if (currentUnit is Missile && missileVictim != null && AboutToHit(currentUnit, new JObject { ["target"] = missileVictim }))
+                {
+                    var victim = Resolve(missileVictim);
+                    missileVictim = null;
+                    if (victim != null && !victim.disabled)
+                    {
+                        log.LogInfo($"Director: missile about to hit, victim cut to {victim.unitName} at {replayTime:F2}s");
+                        var keep = watchedUnit;
+                        Cut(cameras, victim, replayTime);
+                        watchedUnit = keep;
+                        victimShown = victim; victimUntil = replayTime + 3.5;
+                        newestMissile = null;
+                        return;
+                    }
+                }
+                // The victim survived (or the kill came later): back to the watched unit after a few seconds.
+                if (victimShown != null && currentUnit == victimShown)
+                {
+                    if (replayTime < victimUntil) { newestMissile = null; return; }
+                    victimShown = null;
+                    if (watchedUnit != null && !watchedUnit.disabled && watchedUnit != currentUnit) { Cut(cameras, watchedUnit, replayTime); newestMissile = null; return; }
+                }
+            }
             if (alive)
             {
                 // Auto mode cuts to a fresh launch unless it is already riding a live missile (any missile on the map, unless
@@ -221,6 +255,8 @@ namespace NuclearReplay.Playback
                 else if (ownLaunch != null && ownLaunch != currentUnit && !(currentUnit is Missile))
                 {
                     log.LogInfo($"Director: {watchedUnit?.unitName} launched {ownLaunch.unitName} at {replayTime:F2}s, following it");
+                    missileVictim = KillVictim?.Invoke(ownLaunch);
+                    victimShown = null;
                     Cut(cameras, ownLaunch, replayTime);
                 }
                 newestMissile = null;
@@ -275,7 +311,8 @@ namespace NuclearReplay.Playback
             for (int i = newMissiles.Count - 1; i >= 0; i--)
             {
                 var m = newMissiles[i];
-                if (m != null && !m.disabled && (m.owner == watched || m.ownerID.Equals(watched.persistentID))) return m;
+                if (m != null && !m.disabled && (m.owner == watched || m.ownerID.Equals(watched.persistentID))
+                    && (KillVictim == null || KillVictim(m) != null)) return m;
             }
             return null;
         }
