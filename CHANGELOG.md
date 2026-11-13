@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.7.2 (2026-11-12)
 
 - The replay toolbar no longer shows while a replay is still loading. Clicking Exit (or pressing Backspace)
   just as the game switched to the mission could leave it at the team screen with the Replays list open, and
