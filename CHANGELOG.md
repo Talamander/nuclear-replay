@@ -17,6 +17,9 @@
   shot lists get it as the two_shot's `zoom` field.
 - Holding Ctrl moves the free camera at a tenth of its speed, so a ride-along can be placed precisely, for
   example inside a cockpit. Shift still goes faster, and Ctrl with the mouse wheel still sets the focal length.
+- A ride-along locked with R is now fixed to the unit like a camera mounted on the airframe. It used to hang on
+  a short spring, so turns and g-loads made it wiggle, which showed most inside a cockpit. Shot lists keep the
+  floating ride unless they set `lag` to 0.
 
 ## 0.7.1 (2026-11-11)
 

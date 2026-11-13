@@ -284,7 +284,7 @@ Options of the `ride` camera (a camera holding formation with a unit), all optio
 - Where it looks: `look_dir` `[x, y, z]` (a direction in the unit's frame), or `look` `[x, y, z]` (a point in the
   unit's frame), or `look_at` (another unit, same selectors as `target`). With none, it looks at the unit.
 - `roll`: `"unit"` (the horizon banks with the unit, default), `"level"`, or a number from 0 (level) to 1 (unit).
-- `lag` (0.12 s; 0 is rigid), `rot_smooth` (0.15 s), `look_smooth` (0.25 s), `min_agl` (1 m), `fov` (50).
+- `lag` (0.12 s; 0 is rigid, which is what the viewer's R lock writes), `rot_smooth` (0.15 s), `look_smooth` (0.25 s), `min_agl` (1 m), `fov` (50).
   The unit's pose is filtered and the unit is drawn at that pose, so network jitter does not show.
 
 Options of the `two_shot` camera (the target and a second unit in one frame), all optional:

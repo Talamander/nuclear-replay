@@ -137,7 +137,7 @@ These are the keys that matter most. Press **F1** in a replay for the full list.
 | Page Up / Page Down | In the two-shot (with no panel open): zoom in and out. The lens gets longer and the camera moves closer to the unit, looking toward the other one. Shift for bigger steps |
 | Shift+9 | Two-shot target swap: the camera goes to the watched unit's target and looks back at the unit. Press again for the next target (furthest first, working in, then round again); 9 goes back to the unit |
 | Shift+3 | Missile follow on or off for keys 1, 4, 5 and 8 (keys 2 and 3 always follow the watched unit's missiles) |
-| 0 and R | Ride-along: 0 pauses and puts the free camera next to the unit, fly it where you want it, R locks it. Shift+R: level horizon or roll with the unit |
+| 0 and R | Ride-along: 0 pauses and puts the free camera next to the unit, fly it where you want it, R locks it, fixed to the unit like a mounted camera. Shift+R: level horizon or roll with the unit |
 | B | Unit list: search, then Enter or click to watch that unit. Shift+B picks the second unit for the two-shot |
 | [ and ] | Previous or next unit (aircraft, or the ground, sea or all filter set in the unit list) |
 | F | Free camera: WASD to move, Q and E for down and up, Shift to go faster, Ctrl to go slower (for placing a ride-along), hold the right mouse button to look, Ctrl and the mouse wheel for the focal length, Alt and the mouse wheel for the focus distance |

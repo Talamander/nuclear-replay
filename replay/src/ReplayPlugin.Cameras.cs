@@ -480,7 +480,10 @@ namespace NuclearReplay.Playback
             rideShot = new JObject
             {
                 ["t"] = 0, ["camera"] = RideId, ["target"] = "unit:" + unit.persistentID,
-                ["offset"] = Vec(offset), ["look_dir"] = Vec(lookDir), ["roll"] = rideRoll, ["fov"] = Math.Round(fov, 1)
+                ["offset"] = Vec(offset), ["look_dir"] = Vec(lookDir), ["roll"] = rideRoll, ["fov"] = Math.Round(fov, 1),
+                // Bolted on, like a camera mounted on the airframe: no spring, so turns and g-loads do not move it
+                // inside a cockpit. Shot lists keep the floating default (lag 0.12 s).
+                ["lag"] = 0
             };
             RideOnAircraft = unit is Aircraft;
             ridePlacing = false;
