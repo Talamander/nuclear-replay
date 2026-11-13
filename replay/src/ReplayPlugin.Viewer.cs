@@ -135,6 +135,7 @@ namespace NuclearReplay.Playback
             preroll = 0;
             fastForwardSpeed = SeekMath.FastForwardSpeed; fastForwardStepFps = SeekMath.FastForwardStepFps;
             viewerPaused = false; viewerSpeed = 1f; viewerUiHidden = false; viewerHelp = false; viewerGameHud = false;
+            viewerExitPending = false; viewerLive = false;
             freeCamOn = false;
             if (at > 0.5) { startAt = at; startSeeking = true; viewerSeekTarget = at; SeekBegin(0, at, restart: true); }
             else viewerSeekTarget = -1;
@@ -161,6 +162,11 @@ namespace NuclearReplay.Playback
             {
                 Logger.LogInfo("Viewer: the game left the replay (Quit Mission)");
                 StopViewerReplay(reopenMenu: true, networkStopped: true);
+            }
+            if (viewer && viewerExitPending && ViewerSafeToLeave())
+            {
+                Logger.LogInfo("Viewer: leaving the replay now that it has loaded");
+                StopViewerReplay(reopenMenu: true);
             }
             bool atMenu = server == null && MainMenu.State == MainMenu.LoadingState.Loaded && !NetworkManagerNuclearOption.IsLoadingScene
                 && (NetworkManagerNuclearOption.i == null || !NetworkManagerNuclearOption.i.Client.Active);
@@ -204,7 +210,7 @@ namespace NuclearReplay.Playback
             s.Events = viewerDemo?.Events ?? s.Events;
             s.Duration = server != null ? server.EndTime - server.StartTime : viewerDemo?.Duration ?? 0;
             s.Time = server != null ? server.Clock - server.StartTime : Math.Max(0, viewerSeekTarget);
-            s.Live = viewerLive;
+            s.Live = viewerLive && server != null;
             s.Paused = viewerPaused;
             s.Speed = viewerSpeed;
             s.Seeking = startSeeking || server == null;
@@ -634,7 +640,28 @@ namespace NuclearReplay.Playback
         internal void ViewerExit()
         {
             if (!viewer) return;
+            // Leaving while the game is between scenes (the match is loading, or it is leaving for the menu after a
+            // backward jump) can strand it in the mission with no replay running. Wait for the scene, then leave.
+            if (!ViewerSafeToLeave())
+            {
+                if (!viewerExitPending) ui.Toast("Leaving the replay once it has loaded...", 4f);
+                viewerExitPending = true;
+                return;
+            }
             StopViewerReplay(reopenMenu: true);
+        }
+
+        private bool viewerExitPending;
+
+        // True when Exit can stop the replay right away: it is running, or it has not started and the game sits idle
+        // at the main menu.
+        private bool ViewerSafeToLeave()
+        {
+            if (NetworkManagerNuclearOption.IsLoadingScene) return false;
+            if (server != null) return viewerLive || finishedAt >= 0;
+            if (viewerRestarting) return false;
+            var manager = NetworkManagerNuclearOption.i;
+            return manager == null || !manager.Client.Active && !manager.Server.Active;
         }
 
         // Leaves the replay for the main menu (and its Replays list when reopenMenu).
@@ -669,7 +696,7 @@ namespace NuclearReplay.Playback
                 try { NetworkManagerNuclearOption.i?.Stop(true); } catch (Exception e) { Logger.LogWarning("Viewer exit: stop: " + e.Message); }
             }
             factory = null;   // the next match the player starts uses the game's own network again
-            viewer = false; viewerUiHidden = false; viewerHelp = false;
+            viewer = false; viewerUiHidden = false; viewerHelp = false; viewerExitPending = false; viewerLive = false;
             ViewerCursor(false);
             viewerReopenMenu = reopenMenu;
             restartAfter = Time.realtimeSinceStartupAsDouble + 5;

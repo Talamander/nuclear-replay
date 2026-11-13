@@ -52,6 +52,7 @@ namespace NuclearReplay.Playback
         private GameObject root;
         private Canvas canvas;
         private RectTransform overlay, bottom, help, menu, toastBox, tooltip;
+        private RectTransform controlsRow, presetsRowRect;
         private TextMeshProUGUI status, subStatus, seekLabel, toast, tooltipText, playLabel, speedLabel, unitLabel, freeLabel, clipLabel, recordLabel;
         private readonly List<Button> presetButtons = new List<Button>();
         private Button freeButton;
@@ -237,6 +238,7 @@ namespace NuclearReplay.Playback
             var presetsRow = Row(bottom, "Presets", 6);
             presetsRow.anchorMin = new Vector2(0, 0); presetsRow.anchorMax = new Vector2(1, 0);
             presetsRow.offsetMin = new Vector2(16, 12); presetsRow.offsetMax = new Vector2(-16, 54);
+            controlsRow = controls; presetsRowRect = presetsRow;
 
             MakeButton(controls, "-10 s", 64, () => host.ViewerSkip(-10));
             MakeButton(controls, "Pause", 84, () => host.ViewerTogglePause(), out playLabel);
@@ -527,6 +529,11 @@ namespace NuclearReplay.Playback
             subStatus.text = (s.FreeCam ? "Free camera" : "Camera: " + ViewerPresets.Label(s.Preset)) + (s.Following != null && !s.FreeCam ? "   Following " + s.Following : "")
                 + (s.Focus != null && ViewerText.MomentInView(s.Time, s.Focus.T) ? "   Moment: " + s.Focus.Summary + " at " + ViewerCatalog.Clock(s.Focus.T) : "") + (s.Subtitle != null ? "   " + s.Subtitle : "");
             seekLabel.transform.parent.gameObject.SetActive(s.Seeking);
+            // While the match is still loading (or loading again after a backward jump) the buttons stay hidden:
+            // Exit or a camera key pressed while the game changes scene could leave it half in a mission.
+            bool controlsUsable = s.Live || s.Ended;
+            if (controlsRow.gameObject.activeSelf != controlsUsable) controlsRow.gameObject.SetActive(controlsUsable);
+            if (presetsRowRect.gameObject.activeSelf != controlsUsable) presetsRowRect.gameObject.SetActive(controlsUsable);
             if (s.Seeking) seekLabel.text = s.SeekText;
             // With the game's HUD on, its unit panel (speed, altitude, weapons) takes the bottom of the screen.
             float bottomY = s.GameHud ? 160 : 16;
