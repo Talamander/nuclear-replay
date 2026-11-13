@@ -83,6 +83,16 @@ public class ShotTests
     }
 
     [Fact]
+    public void TwoShotTakesAZoom()
+    {
+        var ok = ShotValidator.Validate("""{"shots":[{"t":0,"camera":"two_shot","target":"host","zoom":2.5}]}""");
+        Assert.True(ok.Valid);
+        Assert.Empty(ok.Issues);
+        var high = ShotValidator.Validate("""{"shots":[{"t":0,"camera":"two_shot","target":"host","zoom":12}]}""");
+        Assert.Contains(high.Issues, i => i.Severity == "warning" && i.Path == "$.shots[0].zoom");
+    }
+
+    [Fact]
     public void SchemaMatchesValidator()
     {
         var schema = JsonNode.Parse(NcEnvironment.ShotListSchema)!;

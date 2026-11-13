@@ -296,6 +296,9 @@ Options of the `two_shot` camera (the target and a second unit in one frame), al
 - `distance` (2.5 times the target's size, at least 30 m) and `distance_max` (6 times `distance`): the camera backs
   off up to `distance_max` when the lens limit is not enough.
 - `fov_min` (20) and `fov_max` (65): limits of the automatic lens. `margin` (0.3): spare frame around the two.
+- `zoom` (1, up to 8): punch in. The lens is that many times longer and the camera that many times closer to the
+  target, looking toward the second unit, so a distant second unit reads bigger while the target breaks frame.
+  The viewer's Page Up and Page Down set it in the two-shot.
 - `azimuth` (35 degrees off the line between the two), `elevation` (0.15 of the distance).
 - `swing_smooth` (1 s) and `max_swing` (40 degrees per second): how fast the line between the two may turn, so the
   camera does not swing around when they pass close. `pos_smooth`, `look_smooth`, `zoom_smooth`, `min_agl`.

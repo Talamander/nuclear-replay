@@ -11,6 +11,10 @@
   for a later kill by another missile or the gun, which also fixes the cut in clips and `nr` renders.
 - Shift+9 now starts with the selected unit's furthest target and works in towards the closest, then starts
   again from the furthest. From the furthest target the camera keeps the rest of a group in view.
+- **Two-shot zoom.** In the two-shot, Page Up and Page Down zoom in and out (Shift for bigger steps, up to 8x)
+  when no panel is open. The lens gets longer, the camera moves closer to the unit, and the frame leans toward
+  the other unit, so a distant aircraft reads bigger while the near unit breaks the frame. Clips keep it, and
+  shot lists get it as the two_shot's `zoom` field.
 
 ## 0.7.1 (2026-11-11)
 

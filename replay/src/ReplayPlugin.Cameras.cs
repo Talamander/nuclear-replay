@@ -39,6 +39,8 @@ namespace NuclearReplay.Playback
         // Two-shot target swap (Shift+9): the target on camera, and the targets already shown in this round.
         private string twoShotSwap;
         private readonly HashSet<string> twoShotSwapSeen = new HashSet<string>();
+        // Two-shot zoom (Page Up / Page Down in the two-shot): 1 is the camera's own framing.
+        private float twoShotZoom = 1f;
         // The unit a hand-picked time's camera styles watch (the unit on screen when a style key or [ ] picked it).
         private string watchedTarget;
         // Missile follow for keys 1, 4, 5 and 8 at a hand-picked time (Shift+3). Keys 2 and 3 always follow.
@@ -73,6 +75,7 @@ namespace NuclearReplay.Playback
             UnitListClose();
             unitFilter = "aircraft";
             twoShotTarget = twoShotSecond = null;
+            twoShotZoom = 1f;
             SwapClear();
             watchedTarget = null;
             rideUnit = null; ridePlacing = false; ridePausedByUs = false; rideShot = null; rideRoll = "unit";
@@ -99,6 +102,7 @@ namespace NuclearReplay.Playback
             if (moment == null && shots.Count > 0 && shots[0] is JObject picked) WatchShot(id, picked);
             if (id == "two_shot" && shots.Count > 0 && shots[0] is JObject shot)
             {
+                if (twoShotZoom > 1.001f) shot["zoom"] = Math.Round(twoShotZoom, 3);
                 // A hand-picked time: the unit that was on screen when 9 was pressed (a moment keeps its shooter).
                 if (moment == null && twoShotTarget != null) shot["target"] = "unit:" + twoShotTarget;
                 if (twoShotSecond != null && "unit:" + twoShotSecond != shot["target"]?.ToString()) shot["second"] = "unit:" + twoShotSecond;
@@ -110,6 +114,7 @@ namespace NuclearReplay.Playback
                     shot["target"] = "unit:" + twoShotSwap;
                     shot["second"] = "unit:" + twoShotTarget;
                     shot["then"] = new JObject { ["camera"] = "two_shot", ["target"] = "unit:" + twoShotTarget, ["hold"] = 3 };
+                    if (shot["zoom"] != null) shot["then"]["zoom"] = shot["zoom"];
                 }
             }
             return shots;
@@ -208,6 +213,31 @@ namespace NuclearReplay.Playback
             ApplyPreset("two_shot", server.Clock - server.StartTime);
             int position = targets.IndexOf(next) + 1;
             ui.Toast($"Two-shot on {UnitLabel(selected)}'s target {UnitLabel(next)}  ({position} of {targets.Count}, furthest first). 9 goes back to {UnitLabel(selected)}", 3f);
+        }
+
+        // The two-shot's zoom keys (ViewerKeys), only when no panel (lens, lighting, target HUD) has Page Up and Down.
+        private void TwoShotZoomKeys(bool shift)
+        {
+            if (lensPanel || lightingOpen || hudPanel || viewerPreset != "two_shot" || freeCamOn) return;
+            if (Input.GetKeyDown(KeyCode.PageUp)) ViewerTwoShotZoom(1, shift);
+            if (Input.GetKeyDown(KeyCode.PageDown)) ViewerTwoShotZoom(-1, shift);
+        }
+
+        // Page Up / Page Down in the two-shot: a longer lens and a closer camera, looking toward the second unit
+        // (CineTwoShot.cs, the shot's "zoom"). The shot playing changes at once; the camera eases to the new framing.
+        internal void ViewerTwoShotZoom(int dir, bool big)
+        {
+            if (!viewer || director == null || server == null) return;
+            float step = big ? 2f : 1.25f;
+            float zoom = Mathf.Clamp(dir > 0 ? twoShotZoom * step : twoShotZoom / step, 1f, CineCamera.MaxTwoShotZoom);
+            if (zoom < 1.01f) zoom = 1f;
+            twoShotZoom = zoom;
+            var raw = director.CurrentRaw;
+            if (raw != null && (string)raw["camera"] == "two_shot")
+            {
+                if (zoom > 1f) raw["zoom"] = Math.Round(zoom, 3); else raw.Remove("zoom");
+            }
+            ui.Toast(zoom > 1f ? string.Format(CultureInfo.InvariantCulture, "Two-shot zoom {0:0.0}x (Page Down zooms out)", zoom) : "Two-shot zoom off: the camera frames both units", 2f);
         }
 
         // A unit followed with [ ] or the list keeps the two-shot and the ride-along on it.

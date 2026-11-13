@@ -21,6 +21,10 @@ namespace NuclearReplay.Playback
     //   distance_max  metres the camera may back off to so both fit (6 times distance)
     //   azimuth 35    degrees off the line between the two;  elevation 0.15  camera height as a share of the distance
     //   fov_min 20, fov_max 65   lens limits;  margin 0.3  spare frame around the two
+    //   zoom 1        punch in (1 to 8): the lens is that many times longer and the camera that many times closer to
+    //                 the target, and the look moves toward the second unit, so a distant second unit reads bigger
+    //                 while the target breaks out of the frame. Read every frame, so the viewer's Page Up / Page Down
+    //                 change it on the shot that is playing.
     //   swing_smooth 1.0 s and max_swing 40 deg/s   how the line between the two may turn
     //   pos_smooth 0.35 s, look_smooth 0.25 s, zoom_smooth 0.8 s (zooming out goes three times faster)
     //   handheld, rumble, buffet, shake_speed: light shake on top (CinePath.cs), off by default
@@ -32,6 +36,7 @@ namespace NuclearReplay.Playback
         private float tSide, tDistance, tDistanceMax, tAzimuth, tElevation, tMargin, tSwingSmooth, tMaxSwing, tSecondHold, tLostAt, tNextLookup;
 
         private bool IsTwoShot => mode == "two_shot";
+        internal const float MaxTwoShotZoom = 8f;
 
         private void SetupTwoShot()
         {
@@ -121,8 +126,9 @@ namespace NuclearReplay.Playback
             var rc = RenderCamera(cam.mainCamera);
             float aspect = rc != null ? rc.aspect : 16f / 9f;
             float rA = Units.Size(unit) * 0.5f, rB = tSecond != null ? Units.Size(tSecond) * 0.5f : rA;
+            float zoom = Mathf.Clamp(F("zoom", 1f), 1f, MaxTwoShotZoom);
             var frame = CameraFraming.TwoShot(N(targetPos), N(tB), tHaveB ? N(tAxis) : System.Numerics.Vector3.Zero, N(travel), tSide,
-                tDistance, tAzimuth, tElevation, rA, rB, aspect, fovMin, fovMax, tDistanceMax, tMargin);
+                tDistance / zoom, tAzimuth, tElevation, rA, rB, aspect, fovMin, fovMax, tDistanceMax / zoom, tMargin);
 
             // Camera: its offset from the target, critically damped (a fast target does not drag it behind).
             Vector3 relWant = U(frame.Camera) - targetPos;
@@ -136,11 +142,15 @@ namespace NuclearReplay.Playback
             float need = CameraFraming.NeededFov(N(camPos), N(targetPos), rA, tHaveB ? N(tB) : (System.Numerics.Vector3?)null, rB, aspect, tMargin, out var look);
             // The look point is smoothed as an offset from the camera, like the camera's offset from the target, so
             // the speed of the two units adds no lag (and needs no lead) at 300 m/s.
-            Vector3 lookRelWant = U(look) - camPos;
+            Vector3 lookWant = U(look);
+            // Zoomed in: look toward the second unit, which the longer lens is there to show.
+            if (zoom > 1f && tHaveB) lookWant = Vector3.Lerp(lookWant, tB, 0.6f * (1f - 1f / zoom));
+            Vector3 lookRelWant = lookWant - camPos;
             if (rest) { tLookRel = lookRelWant; tLookRelVel = Vector3.zero; }
             else if (dt > 0) tLookRel = Vector3.SmoothDamp(tLookRel, lookRelWant, ref tLookRelVel, lookSmooth, float.MaxValue, dt);
             lookPos = camPos + tLookRel;
             float wantFov = Mathf.Clamp(need, fovMin, fovMax);
+            if (zoom > 1f) wantFov = Mathf.Max(1f, 2f * Mathf.Rad2Deg * Mathf.Atan(Mathf.Tan(0.5f * Mathf.Deg2Rad * wantFov) / zoom));
             if (rest || curFov <= 0) { curFov = wantFov; fovVel = 0; }
             else if (dt > 0) curFov = Mathf.Exp(Mathf.SmoothDamp(Mathf.Log(curFov), Mathf.Log(wantFov), ref fovVel, wantFov > curFov ? zoomSmooth / 3f : zoomSmooth, float.MaxValue, dt));
 

@@ -322,6 +322,7 @@ namespace NuclearReplay.Playback
             else if (lightingOpen) LightingKeys();
             LensKeys();
             HudKeys();
+            TwoShotZoomKeys(shiftDown);
             if (Input.GetKeyDown(KeyCode.Backspace)) ViewerExit();
             if (freeCamOn && flyUntil > Time.realtimeSinceStartupAsDouble && freeFly != null) freeFly.ScriptMove += flyMove;
             return true;

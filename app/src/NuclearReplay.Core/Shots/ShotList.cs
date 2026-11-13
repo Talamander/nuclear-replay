@@ -72,7 +72,7 @@ public static class ShotValidator
     private static readonly string[] ShakeFields = { "handheld", "rumble", "buffet", "shake_speed" };
     private static readonly string[] RideFields = { "offset", "look_dir", "look", "look_at", "roll", "lag", "rot_smooth", "look_smooth", "min_agl" };
     private static readonly string[] TwoShotFields = { "second", "side", "distance", "distance_max", "azimuth", "elevation", "fov_min", "fov_max", "margin",
-        "swing_smooth", "max_swing", "second_hold", "pos_smooth", "look_smooth", "zoom_smooth", "min_agl" };
+        "swing_smooth", "max_swing", "second_hold", "pos_smooth", "look_smooth", "zoom_smooth", "zoom", "min_agl" };
 
     /// <summary>Fields a camera reads besides t, camera, target, fov, hold and then.</summary>
     public static IReadOnlyList<string> CameraFields(string camera) => camera switch
@@ -240,6 +240,7 @@ public static class ShotValidator
             if (!TryNumber(s[key], out var v)) Error($"{p}.{key}", $"\"{key}\" must be a number.");
             else if (v < 0 && key is not ("azimuth" or "elevation")) Error($"{p}.{key}", $"\"{key}\" cannot be negative.");
             else if (key is "fov_min" or "fov_max" && (v <= 0 || v >= 180)) Error($"{p}.{key}", $"\"{key}\" must be between 0 and 180 degrees.");
+            else if (key == "zoom" && (v < 1 || v > 8)) Warn($"{p}.{key}", "\"zoom\" goes from 1 to 8; the camera clamps it.");
         }
         if (TryNumber(s["fov_min"], out var lo) && TryNumber(s["fov_max"], out var hi) && lo > hi)
             Error($"{p}.fov_min", "\"fov_min\" is larger than \"fov_max\".");
