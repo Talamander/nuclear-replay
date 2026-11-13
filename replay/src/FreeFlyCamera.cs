@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace NuclearReplay.Playback
 {
-    // Viewer free camera: WASD move, Q/E down/up, Shift faster, mouse wheel changes the base speed, Ctrl + wheel
+    // Viewer free camera: WASD move, Q/E down/up, Shift faster, Ctrl slower (a tenth, for placing a ride-along), mouse wheel changes the base speed, Ctrl + wheel
     // changes the focal length (mm), Alt + wheel the focus distance, and the mouse turns the view while the right
     // button is held. The lens lives in the lens panel's settings (Lens, shared with the plugin), so the panel, the
     // wheel and Camera Studio keys all set the same thing.
@@ -18,6 +18,7 @@ namespace NuclearReplay.Playback
     internal sealed class FreeFlyCamera : CameraBaseState
     {
         public float BaseSpeed = 60f;          // m/s
+        public const float SlowFactor = 0.1f;  // Ctrl held: fine moves (a ride-along inside a cockpit)
         public float Yaw, Pitch;
         public Vector3 Position;               // global (floating-origin safe)
         public float Fov = -1f;                // lens in degrees; -1 = the game's own until a focal length is set
@@ -127,7 +128,7 @@ namespace NuclearReplay.Playback
                 if (Input.GetKey(KeyCode.E)) move.y += 1f;
                 if (Input.GetKey(KeyCode.Q)) move.y -= 1f;
             }
-            float speed = BaseSpeed * (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) ? 5f : 1f);
+            float speed = BaseSpeed * (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) ? 5f : 1f) * (ctrl ? SlowFactor : 1f);
             Vector3 step = rot * new Vector3(move.x, 0f, move.z) + Vector3.up * move.y;
             Position += step * speed * dt;
             // Stay above the ground and the sea.

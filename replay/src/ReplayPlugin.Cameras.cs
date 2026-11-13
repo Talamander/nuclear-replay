@@ -448,7 +448,7 @@ namespace NuclearReplay.Playback
                 freeFly.KeepPose = true;
             }
             if (!freeCamOn) SetFreeCam(true);
-            ui.Toast($"Ride-along for {UnitLabel(unit)}: the replay is paused. Fly the camera to where it should ride (WASD, Q/E, right mouse), then press R to lock it.", 6f);
+            ui.Toast($"Ride-along for {UnitLabel(unit)}: the replay is paused. Fly the camera to where it should ride (WASD, Q/E, Ctrl for fine moves, right mouse), then press R to lock it.", 6f);
         }
 
         // R: lock the ride-along (free camera), or unlock it (ride-along on screen).

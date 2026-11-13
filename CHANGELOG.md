@@ -15,6 +15,8 @@
   when no panel is open. The lens gets longer, the camera moves closer to the unit, and the frame leans toward
   the other unit, so a distant aircraft reads bigger while the near unit breaks the frame. Clips keep it, and
   shot lists get it as the two_shot's `zoom` field.
+- Holding Ctrl moves the free camera at a tenth of its speed, so a ride-along can be placed precisely, for
+  example inside a cockpit. Shift still goes faster, and Ctrl with the mouse wheel still sets the focal length.
 
 ## 0.7.1 (2026-11-11)
 

@@ -387,7 +387,7 @@ Keys in the viewer:
 | Space | Play or pause. While a jump runs: stop it where it is |
 | Left / Right | Skip back or forward 10 seconds |
 | Up / Down, or + / - | Playback speed, 0.25x to 4x |
-| F | Free camera: WASD to move, Q/E down and up, Shift to go faster, hold the right mouse button to look, Ctrl + wheel focal length (mm), Alt + wheel focus distance |
+| F | Free camera: WASD to move, Q/E down and up, Shift to go faster, Ctrl to go slower (a tenth), hold the right mouse button to look, Ctrl + wheel focal length (mm), Alt + wheel focus distance |
 | F3 | Lens panel. While it is open: Tab / Shift+Tab pick a row, PageUp / PageDown change it (Shift: bigger steps), Home resets the row |
 | F4 | Target HUD panel (mode, side, home side, labels, size, arrows). While it is open: Tab / Shift+Tab pick a row, PageUp / PageDown change it, Home resets the row. Shift+F4 cycles the mode: off, story, missiles, all |
 | 1 to 9 | Camera presets: cinematic chase, victim cut, missile follow, chase, orbit, flyby, cockpit, action cam, two-shot (the unit on screen and its opponent, or the Shift+B pick) |

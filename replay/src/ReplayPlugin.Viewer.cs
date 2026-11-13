@@ -609,7 +609,7 @@ namespace NuclearReplay.Playback
                 try { if (cameras.followingUnit != null) cameras.SetFollowingUnit(null); } catch (Exception e) { Logger.LogWarning("Free camera: " + e.Message); }
                 cameras.SwitchState(freeFly);
                 freeCamOn = true;
-                ui.Toast("Free camera: WASD move, Q/E down/up, Shift faster, hold right mouse to look. F leaves.", 4f);
+                ui.Toast("Free camera: WASD move, Q/E down/up, Shift faster, Ctrl slower, hold right mouse to look. F leaves.", 4f);
             }
             else
             {

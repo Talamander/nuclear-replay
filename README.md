@@ -140,7 +140,7 @@ These are the keys that matter most. Press **F1** in a replay for the full list.
 | 0 and R | Ride-along: 0 pauses and puts the free camera next to the unit, fly it where you want it, R locks it. Shift+R: level horizon or roll with the unit |
 | B | Unit list: search, then Enter or click to watch that unit. Shift+B picks the second unit for the two-shot |
 | [ and ] | Previous or next unit (aircraft, or the ground, sea or all filter set in the unit list) |
-| F | Free camera: WASD to move, Q and E for down and up, hold the right mouse button to look, Ctrl and the mouse wheel for the focal length, Alt and the mouse wheel for the focus distance |
+| F | Free camera: WASD to move, Q and E for down and up, Shift to go faster, Ctrl to go slower (for placing a ride-along), hold the right mouse button to look, Ctrl and the mouse wheel for the focal length, Alt and the mouse wheel for the focus distance |
 | P | Camera Studio: lay down a camera path with the free camera (K adds a key, Enter plays the path, C clips it) |
 | F2 | Lighting: Y time of day, Page Up / Page Down 15 minutes, N haze, V weather, Z sun behind the aircraft, Home as recorded |
 | F3 | Lens panel: focal length, sensor, depth of field, vignette, film grain, chromatic aberration, motion blur (Tab picks a row, Page Up and Page Down change it) |
