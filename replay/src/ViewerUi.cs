@@ -315,7 +315,7 @@ namespace NuclearReplay.Playback
             "<b>Up / Down</b> or <b>+ / -</b>  speed 0.25x to 4x\n" +
             "<b>Click the timeline</b>  jump; a marker jumps to that moment\n" +
             "<b>1 - 9</b>  cameras: cinematic chase, victim cut, missile follow, chase, orbit, flyby, cockpit, action cam, two-shot (the unit on screen and its opponent); away from a moment they watch the unit on screen and follow only its missiles\n" +
-            "<b>Shift+9</b>  two-shot target swap: the camera on the selected unit's target, looking back at the unit; again for the next target (nearest first), <b>9</b> back to the unit\n" +
+            "<b>Shift+9</b>  two-shot target swap: the camera on the selected unit's target, looking back at the unit; again for the next target (furthest first), <b>9</b> back to the unit\n" +
             "<b>Shift+3</b>  missile follow on / off for 1, 4, 5 and 8 (2 and 3 always follow the watched unit's missiles)\n" +
             "<b>0</b>  ride-along: pauses and puts the free camera next to the unit on screen; fly it to the spot, <b>R</b> locks it (R again unlocks), <b>Shift+R</b> roll with the unit or level\n" +
             "<b>[ / ]</b>  previous / next unit in the filter (aircraft unless the unit list picked ground, sea or all)\n" +

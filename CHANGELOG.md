@@ -9,6 +9,8 @@
   launches that were shot down or missed, rides each killing missile and cuts to its victim just before the
   hit. Kills and launches also pair more strictly: a missile that was intercepted no longer takes the credit
   for a later kill by another missile or the gun, which also fixes the cut in clips and `nr` renders.
+- Shift+9 now starts with the selected unit's furthest target and works in towards the closest, then starts
+  again from the furthest. From the furthest target the camera keeps the rest of a group in view.
 
 ## 0.7.1 (2026-11-11)
 

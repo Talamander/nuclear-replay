@@ -587,7 +587,7 @@ namespace NuclearReplay.Playback
 
         // The units `subject` has targeted, for the two-shot's target swap (Shift+9): its target list (an aircraft's
         // designated targets), the targets of its weapon stations and turrets, and the targets of its live missiles.
-        // Live units only, nearest to `subject` first.
+        // Live units only, furthest from `subject` first (the camera on the furthest target keeps the others in view).
         internal List<Unit> TargetsOf(Unit subject)
         {
             var found = new List<Unit>();
@@ -612,7 +612,7 @@ namespace NuclearReplay.Playback
                 if (UnitRegistry.TryGetUnit(m.targetID, out Unit target)) Add(target);
             }
             Vector3 at = subject.transform.position;
-            return found.OrderBy(u => (u.transform.position - at).sqrMagnitude).ToList();
+            return found.OrderByDescending(u => (u.transform.position - at).sqrMagnitude).ToList();
         }
 
         internal static Aircraft HostAircraft()

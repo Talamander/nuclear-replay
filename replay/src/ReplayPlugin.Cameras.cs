@@ -194,7 +194,7 @@ namespace NuclearReplay.Playback
                 ui.Toast($"{UnitLabel(selected)} has no target to swap to", 2.5f);
                 return;
             }
-            // Nearest not yet shown in this round; once all were shown, start again (skipping the one on screen).
+            // Furthest not yet shown in this round (working in towards the unit); once all were shown, start again (skipping the one on screen).
             var next = targets.FirstOrDefault(u => !twoShotSwapSeen.Contains(u.persistentID.ToString()));
             if (next == null)
             {
@@ -207,7 +207,7 @@ namespace NuclearReplay.Playback
             if (freeCamOn) SetFreeCam(false);
             ApplyPreset("two_shot", server.Clock - server.StartTime);
             int position = targets.IndexOf(next) + 1;
-            ui.Toast($"Two-shot on {UnitLabel(selected)}'s target {UnitLabel(next)}  ({position} of {targets.Count}, nearest first). 9 goes back to {UnitLabel(selected)}", 3f);
+            ui.Toast($"Two-shot on {UnitLabel(selected)}'s target {UnitLabel(next)}  ({position} of {targets.Count}, furthest first). 9 goes back to {UnitLabel(selected)}", 3f);
         }
 
         // A unit followed with [ ] or the list keeps the two-shot and the ride-along on it.
